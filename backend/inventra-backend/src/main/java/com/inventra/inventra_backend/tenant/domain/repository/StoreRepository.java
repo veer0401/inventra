@@ -13,6 +13,8 @@ public interface StoreRepository extends JpaRepository<Store, UUID> {
 
     List<Store> findByBusinessId(UUID businessId);
 
+    Optional<Store> findByIdAndBusinessId(UUID id, UUID businessId);
+
     Optional<Store> findByBusinessIdAndStoreCode(UUID businessId, String storeCode);
 
     Optional<Store> findByBusinessIdAndIsHeadquartersTrue(UUID businessId);

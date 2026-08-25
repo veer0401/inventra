@@ -21,6 +21,8 @@ public interface InventoryItemRepository extends JpaRepository<InventoryItem, UU
 
     Page<InventoryItem> findByBusinessIdAndStoreId(UUID businessId, UUID storeId, Pageable pageable);
 
+    java.util.List<InventoryItem> findByBusinessIdAndStoreIdAndProductIdIn(UUID businessId, UUID storeId, java.util.Collection<UUID> productIds);
+
     @Query("""
         SELECT i FROM InventoryItem i
         WHERE i.businessId = :businessId
