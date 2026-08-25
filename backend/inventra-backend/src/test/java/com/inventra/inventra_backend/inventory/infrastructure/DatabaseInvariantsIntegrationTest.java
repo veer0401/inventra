@@ -219,4 +219,56 @@ class DatabaseInvariantsIntegrationTest {
             productA
         )).isInstanceOf(DataIntegrityViolationException.class);
     }
+
+    @Test
+    @Transactional
+    @DisplayName("PostgreSQL composite FK rejects cross-tenant source store in inventory_transfers")
+    void testCrossTenantTransferStoreRejection() {
+        UUID bizA = UUID.randomUUID();
+        UUID bizB = UUID.randomUUID();
+        UUID storeA = UUID.randomUUID();
+        UUID storeB = UUID.randomUUID();
+        UUID userB = UUID.randomUUID();
+        UUID transferId = UUID.randomUUID();
+
+        jdbcTemplate.update("INSERT INTO businesses (id, legal_name, trade_name, status) VALUES (?, ?, ?, 'ACTIVE')", bizA, "Biz TR-A", "BTRA-DB");
+        jdbcTemplate.update("INSERT INTO businesses (id, legal_name, trade_name, status) VALUES (?, ?, ?, 'ACTIVE')", bizB, "Biz TR-B", "BTRB-DB");
+        jdbcTemplate.update("INSERT INTO stores (id, business_id, store_code, store_name, is_headquarters, status) VALUES (?, ?, ?, ?, false, 'ACTIVE')", storeA, bizA, "STRA-DB", "Store TRA");
+        jdbcTemplate.update("INSERT INTO stores (id, business_id, store_code, store_name, is_headquarters, status) VALUES (?, ?, ?, ?, false, 'ACTIVE')", storeB, bizB, "STRB-DB", "Store TRB");
+        jdbcTemplate.update("INSERT INTO users (id, email, password_hash, full_name, status) VALUES (?, ?, 'hash', 'User TR', 'ACTIVE')", userB, "user." + userB + "@bizb.local");
+
+        // Insert transfer under bizB with source storeA (which belongs to bizA) -> rejected by fk_transfers_src_store
+        assertThatThrownBy(() -> jdbcTemplate.update(
+            "INSERT INTO inventory_transfers (id, business_id, source_store_id, destination_store_id, transfer_number, status, requested_by, requested_at, version) VALUES (?, ?, ?, ?, 'TR-TEST-01', 'REQUESTED', ?, CURRENT_TIMESTAMP, 0)",
+            transferId,
+            bizB,
+            storeA,
+            storeB,
+            userB
+        )).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @Transactional
+    @DisplayName("PostgreSQL check constraint rejects identical source and destination store in inventory_transfers")
+    void testSameStoreTransferRejection() {
+        UUID bizB = UUID.randomUUID();
+        UUID storeB = UUID.randomUUID();
+        UUID userB = UUID.randomUUID();
+        UUID transferId = UUID.randomUUID();
+
+        jdbcTemplate.update("INSERT INTO businesses (id, legal_name, trade_name, status) VALUES (?, ?, ?, 'ACTIVE')", bizB, "Biz TR-Same", "BTRS-DB");
+        jdbcTemplate.update("INSERT INTO stores (id, business_id, store_code, store_name, is_headquarters, status) VALUES (?, ?, ?, ?, false, 'ACTIVE')", storeB, bizB, "STRS-DB", "Store TRS");
+        jdbcTemplate.update("INSERT INTO users (id, email, password_hash, full_name, status) VALUES (?, ?, 'hash', 'User TRS', 'ACTIVE')", userB, "user." + userB + "@bizb.local");
+
+        // Insert transfer under bizB with sourceStore == destinationStore -> rejected by chk_transfers_diff_stores
+        assertThatThrownBy(() -> jdbcTemplate.update(
+            "INSERT INTO inventory_transfers (id, business_id, source_store_id, destination_store_id, transfer_number, status, requested_by, requested_at, version) VALUES (?, ?, ?, ?, 'TR-SAME-01', 'REQUESTED', ?, CURRENT_TIMESTAMP, 0)",
+            transferId,
+            bizB,
+            storeB,
+            storeB,
+            userB
+        )).isInstanceOf(DataIntegrityViolationException.class);
+    }
 }
