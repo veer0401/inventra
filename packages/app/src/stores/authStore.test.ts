@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { useAuthStore, safeSessionStorage } from "./authStore";
+import { useAuthStore, safeSessionStorage, safeLocalStorage } from "./authStore";
 import type { AuthResponse } from "@inventra/api-types";
 import * as queryService from "../services/queryClient";
 
@@ -16,6 +16,15 @@ describe("useAuthStore & Session Management", () => {
     vi.spyOn(safeSessionStorage, "removeItem").mockImplementation((key: string) => {
       memoryStorage.delete(key);
     });
+
+    vi.spyOn(safeLocalStorage, "getItem").mockImplementation((key: string) => memoryStorage.get(key) || null);
+    vi.spyOn(safeLocalStorage, "setItem").mockImplementation((key: string, val: string) => {
+      memoryStorage.set(key, val);
+    });
+    vi.spyOn(safeLocalStorage, "removeItem").mockImplementation((key: string) => {
+      memoryStorage.delete(key);
+    });
+
     vi.spyOn(queryService, "invalidateStoreContextQueries").mockResolvedValue();
 
     useAuthStore.setState({
@@ -268,5 +277,48 @@ describe("useAuthStore & Session Management", () => {
     const state = useAuthStore.getState();
     expect(state.status).toBe("UNAUTHENTICATED");
     expect(memoryStorage.get("inventra_rt")).toBeUndefined();
+    expect(memoryStorage.get("inventra_cached_user")).toBeUndefined();
+  });
+
+  it("restores session from persistent local cache without calling backend when offline debug mode is active", async () => {
+    memoryStorage.set("inventra_rt", "persistent-desktop-refresh-token");
+    memoryStorage.set("inventra_debug_offline_mode", "true");
+    memoryStorage.set("inventra_cached_user", JSON.stringify(mockAuthResponse.user));
+    memoryStorage.set("inventra_cached_context", JSON.stringify(mockAuthResponse.activeContext));
+    memoryStorage.set("inventra_cached_memberships", JSON.stringify(mockAuthResponse.memberships));
+
+    const mockFetch = vi.fn();
+    vi.stubGlobal("fetch", mockFetch);
+
+    await useAuthStore.getState().restoreSession();
+
+    const state = useAuthStore.getState();
+    expect(state.status).toBe("AUTHENTICATED");
+    expect(state.user?.fullName).toBe("Dr. Vikram Seth");
+    expect(state.isOnline).toBe(false);
+    expect(state.accessToken).toBe("offline-cached-session-token");
+    // Verify fetch was never called (station isolated)
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("restores session from persistent storage when network fails on startup instead of wiping session", async () => {
+    memoryStorage.set("inventra_rt", "persistent-desktop-refresh-token");
+    memoryStorage.set("inventra_cached_user", JSON.stringify(mockAuthResponse.user));
+    memoryStorage.set("inventra_cached_context", JSON.stringify(mockAuthResponse.activeContext));
+    memoryStorage.set("inventra_cached_memberships", JSON.stringify(mockAuthResponse.memberships));
+
+    // Simulate backend being completely unreachable (Failed to fetch)
+    const mockFetch = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+    vi.stubGlobal("fetch", mockFetch);
+
+    await useAuthStore.getState().restoreSession();
+
+    const state = useAuthStore.getState();
+    expect(state.status).toBe("AUTHENTICATED");
+    expect(state.user?.fullName).toBe("Dr. Vikram Seth");
+    expect(state.isOnline).toBe(false);
+    expect(state.accessToken).toBe("offline-cached-session-token");
+    // User credentials were NOT wiped!
+    expect(memoryStorage.get("inventra_rt")).toBe("persistent-desktop-refresh-token");
   });
 });

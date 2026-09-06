@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Menu, Store, Shield, WifiOff, Search, HelpCircle } from "lucide-react";
-import { useAuthStore } from "../../stores/authStore";
+import { useAuthStore, safeLocalStorage, LOCAL_STORAGE_DEBUG_OFFLINE } from "../../stores/authStore";
 import { useShortcutStore } from "../../stores/shortcutStore";
 import { ShortcutHint } from "@inventra/ui";
 import { UserMenu } from "./UserMenu";
@@ -15,6 +15,21 @@ export interface TopBarProps {
 
 export const TopBar: React.FC<TopBarProps> = ({ onToggleSidebar, onOpenContextSwitcher }) => {
   const { activeContext, isOnline } = useAuthStore();
+  const [isDebugOffline, setIsDebugOffline] = useState(() =>
+    safeLocalStorage.getItem(LOCAL_STORAGE_DEBUG_OFFLINE) === "true"
+  );
+
+  useEffect(() => {
+    const handleDebugChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ enabled: boolean }>;
+      setIsDebugOffline(customEvent.detail.enabled);
+    };
+
+    window.addEventListener("inventra_offline_debug_change", handleDebugChange);
+    return () => {
+      window.removeEventListener("inventra_offline_debug_change", handleDebugChange);
+    };
+  }, []);
 
   const isPlatformAdmin = activeContext?.role === "PLATFORM_ADMIN";
 
@@ -90,21 +105,35 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleSidebar, onOpenContextSw
           <ShortcutHint shortcut="Ctrl+K" compact />
         </button>
 
-        {/* Network Connectivity Status Indicator (UX Only) */}
-        <div className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-mono bg-surface-muted border border-subtle">
-
-          {isOnline ? (
-            <>
-              <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
-              <span className="text-success font-medium">ONLINE</span>
-            </>
-          ) : (
-            <>
-              <WifiOff className="h-3.5 w-3.5 text-danger" />
-              <span className="text-danger font-bold">OFFLINE</span>
-            </>
-          )}
-        </div>
+        {/* Network Connectivity / Station Isolation Status */}
+        {isDebugOffline ? (
+          <Link
+            to="/settings?tab=offline"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 hover:bg-amber-500/20 transition-all shadow-xs"
+            title="Station Isolated: Offline Storage Simulation Active. Click to configure."
+          >
+            <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+            <span className="font-bold">OFFLINE DEBUG (ISOLATED)</span>
+          </Link>
+        ) : (
+          <Link
+            to="/settings?tab=offline"
+            className="hidden sm:flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-mono bg-surface-muted hover:bg-surface-elevated border border-subtle transition-colors"
+            title="Workstation Storage & Connectivity. Click to inspect."
+          >
+            {isOnline ? (
+              <>
+                <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
+                <span className="text-success font-medium">ONLINE</span>
+              </>
+            ) : (
+              <>
+                <WifiOff className="h-3.5 w-3.5 text-danger" />
+                <span className="text-danger font-bold">OFFLINE</span>
+              </>
+            )}
+          </Link>
+        )}
 
         {/* User Account Menu */}
         <UserMenu onOpenContextSwitcher={onOpenContextSwitcher} />

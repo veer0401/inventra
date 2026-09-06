@@ -59,6 +59,14 @@ export class InventraClient {
   }
 
   public async request<T>(path: string, options: RequestOptions = {}): Promise<ApiResponse<T>> {
+    // Offline Storage Debugging Simulation: Station Isolation
+    if (typeof window !== "undefined" && window.localStorage?.getItem("inventra_debug_offline_mode") === "true") {
+      throw new ApiError(
+        0,
+        "Station Isolated (Offline Storage Simulation): Outbound network calls to the backend are suppressed."
+      );
+    }
+
     const url = this.buildUrl(path, options.params);
     const headers = await this.buildHeaders(options);
 

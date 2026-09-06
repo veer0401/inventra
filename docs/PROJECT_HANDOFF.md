@@ -10,7 +10,7 @@
 
 Inventra is a **multi-tenant, offline-capable, cross-platform pharmacy ERP monorepo** built with a shared React codebase for web and desktop, and a Spring Boot backend.
 
-- **Backend:** Spring Boot 4.1.1, Java 17, PostgreSQL, 11 Flyway migrations
+- **Backend:** Spring Boot 4.1.1, Java 17, PostgreSQL, 19 Flyway migrations (V1–V19)
 - **Frontend:** Shared React 19 app (`packages/app`) consumed by `web` (Vite) and `desktop` (Tauri 2)
 - **Mobile:** Placeholder only (`package.json` + `README.md` — no source)
 - **Database:** PostgreSQL with multi-tenant schema (business + store scoping)
@@ -1097,8 +1097,108 @@ Existing docs (verified by listing):
 
 ---
 
-**Document version:** 2.2 (PO Resilience, Flexible Unit Dispensing, & Thermal Printing Verified)
-**Generated:** 2026-09-06
+## 30. DYNAMIC CMS OVERHAUL, LEGAL COMPLIANCE PAGES & ADMIN VISUAL FORM BUILDERS (2026-09-07)
+
+### 1. Problem Description & Requirements
+1. **Public Marketing & Statutory Compliance**:
+   - The platform lacked production-ready, legally vetted compliance pages for the Indian pharmacy domain: Privacy Policy (DPDPA 2023), Terms and Conditions (CDSCO licensing rules, pharmacist dispensing accountability), Refund & Cancellation Policy (14-day zero-risk guarantee, pro-rata upgrade credits), and Security & Trust Center (ISO 27001, AES-256 encryption, immutable audit trails).
+   - Inquiries and direct reachouts were missing on the public About page (phone hotline, operational support schedule, and interactive Google Space / Maps directions cards for Bengaluru and Mumbai operations).
+2. **Auth & Public Navigation Uniformity**:
+   - Forgot Password, Reset Password, and Application Onboarding pages lacked visual consistency with the brand's primary glassmorphic dark theme.
+   - Plans & Pricing annual tab required high-contrast discount visibility, and the top navigation Sign In button needed visual refinement.
+3. **Admin CMS Usability & Field Updates**:
+   - The admin left-hand marketing page selector scrolled out of view when editing lengthy forms.
+   - `FEATURES` and `CAREERS` lacked interactive visual form builders, displaying a raw JSON fallback.
+   - When attempting to save page updates via `PUT /api/v1/admin/content/{pageKey}`, the backend threw HTTP 400 Bad Request validation errors (`1 validation errors: contentData: must not be null`).
+
+---
+
+### 2. Architecture & Implementation Across Layers
+
+#### A. Database & Seed Migration (`V19__seed_legal_compliance_cms_pages.sql`)
+- **Flyway Migration**: Seeded authoritative, legally compliant JSON content for `PRIVACY`, `TERMS`, `REFUND`, and `SECURITY` into `platform_cms_pages`:
+  - `PRIVACY`: Formulated clauses for patient prescription confidentiality, 10-year statutory retention under the Drugs and Cosmetics Rules 1945, AES-256 encryption standards, and appointed Data Protection & Grievance Officer credentials (DPDPA 2023 Section 11).
+  - `TERMS`: Form 20/21 pharmacy retail/wholesale license verification requirements, licensed pharmacist dispensing accountability for Schedule H/H1/X drugs, and 99.99% cloud API uptime SLA with offline counter failover.
+  - `REFUND`: 14-day unconditional money-back guarantee on initial subscriptions, pro-rata mid-cycle tier upgrade credits, and 60-day read-only data retention grace period upon cancellation.
+  - `SECURITY`: Detailed ISO 27001, SOC 2, hardware-backed AES-256 key rotation, TLS 1.3 in transit, and immutable security audit logging.
+
+#### B. Public Storefront & Legal Routing (`@inventra/app`)
+- **Component**: `packages/app/src/pages/marketing/LegalContentPage.tsx`:
+  - Dynamically fetches legal content from `cmsApi.getPublicPage(pageKey)` with structured fallback to static domain schemas.
+  - Renders legal section clauses with clickable table of contents pills, grievance officer cards, certification badges, and direct mailto actions.
+- **Routing**: Wired in `App.tsx` for `/privacy`, `/terms`, `/refund`, and `/security`.
+- **Footer**: Integrated compliance links directly into `MarketingLayout.tsx`.
+
+#### C. Visual Uniformity & Brand Polish
+- **Auth Uniformity**: Overhauled `ForgotPasswordPage.tsx`, `ResetPasswordPage.tsx`, and `RegisterApplicationPage.tsx` with high-aesthetic emerald/teal gradients, subtle glassmorphic backdrop filters, and responsive layout scaling.
+- **Plans & Pricing**: Re-styled the annual billing discount pill with high-contrast amber/teal badge and dynamic coupon code redemption simulator.
+- **About Us**: Added real-time telephone hotline, operating schedule, and interactive Google Space / Google Maps direction cards for Bengaluru Headquarters and Mumbai Operations centers.
+
+#### D. Sticky Sidebar & Visual Form Builders (`AdminCmsPage.tsx`)
+- **Sticky Left-Hand Navigation**:
+  - Container updated to `lg:col-span-1 space-y-4 sticky top-6 self-start max-h-[calc(100vh-3rem)] overflow-y-auto pr-1`.
+  - Stays pinned during form scrolling with independent vertical overflow handling.
+- **`FEATURES` Visual Form Builder**:
+  - Module cards list manager with Add, Reorder (Move Up / Move Down), and Delete actions.
+  - Form fields: Headline Title, Description narrative, Lucide icon selector (`Zap`, `Clock`, `Building2`, `ShieldCheck`, `Layers`, `Sparkles`, `BarChart3`).
+  - Capability bullets manager: Add, edit, or delete checkable bullet points per module.
+- **`CAREERS` Visual Form Builder**:
+  - Culture & mission statement narrative editor.
+  - Employee perks & benefits list manager (add/remove/edit items).
+  - Dynamic job openings manager: Role Title, Department, Location, Employment Type (`Full-Time`, `Part-Time`, `Contract`), Experience Level, and Role Summary.
+- **Dynamic Frontend Binding**:
+  - `FeaturesPage.tsx`: Binds to `cmsData.title`, `cmsData.subtitle`, and icon-mapped `modules`.
+  - `CareersPage.tsx`: Binds to `cmsData.title`, `cmsData.subtitle`, and falls back to CMS `openings` if no standalone database job postings exist.
+
+#### E. Spring Boot 4 / Jackson 3 Deserialization & Validation Resolution
+- **Root Cause Analysis**:
+  - Backend uses Spring Boot 4.1.1 and Spring Framework 7.0.9, which natively use Jackson 3 (`tools.jackson.databind.*`).
+  - `UpdateCmsPageRequest.java` previously imported Jackson 2 `com.fasterxml.jackson.databind.JsonNode`.
+  - Jackson 3 treated the foreign Jackson 2 `JsonNode` as an unrecognized abstract type without creators, throwing `InvalidDefinitionException: Cannot construct instance of com.fasterxml.jackson.databind.JsonNode`.
+  - Furthermore, the frontend sent `{ content }` whereas the Java record expected `contentData`.
+- **Solution**:
+  - `UpdateCmsPageRequest.java`: Changed `contentData` to universal `Object` annotated with `@NotNull @JsonAlias({"content", "content_data"}) @JsonProperty("contentData") Object contentData`.
+  - `CmsPageResponse.java`: Added `@JsonProperty("content")` getter returning `contentData` for dual serialization compatibility.
+  - `CmsService.java`: Jackson reads/writes raw database JSONB directly as standard `Object.class` (`LinkedHashMap`), eliminating all Jackson version conflicts.
+  - `cmsApi.ts`: Normalizes both `content` and `contentData` on all requests (`updateAdminPage`) and responses (`getPublicPage`, `getAdminPage`).
+
+---
+
+## 31. STATION ISOLATION & OFFLINE STORAGE DIAGNOSTICS (2026-09-07)
+
+### 1. Purpose & Requirements
+- Pharmacists and QA teams need the capability to simulate an offline counter without disconnecting physical ethernet cables or turning off store Wi-Fi.
+- Must verify that POS transactions queue cleanly into local IndexedDB/storage and replay with proper idempotency keys once reconnected.
+
+### 2. Implementation
+- **File**: `packages/app/src/pages/settings/OfflineStorageSection.tsx`:
+  - Visual storage quota bar displaying approximate browser quota usage.
+  - Breakdown of stored entities: Offline Pending Mutations, Cached Products, Cached Customers, and Local Sales.
+  - **Station Isolation Simulation Toggle**: Writes `inventra_debug_offline_mode` to `localStorage`.
+- **Network Interception**:
+  - `packages/api-client/src/client.ts`: Intercepts outbound calls when `inventra_debug_offline_mode === "true"`, raising an immediate `ApiError(0, "Station Isolated...")` without network transport.
+- **One-Click Local Cache Purge**: Safely wipes offline caches while warning if unsynced pending transactions exist.
+
+---
+
+### 3. Verification & Quality Gates
+- **Automated Tests**:
+  - `adminCmsVisual.test.tsx`: 2 passed (visual form switching, sticky container styling).
+  - `marketingLegal.test.tsx`: 2 passed (public legal routes, DPDPA / CDSCO content rendering).
+  - `offlineStorageSection.test.tsx`: 3 passed (storage stats, station isolation toggle, purge confirmation).
+- **Backend Compilation & Live Verification**:
+  - `.\mvnw.cmd compile -DskipTests`: `BUILD SUCCESS` (418 source files).
+  - `PUT /api/v1/admin/content/PRIVACY` -> **HTTP 200 OK** (`success: true`).
+  - `PUT /api/v1/admin/content/FEATURES` -> **HTTP 200 OK** (`success: true`).
+  - `PUT /api/v1/admin/content/CAREERS` -> **HTTP 200 OK** (`success: true`).
+- **Frontend Monorepo Build**:
+  - `pnpm --filter @inventra/app build`: `tsc --build` exit code 0.
+
+---
+
+**Document version:** 2.3 (Dynamic CMS Overhaul, Legal Compliance, Visual Form Builders & Offline Station Isolation Simulator)
+**Generated:** 2026-09-07
 **Next review:** After Phase F9 desktop SQLite hardware integration or next MVP release milestone
+
 
 

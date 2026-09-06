@@ -1,6 +1,5 @@
 package com.inventra.inventra_backend.content.application;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.inventra.inventra_backend.common.domain.exception.ResourceNotFoundException;
 import com.inventra.inventra_backend.content.api.dto.CmsPageResponse;
@@ -39,11 +38,11 @@ public class CmsService {
                 Timestamp ts = rs.getTimestamp("updated_at");
                 String updatedBy = rs.getString("updated_by");
 
-                JsonNode contentNode;
+                Object contentNode;
                 try {
-                    contentNode = rawJson != null ? objectMapper.readTree(rawJson) : objectMapper.createObjectNode();
+                    contentNode = rawJson != null ? objectMapper.readValue(rawJson, Object.class) : java.util.Map.of();
                 } catch (Exception e) {
-                    contentNode = objectMapper.createObjectNode();
+                    contentNode = java.util.Map.of();
                 }
 
                 return new CmsPageResponse(
@@ -76,11 +75,11 @@ public class CmsService {
                 Timestamp ts = rs.getTimestamp("updated_at");
                 String updatedBy = rs.getString("updated_by");
 
-                JsonNode contentNode;
+                Object contentNode;
                 try {
-                    contentNode = rawJson != null ? objectMapper.readTree(rawJson) : objectMapper.createObjectNode();
+                    contentNode = rawJson != null ? objectMapper.readValue(rawJson, Object.class) : java.util.Map.of();
                 } catch (Exception e) {
-                    contentNode = objectMapper.createObjectNode();
+                    contentNode = java.util.Map.of();
                 }
 
                 return new CmsPageResponse(

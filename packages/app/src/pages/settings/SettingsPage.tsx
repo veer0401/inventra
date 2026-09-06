@@ -28,11 +28,13 @@ import {
   ArrowRight,
   ExternalLink,
   CreditCard,
+  Database,
 } from "lucide-react";
 import { useAuthStore } from "../../stores/authStore";
 import { AppearanceSection } from "./AppearanceSection";
 import { SessionsSection } from "./SessionsSection";
 import { BillingPlanSection } from "./BillingPlanSection";
+import { OfflineStorageSection } from "./OfflineStorageSection";
 
 interface ChangePasswordFormValues {
   currentPassword: string;
@@ -40,7 +42,7 @@ interface ChangePasswordFormValues {
   confirmPassword: string;
 }
 
-type SettingsTab = "appearance" | "profile" | "security" | "shortcuts" | "billing";
+type SettingsTab = "appearance" | "profile" | "security" | "shortcuts" | "billing" | "offline";
 
 interface TabItem {
   id: SettingsTab;
@@ -80,6 +82,12 @@ const TABS: TabItem[] = [
     description: "Current planning tier, renewal due date, workstation quotas, and GST tax invoices",
     icon: CreditCard,
   },
+  {
+    id: "offline",
+    label: "Offline & Local DB",
+    description: "Embedded SQLite database, offline queue diagnostics, and station isolation",
+    icon: Database,
+  },
 ];
 
 export const SettingsPage: React.FC = () => {
@@ -90,7 +98,7 @@ export const SettingsPage: React.FC = () => {
 
   const tabParam = searchParams.get("tab") as SettingsTab | null;
   const activeTab: SettingsTab =
-    tabParam && ["appearance", "profile", "security", "shortcuts", "billing"].includes(tabParam)
+    tabParam && ["appearance", "profile", "security", "shortcuts", "billing", "offline"].includes(tabParam)
       ? tabParam
       : "appearance";
 
@@ -524,6 +532,13 @@ export const SettingsPage: React.FC = () => {
       {activeTab === "billing" && (
         <div className="space-y-6 animate-in fade-in-0 duration-200">
           <BillingPlanSection />
+        </div>
+      )}
+
+      {/* 6. OFFLINE STORAGE & LOCAL DB TAB */}
+      {activeTab === "offline" && (
+        <div className="space-y-6 animate-in fade-in-0 duration-200">
+          <OfflineStorageSection />
         </div>
       )}
     </div>

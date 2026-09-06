@@ -11,6 +11,14 @@ import {
   CheckCircle2,
 } from "lucide-react";
 
+const ICON_MAP: Record<string, any> = {
+  Zap,
+  Clock,
+  Building2,
+  ShieldCheck,
+  Layers,
+};
+
 export const FeaturesPage: React.FC = () => {
   const [cmsData, setCmsData] = useState<CmsPage | null>(null);
 
@@ -22,7 +30,14 @@ export const FeaturesPage: React.FC = () => {
     return () => { mounted = false; };
   }, []);
 
-  const featureGroups = cmsData?.content?.modules || [
+  const rawModules = cmsData?.content?.modules || (cmsData?.content?.categories?.map((c: any) => ({
+    title: c.category || c.title,
+    desc: c.desc || (c.items?.[0]?.desc ? `${c.items.length} core capabilities in ${c.category}` : ""),
+    bullets: c.items?.map((it: any) => typeof it === "string" ? it : `${it.title}: ${it.desc}`) || c.bullets || [],
+    iconKey: "Zap"
+  })));
+
+  const featureGroups = rawModules || [
     {
       icon: Zap,
       title: "Lightning POS & Prescription Billing",
@@ -78,17 +93,19 @@ export const FeaturesPage: React.FC = () => {
           <span>Full Architecture Spotlight</span>
         </div>
         <h1 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight">
-          Everything You Need to Run a Modern Pharmacy
+          {cmsData?.title || "Everything You Need to Run a Modern Pharmacy"}
         </h1>
         <p className="text-base sm:text-lg text-slate-300 leading-relaxed">
-          From independent single-counter chemists to multi-branch hospital dispensaries, explore the features that power high-concurrency Indian pharmacies.
+          {cmsData?.subtitle || "From independent single-counter chemists to multi-branch hospital dispensaries, explore the features that power high-concurrency Indian pharmacies."}
         </p>
       </section>
 
       {/* Feature Modules Grid */}
       <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {featureGroups.map((mod: any, idx: number) => {
-          const Icon = mod.icon || Zap;
+          const Icon = (typeof mod.icon === "string" ? ICON_MAP[mod.icon] : mod.icon) ||
+            (mod.iconKey ? ICON_MAP[mod.iconKey] : null) ||
+            Zap;
           return (
             <div
               key={idx}

@@ -124,12 +124,12 @@ export const PricingPlansPage: React.FC = () => {
 
         {/* Billing Cycle Toggle */}
         <div className="pt-4 flex items-center justify-center">
-          <div className="bg-slate-900 p-1.5 rounded-2xl border border-slate-800 flex items-center gap-2">
+          <div className="bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800 shadow-inner flex items-center gap-2">
             <button
               onClick={() => setBillingCycle("MONTHLY")}
-              className={`px-5 py-2 rounded-xl text-xs font-bold transition-all ${
+              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${
                 billingCycle === "MONTHLY"
-                  ? "bg-teal-500 text-slate-950 shadow-md shadow-teal-500/20"
+                  ? "bg-teal-500 text-slate-950 shadow-md shadow-teal-500/25 font-extrabold"
                   : "text-slate-400 hover:text-white"
               }`}
             >
@@ -137,14 +137,20 @@ export const PricingPlansPage: React.FC = () => {
             </button>
             <button
               onClick={() => setBillingCycle("ANNUALLY")}
-              className={`px-5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
                 billingCycle === "ANNUALLY"
-                  ? "bg-teal-500 text-slate-950 shadow-md shadow-teal-500/20"
+                  ? "bg-teal-500 text-slate-950 shadow-md shadow-teal-500/25 font-extrabold"
                   : "text-slate-400 hover:text-white"
               }`}
             >
               <span>Annual Billing</span>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-300 text-[10px] font-extrabold border border-emerald-400/30">
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-black tracking-wide transition-all ${
+                  billingCycle === "ANNUALLY"
+                    ? "bg-slate-950 text-amber-300 border border-amber-400/40 shadow-xs"
+                    : "bg-amber-400/15 text-amber-300 border border-amber-400/30"
+                }`}
+              >
                 SAVE {discountPct}%
               </span>
             </button>

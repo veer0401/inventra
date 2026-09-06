@@ -47,6 +47,7 @@ import { CareersPage } from "./pages/marketing/CareersPage";
 import { CareerDetailPage } from "./pages/marketing/careers/CareerDetailPage";
 import { CareerApplyPage } from "./pages/marketing/careers/CareerApplyPage";
 import { PricingPlansPage } from "./pages/marketing/PricingPlansPage";
+import { LegalContentPage } from "./pages/marketing/LegalContentPage";
 
 
 // Catalog Module Pages (Phase F3)
@@ -171,6 +172,10 @@ export const App: React.FC<AppProps> = ({ runtime }) => {
               <Route path="/careers/:jobId/apply" element={<CareerApplyPage />} />
               <Route path="/plans" element={<PricingPlansPage />} />
               <Route path="/pricing" element={<Navigate to="/plans" replace />} />
+              <Route path="/privacy" element={<LegalContentPage pageKey="PRIVACY" />} />
+              <Route path="/terms" element={<LegalContentPage pageKey="TERMS" />} />
+              <Route path="/refund" element={<LegalContentPage pageKey="REFUND" />} />
+              <Route path="/security" element={<LegalContentPage pageKey="SECURITY" />} />
             </Route>
 
             {/* Public Authentication Routes */}

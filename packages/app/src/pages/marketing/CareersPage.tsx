@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { careerApi, type CareerJob } from "../../services/careerApi";
+import { cmsApi, type CmsPage } from "../../services/cmsApi";
 import {
   Briefcase,
   MapPin,
@@ -15,6 +16,7 @@ import {
 } from "lucide-react";
 
 export const CareersPage: React.FC = () => {
+  const [cmsData, setCmsData] = useState<CmsPage | null>(null);
   const [jobs, setJobs] = useState<CareerJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -22,9 +24,17 @@ export const CareersPage: React.FC = () => {
 
   useEffect(() => {
     let mounted = true;
+    cmsApi.getPublicPage("CAREERS")
+      .then((res) => { if (mounted) setCmsData(res); })
+      .catch((err) => console.warn("Using default CAREERS CMS data:", err));
+
     careerApi.getActiveJobs()
       .then((data) => {
-        if (mounted) setJobs(data);
+        if (mounted) {
+          if (data && data.length > 0) {
+            setJobs(data);
+          }
+        }
       })
       .catch((err) => {
         console.warn("Could not load dynamic career jobs, using fallback:", err);
@@ -34,6 +44,30 @@ export const CareersPage: React.FC = () => {
       });
     return () => { mounted = false; };
   }, []);
+
+  // If no DB jobs, use CMS seeded openings
+  useEffect(() => {
+    if (jobs.length === 0 && cmsData?.content?.openings && cmsData.content.openings.length > 0) {
+      setJobs(
+        cmsData.content.openings.map((op: any) => ({
+          id: op.id || `role-${Math.random().toString(36).substring(7)}`,
+          title: op.title || "Open Position",
+          department: op.department || "General",
+          location: op.location || "Bengaluru / Hybrid",
+          employmentType: op.employmentType || op.type || "Full-Time",
+          experienceLevel: op.experienceLevel || op.experience || "3+ Years",
+          summary: op.summary || op.description || "",
+          description: op.description || op.summary || "",
+          responsibilities: [],
+          requirements: [],
+          benefits: cmsData.content.perks || [],
+          active: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        }))
+      );
+    }
+  }, [cmsData, jobs.length]);
 
   const departments = useMemo(() => {
     const set = new Set<string>();
@@ -64,12 +98,11 @@ export const CareersPage: React.FC = () => {
         </div>
 
         <h1 className="text-4xl sm:text-6xl font-black text-white tracking-tight max-w-3xl mx-auto leading-tight">
-          Shape the Future of Pharmacy Cloud Tech
+          {cmsData?.title || "Shape the Future of Pharmacy Cloud Tech"}
         </h1>
 
         <p className="text-base sm:text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed">
-          Join our mission to build India's high-speed, clinical-grade pharmacy operating system.
-          Work with high-concurrency architectures, offline-sync protocols, and mission-critical healthcare infrastructure.
+          {cmsData?.subtitle || "Join our mission to build India's high-speed, clinical-grade pharmacy operating system. Work with high-concurrency architectures, offline-sync protocols, and mission-critical healthcare infrastructure."}
         </p>
 
         {/* Value Props Bar */}

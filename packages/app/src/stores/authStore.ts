@@ -54,6 +54,53 @@ const SESSION_STORAGE_REFRESH_TOKEN = "inventra_rt";
 const SESSION_STORAGE_ACTIVE_BUSINESS = "inventra_active_biz";
 const SESSION_STORAGE_ACTIVE_STORE = "inventra_active_store";
 
+export const LOCAL_STORAGE_REFRESH_TOKEN = "inventra_rt";
+export const LOCAL_STORAGE_CACHED_USER = "inventra_cached_user";
+export const LOCAL_STORAGE_CACHED_CONTEXT = "inventra_cached_context";
+export const LOCAL_STORAGE_CACHED_MEMBERSHIPS = "inventra_cached_memberships";
+export const LOCAL_STORAGE_DEBUG_OFFLINE = "inventra_debug_offline_mode";
+
+export const isDesktopPlatform = (): boolean => {
+  if (typeof window === "undefined") return false;
+  return Boolean(
+    (window as any).__TAURI_INTERNALS__ ||
+    (window as any).__TAURI__ ||
+    window.location.port === "5174" ||
+    window.location.port === "1420"
+  );
+};
+
+export const safeLocalStorage = {
+  getItem: (key: string): string | null => {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        return window.localStorage.getItem(key);
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  },
+  setItem: (key: string, value: string): void => {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        window.localStorage.setItem(key, value);
+      }
+    } catch {
+      // Ignore localStorage exceptions
+    }
+  },
+  removeItem: (key: string): void => {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        window.localStorage.removeItem(key);
+      }
+    } catch {
+      // Ignore
+    }
+  },
+};
+
 export const safeSessionStorage = {
   getItem: (key: string): string | null => {
     try {
@@ -83,6 +130,39 @@ export const safeSessionStorage = {
       // Ignore
     }
   },
+};
+
+export const persistAuthData = (data: AuthResponse): void => {
+  safeSessionStorage.setItem(SESSION_STORAGE_REFRESH_TOKEN, data.refreshToken);
+  if (data.activeContext?.businessId) {
+    safeSessionStorage.setItem(SESSION_STORAGE_ACTIVE_BUSINESS, data.activeContext.businessId);
+  }
+  if (data.activeContext?.storeId) {
+    safeSessionStorage.setItem(SESSION_STORAGE_ACTIVE_STORE, data.activeContext.storeId);
+  }
+
+  // Persistent storage for desktop sessions & offline resilience
+  safeLocalStorage.setItem(LOCAL_STORAGE_REFRESH_TOKEN, data.refreshToken);
+  if (data.user) {
+    safeLocalStorage.setItem(LOCAL_STORAGE_CACHED_USER, JSON.stringify(data.user));
+  }
+  if (data.activeContext) {
+    safeLocalStorage.setItem(LOCAL_STORAGE_CACHED_CONTEXT, JSON.stringify(data.activeContext));
+  }
+  if (data.memberships) {
+    safeLocalStorage.setItem(LOCAL_STORAGE_CACHED_MEMBERSHIPS, JSON.stringify(data.memberships));
+  }
+};
+
+export const clearPersistedAuthData = (): void => {
+  safeSessionStorage.removeItem(SESSION_STORAGE_REFRESH_TOKEN);
+  safeSessionStorage.removeItem(SESSION_STORAGE_ACTIVE_BUSINESS);
+  safeSessionStorage.removeItem(SESSION_STORAGE_ACTIVE_STORE);
+
+  safeLocalStorage.removeItem(LOCAL_STORAGE_REFRESH_TOKEN);
+  safeLocalStorage.removeItem(LOCAL_STORAGE_CACHED_USER);
+  safeLocalStorage.removeItem(LOCAL_STORAGE_CACHED_CONTEXT);
+  safeLocalStorage.removeItem(LOCAL_STORAGE_CACHED_MEMBERSHIPS);
 };
 
 export interface AuthState {
@@ -128,7 +208,7 @@ export const apiClient: InventraClient = new InventraClient({
         activeContext: null,
         error: "Your session has expired. Please sign in again.",
       });
-      safeSessionStorage.removeItem(SESSION_STORAGE_REFRESH_TOKEN);
+      clearPersistedAuthData();
     },
   },
 });
@@ -157,14 +237,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
       const data = response.data;
 
-      // Persist refresh token in per-tab sessionStorage
-      safeSessionStorage.setItem(SESSION_STORAGE_REFRESH_TOKEN, data.refreshToken);
-      if (data.activeContext?.businessId) {
-        safeSessionStorage.setItem(SESSION_STORAGE_ACTIVE_BUSINESS, data.activeContext.businessId);
-      }
-      if (data.activeContext?.storeId) {
-        safeSessionStorage.setItem(SESSION_STORAGE_ACTIVE_STORE, data.activeContext.storeId);
-      }
+      // Persist auth data in session & persistent storage (for desktop & offline session recovery)
+      persistAuthData(data);
 
       // Check if context selection is required
       // Platform Admin does not need store context
@@ -181,6 +255,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         user: data.user,
         activeContext: data.activeContext,
         memberships: data.memberships,
+        isOnline: true,
         error: null,
       });
     } catch (err: unknown) {
@@ -208,7 +283,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return activeRefreshPromise;
     }
 
-    const currentRefreshToken = get().refreshToken || safeSessionStorage.getItem(SESSION_STORAGE_REFRESH_TOKEN);
+    const currentRefreshToken =
+      get().refreshToken ||
+      safeSessionStorage.getItem(SESSION_STORAGE_REFRESH_TOKEN) ||
+      safeLocalStorage.getItem(LOCAL_STORAGE_REFRESH_TOKEN);
+
     if (!currentRefreshToken) {
       return null;
     }
@@ -223,7 +302,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         );
         const data = response.data;
 
-        safeSessionStorage.setItem(SESSION_STORAGE_REFRESH_TOKEN, data.refreshToken);
+        persistAuthData(data);
 
         const isPlatformAdmin = data.activeContext?.role === "PLATFORM_ADMIN";
         const needsContextSelection =
@@ -238,21 +317,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           user: data.user,
           activeContext: data.activeContext,
           memberships: data.memberships,
+          isOnline: true,
           error: null,
         });
 
         return data.accessToken;
-      } catch {
-        safeSessionStorage.removeItem(SESSION_STORAGE_REFRESH_TOKEN);
-        set({
-          status: "SESSION_EXPIRED",
-          accessToken: null,
-          refreshToken: null,
-          user: null,
-          activeContext: null,
-          error: "Session expired. Please log in again.",
-        });
-        return null;
+      } catch (err: unknown) {
+        if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+          clearPersistedAuthData();
+          set({
+            status: "SESSION_EXPIRED",
+            accessToken: null,
+            refreshToken: null,
+            user: null,
+            activeContext: null,
+            error: "Session expired. Please log in again.",
+          });
+          return null;
+        }
+
+        // On network error, keep existing tokens/state if available
+        return get().accessToken;
       } finally {
         activeRefreshPromise = null;
       }
@@ -268,13 +353,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const response = await apiClient.post<AuthResponse>("/api/v1/auth/switch-context", payload);
       const data = response.data;
 
-      safeSessionStorage.setItem(SESSION_STORAGE_REFRESH_TOKEN, data.refreshToken);
-      if (data.activeContext?.businessId) {
-        safeSessionStorage.setItem(SESSION_STORAGE_ACTIVE_BUSINESS, data.activeContext.businessId);
-      }
-      if (data.activeContext?.storeId) {
-        safeSessionStorage.setItem(SESSION_STORAGE_ACTIVE_STORE, data.activeContext.storeId);
-      }
+      persistAuthData(data);
 
       // Invalidate all server queries so stale data from the previous store is wiped
       await invalidateStoreContextQueries();
@@ -335,7 +414,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: async (): Promise<void> => {
-    const currentRefreshToken = get().refreshToken || safeSessionStorage.getItem(SESSION_STORAGE_REFRESH_TOKEN);
+    const currentRefreshToken =
+      get().refreshToken ||
+      safeSessionStorage.getItem(SESSION_STORAGE_REFRESH_TOKEN) ||
+      safeLocalStorage.getItem(LOCAL_STORAGE_REFRESH_TOKEN);
     try {
       if (currentRefreshToken) {
         await apiClient.post<void>(
@@ -347,9 +429,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch {
       // Ignore network errors on logout
     } finally {
-      safeSessionStorage.removeItem(SESSION_STORAGE_REFRESH_TOKEN);
-      safeSessionStorage.removeItem(SESSION_STORAGE_ACTIVE_BUSINESS);
-      safeSessionStorage.removeItem(SESSION_STORAGE_ACTIVE_STORE);
+      clearPersistedAuthData();
       await invalidateStoreContextQueries();
       set({
         status: "UNAUTHENTICATED",
@@ -369,9 +449,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch {
       // Ignore errors on logout
     } finally {
-      safeSessionStorage.removeItem(SESSION_STORAGE_REFRESH_TOKEN);
-      safeSessionStorage.removeItem(SESSION_STORAGE_ACTIVE_BUSINESS);
-      safeSessionStorage.removeItem(SESSION_STORAGE_ACTIVE_STORE);
+      clearPersistedAuthData();
       await invalidateStoreContextQueries();
       set({
         status: "UNAUTHENTICATED",
@@ -386,9 +464,48 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   restoreSession: async (): Promise<void> => {
-    const storedRefreshToken = safeSessionStorage.getItem(SESSION_STORAGE_REFRESH_TOKEN);
+    const storedRefreshToken =
+      safeSessionStorage.getItem(SESSION_STORAGE_REFRESH_TOKEN) ||
+      safeLocalStorage.getItem(LOCAL_STORAGE_REFRESH_TOKEN);
+
     if (!storedRefreshToken) {
       set({ status: "UNAUTHENTICATED", accessToken: null, refreshToken: null });
+      return;
+    }
+
+    // Check if offline debug mode is active or station has no network connectivity
+    const isDebugOffline = safeLocalStorage.getItem(LOCAL_STORAGE_DEBUG_OFFLINE) === "true";
+    const isOffline = isDebugOffline || (typeof navigator !== "undefined" && !navigator.onLine);
+
+    // Retrieve cached offline user & context if present in local persistence
+    let cachedUser: UserSummaryDto | null = null;
+    let cachedContext: ActiveContextDto | null = null;
+    let cachedMemberships: BusinessMembershipSummaryDto[] = [];
+    try {
+      const userStr = safeLocalStorage.getItem(LOCAL_STORAGE_CACHED_USER);
+      if (userStr) cachedUser = JSON.parse(userStr);
+      const ctxStr = safeLocalStorage.getItem(LOCAL_STORAGE_CACHED_CONTEXT);
+      if (ctxStr) cachedContext = JSON.parse(ctxStr);
+      const memStr = safeLocalStorage.getItem(LOCAL_STORAGE_CACHED_MEMBERSHIPS);
+      if (memStr) cachedMemberships = JSON.parse(memStr);
+    } catch {
+      // Ignore JSON parse errors
+    }
+
+    // If offline debugging mode is enabled or client is disconnected, restore session from cache immediately
+    if (isOffline && cachedUser) {
+      set({
+        status: "AUTHENTICATED",
+        accessToken: "offline-cached-session-token",
+        refreshToken: storedRefreshToken,
+        user: cachedUser,
+        activeContext: cachedContext,
+        memberships: cachedMemberships,
+        isOnline: false,
+        error: isDebugOffline
+          ? "Station running in Offline Storage Simulation Mode. Network calls are isolated."
+          : "Workstation running in offline mode from cached credentials.",
+      });
       return;
     }
 
@@ -401,7 +518,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       );
       const data = response.data;
 
-      safeSessionStorage.setItem(SESSION_STORAGE_REFRESH_TOKEN, data.refreshToken);
+      persistAuthData(data);
 
       const isPlatformAdmin = data.activeContext?.role === "PLATFORM_ADMIN";
       const needsContextSelection =
@@ -416,17 +533,45 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         user: data.user,
         activeContext: data.activeContext,
         memberships: data.memberships,
+        isOnline: true,
         error: null,
       });
-    } catch {
-      safeSessionStorage.removeItem(SESSION_STORAGE_REFRESH_TOKEN);
-      set({
-        status: "UNAUTHENTICATED",
-        accessToken: null,
-        refreshToken: null,
-        user: null,
-        activeContext: null,
-      });
+    } catch (err: unknown) {
+      // If server explicitly rejects token (401 or 403), revoke credentials
+      if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+        clearPersistedAuthData();
+        set({
+          status: "UNAUTHENTICATED",
+          accessToken: null,
+          refreshToken: null,
+          user: null,
+          activeContext: null,
+        });
+        return;
+      }
+
+      // If backend is unreachable (offline, connection refused, status 0), restore from local cache
+      if (cachedUser) {
+        set({
+          status: "AUTHENTICATED",
+          accessToken: "offline-cached-session-token",
+          refreshToken: storedRefreshToken,
+          user: cachedUser,
+          activeContext: cachedContext,
+          memberships: cachedMemberships,
+          isOnline: false,
+          error: "Backend server unreachable. Station restored from local offline cache.",
+        });
+      } else {
+        clearPersistedAuthData();
+        set({
+          status: "UNAUTHENTICATED",
+          accessToken: null,
+          refreshToken: null,
+          user: null,
+          activeContext: null,
+        });
+      }
     }
   },
 }));

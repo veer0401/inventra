@@ -5,6 +5,7 @@ export interface CmsPage {
   title: string;
   subtitle?: string;
   content: Record<string, any>;
+  contentData?: Record<string, any>;
   updatedAt?: string;
   updatedBy?: string;
 }
@@ -81,22 +82,46 @@ export interface CouponValidationResult {
 export const cmsApi = {
   // Public CMS
   async getPublicPage(pageKey: string): Promise<CmsPage> {
-    const res = await apiClient.get<CmsPage>(`/api/v1/public/content/${pageKey}`);
-    return res.data;
+    const res = await apiClient.get<any>(`/api/v1/public/content/${pageKey}`);
+    const data = res.data || {};
+    const content = data.content || data.contentData || {};
+    return {
+      ...data,
+      content,
+      contentData: content,
+    };
   },
 
   // Admin CMS
   async getAdminPage(pageKey: string): Promise<CmsPage> {
-    const res = await apiClient.get<CmsPage>(`/api/v1/admin/content/${pageKey}`);
-    return res.data;
+    const res = await apiClient.get<any>(`/api/v1/admin/content/${pageKey}`);
+    const data = res.data || {};
+    const content = data.content || data.contentData || {};
+    return {
+      ...data,
+      content,
+      contentData: content,
+    };
   },
 
   async updateAdminPage(
     pageKey: string,
-    payload: { title: string; subtitle?: string; content: Record<string, any> }
+    payload: { title: string; subtitle?: string; content?: Record<string, any>; contentData?: Record<string, any> }
   ): Promise<CmsPage> {
-    const res = await apiClient.put<CmsPage>(`/api/v1/admin/content/${pageKey}`, payload);
-    return res.data;
+    const content = payload.content || payload.contentData || {};
+    const res = await apiClient.put<any>(`/api/v1/admin/content/${pageKey}`, {
+      title: payload.title,
+      subtitle: payload.subtitle,
+      contentData: content,
+      content: content,
+    });
+    const data = res.data || {};
+    const resContent = data.content || data.contentData || {};
+    return {
+      ...data,
+      content: resContent,
+      contentData: resContent,
+    };
   },
 
   // Coupon validation

@@ -96,11 +96,14 @@ export const HomePage: React.FC = () => {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="rounded-3xl bg-slate-900/60 border border-slate-800 p-8 sm:p-10 backdrop-blur-xl grid grid-cols-2 lg:grid-cols-4 gap-8">
           {stats.map((st: any, idx: number) => (
-            <div key={idx} className="text-center space-y-1">
+            <div key={idx} className="text-center space-y-1 p-2 rounded-2xl hover:bg-slate-900/40 transition-colors">
               <div className="text-3xl sm:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-emerald-300">
                 {st.value}
               </div>
-              <div className="text-xs sm:text-sm font-medium text-slate-400">{st.label}</div>
+              <div className="text-xs sm:text-sm font-bold text-slate-200">{st.label}</div>
+              {st.subtext && (
+                <div className="text-[11px] text-slate-400 leading-tight">{st.subtext}</div>
+              )}
             </div>
           ))}
         </div>

@@ -38,6 +38,7 @@ import { submitOnboardingApplicationSchema } from "@inventra/validation";
 import type { SubmitOnboardingApplicationRequest, OnboardingApplicationSummaryResponse } from "@inventra/api-types";
 import { apiClient } from "../../services/api";
 import { INDIAN_STATES, getCitiesForState } from "../../services/geoData";
+import { BrandLogo } from "../../components/common/BrandLogo";
 
 interface StepConfig {
   id: number;
@@ -563,18 +564,22 @@ export const RegisterApplicationPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-app text-primary flex flex-col justify-center items-center p-4 sm:p-6 lg:p-8">
-      <div className="w-full max-w-3xl">
+    <div className="min-h-screen bg-app text-primary flex flex-col justify-center items-center p-4 sm:p-6 lg:p-8 font-sans relative overflow-x-hidden selection:bg-primary selection:text-white">
+      {/* Background Subtle Gradient Accents */}
+      <div className="absolute -top-40 -left-40 w-96 h-96 bg-primary-subtle rounded-full blur-3xl pointer-events-none opacity-60" />
+      <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-accent-subtle rounded-full blur-3xl pointer-events-none opacity-60" />
+
+      <div className="w-full max-w-3xl relative z-10">
         {/* Header Branding */}
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-primary text-primary-fg shadow-card mb-3 font-bold text-2xl font-mono">
-            I
+        <div className="text-center mb-6 flex flex-col items-center">
+          <div className="mb-3">
+            <BrandLogo size="lg" showText subtitle="Dispensary Onboarding Application" />
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-primary tracking-tight">
             Register Your Pharmacy
           </h1>
-          <p className="text-secondary text-sm mt-1">
-            Complete the 4-step onboarding application for platform review and activation
+          <p className="text-secondary text-sm mt-1 max-w-lg">
+            Complete the 4-step onboarding application for statutory drug license review and instant cloud activation
           </p>
         </div>
 

@@ -12,6 +12,7 @@ import {
   Award,
   Menu,
   X,
+  LogIn,
 } from "lucide-react";
 import { BrandLogo } from "../../components/common/BrandLogo";
 
@@ -86,13 +87,14 @@ export const MarketingLayout: React.FC<{ children?: React.ReactNode }> = ({ chil
               <>
                 <Link
                   to="/login"
-                  className="px-4.5 py-2.5 text-sm font-semibold text-slate-200 hover:text-white bg-slate-900/80 hover:bg-slate-850 rounded-xl border border-slate-700/80 hover:border-slate-500 shadow-xs transition-all"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-slate-200 hover:text-white bg-slate-900/90 hover:bg-slate-800/90 rounded-xl border border-slate-700/80 hover:border-teal-500/40 hover:shadow-md hover:shadow-teal-500/10 transition-all group shrink-0"
                 >
-                  Sign In
+                  <LogIn className="w-4 h-4 text-teal-400 group-hover:scale-110 transition-transform" />
+                  <span>Sign In</span>
                 </Link>
                 <Link
                   to="/apply"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-teal-400 via-teal-500 to-emerald-500 text-slate-950 font-bold text-sm hover:brightness-110 shadow-lg shadow-teal-500/20 border border-teal-300/40 transition-all"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-teal-400 via-teal-500 to-emerald-500 text-slate-950 font-bold text-sm hover:brightness-110 shadow-lg shadow-teal-500/20 border border-teal-300/40 transition-all shrink-0"
                 >
                   <span>Get Started</span>
                   <ArrowRight className="w-4 h-4" />
@@ -149,9 +151,10 @@ export const MarketingLayout: React.FC<{ children?: React.ReactNode }> = ({ chil
                 <>
                   <Link
                     to="/login"
-                    className="w-full text-center px-4 py-2.5 text-sm font-semibold text-slate-200 hover:text-white bg-slate-900 rounded-xl border border-slate-700/80 transition-all"
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-slate-200 hover:text-white bg-slate-900/90 rounded-xl border border-slate-700/80 transition-all hover:border-teal-500/50"
                   >
-                    Sign In
+                    <LogIn className="w-4 h-4 text-teal-400" />
+                    <span>Sign In</span>
                   </Link>
                   <Link
                     to="/apply"
@@ -232,10 +235,11 @@ export const MarketingLayout: React.FC<{ children?: React.ReactNode }> = ({ chil
 
           <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
             <p>© {new Date().getFullYear()} Inventra Technologies Pvt Ltd. All rights reserved.</p>
-            <div className="flex items-center gap-6">
-              <Link to="/about" className="hover:text-slate-400 transition-colors">Privacy Policy</Link>
-              <Link to="/about" className="hover:text-slate-400 transition-colors">Terms of Service</Link>
-              <Link to="/plans" className="hover:text-slate-400 transition-colors">Refund & Proration Policy</Link>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+              <Link to="/privacy" className="hover:text-teal-400 transition-colors">Privacy Policy</Link>
+              <Link to="/terms" className="hover:text-teal-400 transition-colors">Terms of Service</Link>
+              <Link to="/refund" className="hover:text-teal-400 transition-colors">Refund & Cancellation</Link>
+              <Link to="/security" className="hover:text-teal-400 transition-colors">Security & Trust</Link>
             </div>
           </div>
         </div>

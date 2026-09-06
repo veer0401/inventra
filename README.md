@@ -250,9 +250,22 @@ flowchart TD
 - **In-Transit Stock Governance**: Two-phase transfer verification (Dispatched with batch tracking $\rightarrow$ Received & verified by destination store).
 
 ### 👥 6. Super Admin & Platform CMS Console
-- **Subscription Tier Governance**: Configure monthly rates, annual discounts, workstation quotas, and dynamic feature checklists in a single canonical console.
-- **Onboarding Pipeline**: Review and approve new pharmacy store registrations, verify drug license files, and provision tenant schemas.
-- **Website CMS & Coupons**: Real-time content editing for public landing pages and creation of promotional coupon codes (e.g., `INVENTRAFIRST`).
+- **Subscription Tier Governance**: Centrally manage monthly rates, annual discounts, workstation quotas, branch limits, and feature bullet checklists from Store Subscriptions.
+- **Onboarding Pipeline**: Review, audit, and approve new pharmacy business applications, inspect drug license credentials (Form 20/21), and provision tenant databases.
+- **Dynamic Website CMS**: Live visual form editors and raw JSON switchers across all 8 public web surfaces:
+  - **Marketing Pages**: `HOME` (hero pill, dynamic metric stats strip, feature highlights), `ABOUT` (founder origin story, support hotline, Google Space interactive office hub locations), `FEATURES` (modular capability cards with Lucide icon selector), and `CAREERS` (culture statement, benefits list, live job openings manager).
+  - **Legal & Compliance**: `PRIVACY` (DPDPA 2023 grievance officer credentials, statutory audit protocols), `TERMS` (pharmacy licensing duties, Schedule H dispensing accountability, SLA uptime), `REFUND` (14-day zero-risk guarantee, pro-rata upgrade credits), and `SECURITY` (ISO 27001, AES-256 cloud encryption, tamper-proof logs).
+- **Sticky Navigation Sidebar**: Independent left-hand page selector (`sticky top-6 self-start max-h-[calc(100vh-3rem)] overflow-y-auto`) allowing pharmacists and platform admins to navigate multi-section forms without losing viewport context.
+- **Promotional Coupon Engine**: Create, update, and invalidate conditional discount vouchers with min order amount, max uses, first-time-only restrictions, and tier/cycle eligibility.
+
+### 🌐 7. Public Storefront & Unified Auth Experience
+- **Brand Uniformity**: Cohesive glassmorphic emerald/slate dark theme across `Login`, `Signup`, `ForgotPassword`, `ResetPassword`, and `Apply` onboarding portals.
+- **Interactive Plans & Pricing**: High-contrast annual 20% savings badge and responsive tier toggle with real-time coupon code deduction simulator.
+- **Google Space Office Locations**: Bengaluru Headquarters and Mumbai Operations centers with direct Google Maps route linking, GPS coordinates, and contact details.
+
+### 🔌 8. Offline Storage & Station Isolation Simulator
+- **Station Isolation Debug Mode**: Toggleable offline mode in Store Settings (`inventra_debug_offline_mode`) that intercepts outbound network traffic to rigorously test local storage mutation queues and verify sync replay when reconnecting.
+- **Storage Diagnostics**: Live quota utilization bar, stored entities inspection (sales, items, customers), and one-click local cache purging.
 
 ---
 
@@ -288,7 +301,7 @@ inventra/
 │       │   ├── sync/            # Offline change-log queues and conflict reconciliation
 │       │   └── common/          # Exceptions (RFC 9457), mailers, audit logs
 │       └── src/main/resources/
-│           ├── db/migration/    # Flyway SQL schema migrations
+│           ├── db/migration/    # Flyway SQL schema migrations (V1–V19)
 │           └── application.yml  # Spring Boot profiles and configuration
 │
 ├── docs/                        # Architecture decisions, API contracts, and specifications
