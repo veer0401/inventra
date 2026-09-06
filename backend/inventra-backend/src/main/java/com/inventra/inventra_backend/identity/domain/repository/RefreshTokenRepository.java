@@ -17,6 +17,8 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
 
     List<RefreshToken> findByUserId(UUID userId);
 
+    List<RefreshToken> findByUserIdOrderByCreatedAtDesc(UUID userId);
+
     List<RefreshToken> findByFamilyId(UUID familyId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)

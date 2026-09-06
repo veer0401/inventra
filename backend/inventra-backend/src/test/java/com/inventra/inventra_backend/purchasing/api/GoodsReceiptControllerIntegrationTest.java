@@ -232,7 +232,8 @@ class GoodsReceiptControllerIntegrationTest {
         assertThat(item.getCurrentStock()).isEqualByComparingTo("60.000");
 
         // Step 5: Verify Batch is created with 60.000 quantity
-        InventoryBatch batch = inventoryBatchRepository.findByStoreIdAndProductIdAndBatchNumber(
+        InventoryBatch batch = inventoryBatchRepository.findByBusinessIdAndStoreIdAndProductIdAndBatchNumber(
+            businessA.getId(),
             storeA.getId(),
             productBatch.getId(),
             "BATCH-CIPRO-1"
@@ -242,9 +243,10 @@ class GoodsReceiptControllerIntegrationTest {
         // Step 6: Verify Stock Movement is created with type PURCHASE_RECEIPT and reference GOODS_RECEIPT
         List<StockMovement> movements = stockMovementRepository.findAll();
         StockMovement sm = movements.stream()
-            .filter(m -> m.getReferenceId().equals(UUID.fromString(grId)))
+            .filter(m -> UUID.fromString(grId).equals(m.getReferenceId()))
             .findFirst()
             .orElseThrow();
+
         assertThat(sm.getMovementType()).isEqualTo(StockMovementType.PURCHASE_RECEIPT);
         assertThat(sm.getQuantityDelta()).isEqualByComparingTo("60.000");
         assertThat(sm.getBalanceAfter()).isEqualByComparingTo("60.000");
@@ -335,7 +337,8 @@ class GoodsReceiptControllerIntegrationTest {
             .andExpect(status().isOk());
 
         // Batch quantity should now be 60 + 40 = 100.000
-        batch = inventoryBatchRepository.findByStoreIdAndProductIdAndBatchNumber(
+        batch = inventoryBatchRepository.findByBusinessIdAndStoreIdAndProductIdAndBatchNumber(
+            businessA.getId(),
             storeA.getId(),
             productBatch.getId(),
             "BATCH-CIPRO-1"

@@ -7,6 +7,8 @@ import com.inventra.inventra_backend.catalog.domain.model.Category;
 import com.inventra.inventra_backend.catalog.domain.repository.CategoryRepository;
 import com.inventra.inventra_backend.common.domain.exception.BusinessRuleViolationException;
 import com.inventra.inventra_backend.common.domain.exception.ResourceNotFoundException;
+import com.inventra.inventra_backend.sync.domain.model.SyncChangeOperation;
+import com.inventra.inventra_backend.sync.infrastructure.ChangeFeedPublisher;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -16,9 +18,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class CategoryService {
 
     private final CategoryRepository categoryRepository;
+    private final ChangeFeedPublisher changeFeedPublisher;
 
-    public CategoryService(CategoryRepository categoryRepository) {
+    public CategoryService(CategoryRepository categoryRepository, ChangeFeedPublisher changeFeedPublisher) {
         this.categoryRepository = categoryRepository;
+        this.changeFeedPublisher = changeFeedPublisher;
     }
 
     @Transactional
@@ -63,7 +67,9 @@ public class CategoryService {
             request.code(),
             request.description()
         );
-        return categoryRepository.save(category);
+        Category saved = categoryRepository.save(category);
+        changeFeedPublisher.publish(businessId, null, "CATEGORY", saved.getId(), SyncChangeOperation.UPSERT, 1, CategoryResponse.from(saved));
+        return saved;
     }
 
     @Transactional
@@ -85,7 +91,9 @@ public class CategoryService {
         }
 
         category.update(request.name(), request.description(), request.status());
-        return categoryRepository.save(category);
+        Category saved = categoryRepository.save(category);
+        changeFeedPublisher.publish(businessId, null, "CATEGORY", saved.getId(), SyncChangeOperation.UPSERT, 1, CategoryResponse.from(saved));
+        return saved;
     }
 
     @Transactional(readOnly = true)

@@ -19,6 +19,8 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
 
     Page<Product> findByBusinessIdAndCategoryId(UUID businessId, UUID categoryId, Pageable pageable);
 
+    Optional<Product> findByBusinessIdAndNameIgnoreCase(UUID businessId, String name);
+
     @Query("""
         SELECT DISTINCT p FROM Product p
         LEFT JOIN ProductIdentifier pi ON pi.productId = p.id AND pi.businessId = p.businessId

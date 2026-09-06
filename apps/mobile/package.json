@@ -1,0 +1,16 @@
+{
+  "name": "@inventra/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "echo 'Mobile build placeholder for Phase F11'",
+    "typecheck": "echo 'Mobile typecheck placeholder'",
+    "lint": "echo 'Mobile lint placeholder'"
+  },
+  "dependencies": {
+    "@inventra/api-client": "workspace:*",
+    "@inventra/api-types": "workspace:*",
+    "@inventra/shared": "workspace:*",
+    "@inventra/validation": "workspace:*"
+  }
+}

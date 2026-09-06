@@ -312,7 +312,7 @@ class TransferControllerIntegrationTest {
         assertThat(itemBFinal.getCurrentStock()).isEqualByComparingTo("100.000");
 
         // Verify batch metadata and manufacturing date preservation at destination store
-        InventoryBatch destBatch1 = inventoryBatchRepository.findByStoreIdAndProductIdAndBatchNumber(storeB.getId(), product.getId(), "MOX-LOT-01").orElseThrow();
+        InventoryBatch destBatch1 = inventoryBatchRepository.findByBusinessIdAndStoreIdAndProductIdAndBatchNumber(businessId, storeB.getId(), product.getId(), "MOX-LOT-01").orElseThrow();
         assertThat(destBatch1.getManufacturingDate()).isEqualTo(batchA1.getManufacturingDate());
         assertThat(destBatch1.getExpiryDate()).isEqualTo(batchA1.getExpiryDate());
         assertThat(destBatch1.getPurchasePrice()).isEqualByComparingTo(batchA1.getPurchasePrice());

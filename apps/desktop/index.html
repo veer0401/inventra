@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Inventra Pharmacy ERP</title>
+    <script>
+      (function() {
+        try {
+          var raw = localStorage.getItem('inventra_theme_preferences');
+          var prefs = raw ? JSON.parse(raw) : { mode: 'system', preset: 'clinical', density: 'comfortable' };
+          var isDark = prefs.mode === 'dark' || (prefs.mode === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          var root = document.documentElement;
+          if (isDark) {
+            root.classList.add('dark');
+          } else {
+            root.classList.remove('dark');
+          }
+          root.setAttribute('data-theme', prefs.preset || 'clinical');
+          root.setAttribute('data-density', prefs.density || 'comfortable');
+          if (prefs.preset === 'custom') {
+            if (prefs.customPrimary) root.style.setProperty('--primary', prefs.customPrimary);
+            if (prefs.customAccent) root.style.setProperty('--accent', prefs.customAccent);
+          }
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body class="bg-[var(--bg-app,#0B0F17)] text-[var(--text-primary,#F8FAFC)] antialiased h-full overflow-hidden">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -322,7 +322,7 @@ public class GoodsReceiptService {
 
                 String normBatchNumber = line.getBatchNumber().trim().toUpperCase();
                 Optional<InventoryBatch> existingBatchOpt = inventoryBatchRepository
-                    .findByStoreIdAndProductIdAndBatchNumber(gr.getStoreId(), product.getId(), normBatchNumber);
+                    .findByBusinessIdAndStoreIdAndProductIdAndBatchNumber(businessId, gr.getStoreId(), product.getId(), normBatchNumber);
 
                 InventoryBatch batch;
                 if (existingBatchOpt.isPresent()) {

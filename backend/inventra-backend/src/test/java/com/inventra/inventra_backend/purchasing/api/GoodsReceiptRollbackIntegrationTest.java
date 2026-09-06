@@ -235,7 +235,8 @@ class GoodsReceiptRollbackIntegrationTest {
         });
 
         // Step 5: Verify that BATCH-P1-VALID does NOT exist
-        assertThat(inventoryBatchRepository.findByStoreIdAndProductIdAndBatchNumber(
+        assertThat(inventoryBatchRepository.findByBusinessIdAndStoreIdAndProductIdAndBatchNumber(
+            business.getId(),
             store.getId(),
             product1.getId(),
             "BATCH-P1-VALID"
@@ -243,9 +244,10 @@ class GoodsReceiptRollbackIntegrationTest {
 
         // Step 6: Verify no StockMovement exists referencing this Goods Receipt
         List<StockMovement> movements = stockMovementRepository.findAll().stream()
-            .filter(m -> m.getReferenceId().equals(grResponse.id()))
+            .filter(m -> grResponse.id().equals(m.getReferenceId()))
             .toList();
         assertThat(movements).isEmpty();
+
 
         // Step 7: Verify PO lines received quantities are still ZERO
         PurchaseOrder po = purchaseOrderRepository.findById(confirmedPo.id()).orElseThrow();

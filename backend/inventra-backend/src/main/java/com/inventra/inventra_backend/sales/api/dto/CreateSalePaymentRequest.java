@@ -1,10 +1,12 @@
 package com.inventra.inventra_backend.sales.api.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.inventra.inventra_backend.sales.domain.model.PaymentMethod;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record CreateSalePaymentRequest(
     @NotNull(message = "paymentMethod is required")
     PaymentMethod paymentMethod,

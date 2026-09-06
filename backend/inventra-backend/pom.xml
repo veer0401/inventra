@@ -55,6 +55,14 @@
 			<artifactId>spring-boot-starter-webmvc</artifactId>
 		</dependency>
 		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-mail</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-thymeleaf</artifactId>
+		</dependency>
+		<dependency>
 			<groupId>org.flywaydb</groupId>
 			<artifactId>flyway-database-postgresql</artifactId>
 		</dependency>
@@ -87,6 +95,11 @@
 		<dependency>
 			<groupId>com.fasterxml.jackson.datatype</groupId>
 			<artifactId>jackson-datatype-jsr310</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.github.librepdf</groupId>
+			<artifactId>openpdf</artifactId>
+			<version>2.0.3</version>
 		</dependency>
 
 		<dependency>
@@ -136,10 +149,14 @@
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
 				<configuration>
-					<argLine>-Duser.timezone=Asia/Kolkata</argLine>
+					<argLine>-Xmx1024m -Xms256m -XX:MaxMetaspaceSize=512m -Duser.timezone=Asia/Kolkata</argLine>
+					<forkCount>1</forkCount>
+					<reuseForks>true</reuseForks>
 				</configuration>
+
 			</plugin>
 		</plugins>
 	</build>
+
 
 </project>

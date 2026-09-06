@@ -39,4 +39,30 @@ public interface SaleReturnRepository extends JpaRepository<SaleReturn, UUID> {
     );
 
     long countByBusinessIdAndStoreId(UUID businessId, UUID storeId);
+
+    @Query("""
+        SELECT r FROM SaleReturn r, Sale s
+        WHERE r.saleId = s.id
+        AND s.businessId = :businessId
+        AND s.customerId = :customerId
+        ORDER BY r.createdAt DESC
+        """)
+    Page<SaleReturn> findByBusinessIdAndCustomerId(
+        @Param("businessId") UUID businessId,
+        @Param("customerId") UUID customerId,
+        Pageable pageable
+    );
+
+    @Query("""
+        SELECT COUNT(r), COALESCE(SUM(r.totalRefundAmount), 0.0)
+        FROM SaleReturn r, Sale s
+        WHERE r.saleId = s.id
+        AND s.businessId = :businessId
+        AND s.customerId = :customerId
+        AND r.status = 'COMPLETED'
+        """)
+    List<Object[]> getCustomerReturnStatistics(
+        @Param("businessId") UUID businessId,
+        @Param("customerId") UUID customerId
+    );
 }

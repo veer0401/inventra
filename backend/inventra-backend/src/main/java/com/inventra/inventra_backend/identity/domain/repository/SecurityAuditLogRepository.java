@@ -11,6 +11,8 @@ public interface SecurityAuditLogRepository extends JpaRepository<SecurityAuditL
 
     List<SecurityAuditLog> findByUserId(UUID userId);
 
+    List<SecurityAuditLog> findByUserIdOrderByOccurredAtDesc(UUID userId);
+
     List<SecurityAuditLog> findByBusinessId(UUID businessId);
 
     List<SecurityAuditLog> findByDeviceId(UUID deviceId);

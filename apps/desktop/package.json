@@ -1,0 +1,47 @@
+{
+  "name": "@inventra/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tauri dev",
+    "dev:web": "vite",
+    "build": "vite build",
+    "build:native": "tauri build",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src/ --ext .ts,.tsx",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@inventra/api-client": "workspace:*",
+    "@inventra/api-types": "workspace:*",
+    "@inventra/app": "workspace:*",
+    "@inventra/design-tokens": "workspace:*",
+    "@inventra/offline-storage": "workspace:*",
+    "@inventra/print": "workspace:*",
+    "@inventra/shared": "workspace:*",
+    "@inventra/ui": "workspace:*",
+    "@inventra/validation": "workspace:*",
+    "@tauri-apps/api": "^2.2.0",
+    "@tauri-apps/plugin-sql": "^2.2.0",
+    "lucide-react": "^0.475.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.2.0",
+    "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.2.7",
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "jsdom": "^30.0.1",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.3",
+    "vite": "^6.2.0",
+    "vitest": "^3.0.5"
+  }
+}

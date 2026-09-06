@@ -54,7 +54,7 @@ public class TransferController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('OWNER', 'MANAGER', 'INVENTORY_OPERATOR')")
-    public ResponseEntity<ApiResponse<Page<TransferResponse>>> searchTransfers(
+    public ApiResponse<Page<TransferResponse>> searchTransfers(
         @RequestParam(required = false) UUID storeId,
         @RequestParam(required = false) TransferStatus status,
         @PageableDefault(size = 20) Pageable pageable
@@ -63,24 +63,24 @@ public class TransferController {
         UUID businessId = UUID.fromString(context.tenantId().value());
 
         Page<TransferResponse> response = transferService.searchTransfers(businessId, storeId, status, pageable);
-        return ResponseEntity.ok(ApiResponse.ok(response));
+        return ApiResponse.ok(response);
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('OWNER', 'MANAGER', 'INVENTORY_OPERATOR')")
-    public ResponseEntity<ApiResponse<TransferResponse>> getTransferById(
+    public ApiResponse<TransferResponse> getTransferById(
         @PathVariable UUID id
     ) {
         TenantContext context = TenantContextHolder.requireContext();
         UUID businessId = UUID.fromString(context.tenantId().value());
 
         TransferResponse response = transferService.getTransferById(businessId, id);
-        return ResponseEntity.ok(ApiResponse.ok(response));
+        return ApiResponse.ok(response);
     }
 
     @PostMapping("/{id}/approve")
     @PreAuthorize("hasAnyRole('OWNER', 'MANAGER')")
-    public ResponseEntity<ApiResponse<TransferResponse>> approveTransfer(
+    public ApiResponse<TransferResponse> approveTransfer(
         @PathVariable UUID id,
         @RequestBody(required = false) ApproveTransferRequest request
     ) {
@@ -89,12 +89,12 @@ public class TransferController {
         UUID userId = context.userId() != null ? UUID.fromString(context.userId()) : null;
 
         TransferResponse response = transferService.approveTransfer(businessId, id, userId, request);
-        return ResponseEntity.ok(ApiResponse.ok(response));
+        return ApiResponse.ok(response);
     }
 
     @PostMapping("/{id}/reject")
     @PreAuthorize("hasAnyRole('OWNER', 'MANAGER')")
-    public ResponseEntity<ApiResponse<TransferResponse>> rejectTransfer(
+    public ApiResponse<TransferResponse> rejectTransfer(
         @PathVariable UUID id,
         @Valid @RequestBody RejectTransferRequest request
     ) {
@@ -103,12 +103,12 @@ public class TransferController {
         UUID userId = context.userId() != null ? UUID.fromString(context.userId()) : null;
 
         TransferResponse response = transferService.rejectTransfer(businessId, id, userId, request);
-        return ResponseEntity.ok(ApiResponse.ok(response));
+        return ApiResponse.ok(response);
     }
 
     @PostMapping("/{id}/cancel")
     @PreAuthorize("hasAnyRole('OWNER', 'MANAGER', 'INVENTORY_OPERATOR')")
-    public ResponseEntity<ApiResponse<TransferResponse>> cancelTransfer(
+    public ApiResponse<TransferResponse> cancelTransfer(
         @PathVariable UUID id,
         @RequestBody(required = false) CancelTransferRequest request
     ) {
@@ -117,12 +117,12 @@ public class TransferController {
         UUID userId = context.userId() != null ? UUID.fromString(context.userId()) : null;
 
         TransferResponse response = transferService.cancelTransfer(businessId, id, userId, request);
-        return ResponseEntity.ok(ApiResponse.ok(response));
+        return ApiResponse.ok(response);
     }
 
     @PostMapping("/{id}/ship")
     @PreAuthorize("hasAnyRole('OWNER', 'MANAGER', 'INVENTORY_OPERATOR')")
-    public ResponseEntity<ApiResponse<TransferResponse>> shipTransfer(
+    public ApiResponse<TransferResponse> shipTransfer(
         @PathVariable UUID id,
         @Valid @RequestBody ShipTransferRequest request
     ) {
@@ -131,7 +131,7 @@ public class TransferController {
         UUID userId = context.userId() != null ? UUID.fromString(context.userId()) : null;
 
         TransferResponse response = transferService.shipTransfer(businessId, id, userId, null, request);
-        return ResponseEntity.ok(ApiResponse.ok(response));
+        return ApiResponse.ok(response);
     }
 
     @PostMapping("/{id}/receive")

@@ -1,5 +1,6 @@
 package com.inventra.inventra_backend.sales.api.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotEmpty;
@@ -9,11 +10,14 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record CreateSaleRequest(
     @NotNull(message = "storeId is required")
     UUID storeId,
 
     LocalDate saleDate,
+
+    UUID customerId,
 
     String customerName,
 
@@ -34,4 +38,18 @@ public record CreateSaleRequest(
     @NotEmpty(message = "Sale must contain at least one payment")
     List<@Valid CreateSalePaymentRequest> payments
 ) {
+    public CreateSaleRequest(
+        UUID storeId,
+        LocalDate saleDate,
+        String customerName,
+        String customerPhone,
+        BigDecimal discountAmount,
+        BigDecimal roundOffAmount,
+        String idempotencyKey,
+        String notes,
+        List<CreateSaleLineRequest> lines,
+        List<CreateSalePaymentRequest> payments
+    ) {
+        this(storeId, saleDate, null, customerName, customerPhone, discountAmount, roundOffAmount, idempotencyKey, notes, lines, payments);
+    }
 }

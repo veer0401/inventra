@@ -1,11 +1,13 @@
 package com.inventra.inventra_backend.inventory.domain.repository;
 
 import com.inventra.inventra_backend.inventory.domain.model.InventoryItem;
+import jakarta.persistence.LockModeType;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -18,6 +20,14 @@ public interface InventoryItemRepository extends JpaRepository<InventoryItem, UU
     Optional<InventoryItem> findByStoreIdAndProductId(UUID storeId, UUID productId);
 
     Optional<InventoryItem> findByStoreIdAndProductIdAndBusinessId(UUID storeId, UUID productId, UUID businessId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT i FROM InventoryItem i WHERE i.storeId = :storeId AND i.productId = :productId AND i.businessId = :businessId")
+    Optional<InventoryItem> findByStoreIdAndProductIdAndBusinessIdForUpdate(
+        @Param("storeId") UUID storeId,
+        @Param("productId") UUID productId,
+        @Param("businessId") UUID businessId
+    );
 
     Page<InventoryItem> findByBusinessIdAndStoreId(UUID businessId, UUID storeId, Pageable pageable);
 

@@ -15,6 +15,8 @@ import com.inventra.inventra_backend.inventory.domain.model.StockMovement;
 import com.inventra.inventra_backend.inventory.domain.repository.InventoryBatchRepository;
 import com.inventra.inventra_backend.inventory.domain.repository.InventoryItemRepository;
 import com.inventra.inventra_backend.inventory.domain.repository.StockMovementRepository;
+import com.inventra.inventra_backend.sync.domain.model.SyncChangeOperation;
+import com.inventra.inventra_backend.sync.infrastructure.ChangeFeedPublisher;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -32,17 +34,20 @@ public class InventoryService {
     private final InventoryBatchRepository inventoryBatchRepository;
     private final StockMovementRepository stockMovementRepository;
     private final ProductRepository productRepository;
+    private final ChangeFeedPublisher changeFeedPublisher;
 
     public InventoryService(
         InventoryItemRepository inventoryItemRepository,
         InventoryBatchRepository inventoryBatchRepository,
         StockMovementRepository stockMovementRepository,
-        ProductRepository productRepository
+        ProductRepository productRepository,
+        ChangeFeedPublisher changeFeedPublisher
     ) {
         this.inventoryItemRepository = inventoryItemRepository;
         this.inventoryBatchRepository = inventoryBatchRepository;
         this.stockMovementRepository = stockMovementRepository;
         this.productRepository = productRepository;
+        this.changeFeedPublisher = changeFeedPublisher;
     }
 
     @Transactional
@@ -94,6 +99,16 @@ public class InventoryService {
         } else {
             movement = handleNonBatchAdjustment(businessId, storeId, userId, deviceId, item, product, request);
         }
+
+        changeFeedPublisher.publish(
+            businessId,
+            storeId,
+            "INVENTORY_ITEM",
+            item.getId(),
+            SyncChangeOperation.UPSERT,
+            1,
+            InventoryItemResponse.from(item)
+        );
 
         return StockMovementResponse.from(movement);
     }
@@ -182,7 +197,7 @@ public class InventoryService {
             }
 
             String normalizedBatchNum = batchDto.batchNumber().trim().toUpperCase();
-            inventoryBatchRepository.findByStoreIdAndProductIdAndBatchNumber(storeId, product.getId(), normalizedBatchNum)
+            inventoryBatchRepository.findByBusinessIdAndStoreIdAndProductIdAndBatchNumber(businessId, storeId, product.getId(), normalizedBatchNum)
                 .ifPresent(existing -> {
                     throw new BusinessRuleViolationException(
                         "DUPLICATE_BATCH_NUMBER",

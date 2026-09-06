@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Account Activated - Welcome to Inventra</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #0f172a;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrapper {
+      width: 100%;
+      table-layout: fixed;
+      background-color: #f1f5f9;
+      padding: 30px 10px;
+    }
+    .main-table {
+      background-color: #ffffff;
+      margin: 0 auto;
+      max-width: 580px;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+      border: 1px solid #e2e8f0;
+    }
+    .header {
+      background: linear-gradient(135deg, #065f46 0%, #059669 50%, #10b981 100%);
+      padding: 32px 30px;
+      text-align: left;
+    }
+    .brand {
+      color: #ffffff;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin: 0;
+    }
+    .brand-badge {
+      display: inline-block;
+      background-color: rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      margin-left: 8px;
+      vertical-align: middle;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .header-sub {
+      color: #a7f3d0;
+      font-size: 13px;
+      margin-top: 6px;
+    }
+    .content {
+      padding: 36px 32px;
+    }
+    .greeting {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-top: 0;
+      margin-bottom: 12px;
+    }
+    .lead-text {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #475569;
+      margin-bottom: 24px;
+    }
+    .success-box {
+      background-color: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+      font-size: 13px;
+      color: #065f46;
+      line-height: 1.5;
+    }
+    .btn-container {
+      text-align: center;
+      margin: 32px 0 24px;
+    }
+    .btn {
+      display: inline-block;
+      background: #059669;
+      color: #ffffff !important;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+      padding: 13px 28px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25);
+    }
+    .footer {
+      background-color: #f8fafc;
+      padding: 24px 32px;
+      border-top: 1px solid #e2e8f0;
+      text-align: center;
+      font-size: 12px;
+      color: #94a3b8;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <table class="main-table" width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td class="header">
+          <div class="brand">
+            Inventra <span class="brand-badge">Account Active</span>
+          </div>
+          <div class="header-sub">Profile Activation Confirmed</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="content">
+          <h2 class="greeting">Hello, <span th:text="${fullName}">Staff Member</span>!</h2>
+          <p class="lead-text">
+            Your profile setup for <strong><span th:text="${businessName}">Pharmacy Organization</span></strong> has been verified and your workstation access is now active.
+          </p>
+
+          <div class="success-box">
+            &#10004; <strong>Profile Complete:</strong> You can now sign in to Inventra Web or Desktop using your registered email and password to access the POS billing terminal, inventory records, and counter workflows.
+          </div>
+
+          <div class="btn-container">
+            <a th:href="${loginUrl}" class="btn" target="_blank">Sign In to Inventra Terminal</a>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td class="footer">
+          &copy; <span th:text="${#calendars.format(#calendars.createNow(), 'yyyy')}">2026</span> Inventra Systems Inc. All rights reserved.<br>
+          Automated Security & Access Notification.
+        </td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>

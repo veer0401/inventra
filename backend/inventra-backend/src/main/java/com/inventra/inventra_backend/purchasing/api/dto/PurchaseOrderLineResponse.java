@@ -1,5 +1,6 @@
 package com.inventra.inventra_backend.purchasing.api.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.inventra.inventra_backend.purchasing.domain.model.PurchaseOrderLine;
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -24,6 +25,11 @@ public record PurchaseOrderLineResponse(
     BigDecimal taxAmount,
     BigDecimal lineTotal
 ) {
+    @JsonProperty("unitPrice")
+    public BigDecimal unitPrice() {
+        return unitCost();
+    }
+
     public static PurchaseOrderLineResponse from(PurchaseOrderLine pol) {
         return new PurchaseOrderLineResponse(
             pol.getId(),

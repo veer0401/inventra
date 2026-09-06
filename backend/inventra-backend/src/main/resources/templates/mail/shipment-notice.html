@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shipment Status Update - Inventra</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #0f172a;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrapper {
+      width: 100%;
+      table-layout: fixed;
+      background-color: #f1f5f9;
+      padding: 30px 10px;
+    }
+    .main-table {
+      background-color: #ffffff;
+      margin: 0 auto;
+      max-width: 600px;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+      border: 1px solid #e2e8f0;
+    }
+    .header {
+      background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #3b82f6 100%);
+      padding: 32px 30px;
+      text-align: left;
+    }
+    .brand {
+      color: #ffffff;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin: 0;
+    }
+    .brand-badge {
+      display: inline-block;
+      background-color: rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      margin-left: 8px;
+      vertical-align: middle;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .header-sub {
+      color: #bfdbfe;
+      font-size: 13px;
+      margin-top: 6px;
+    }
+    .content {
+      padding: 36px 32px;
+    }
+    .greeting {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-top: 0;
+      margin-bottom: 12px;
+    }
+    .lead-text {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #475569;
+      margin-bottom: 24px;
+    }
+    .route-box {
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+    }
+    .route-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 5px 0;
+      font-size: 13px;
+    }
+    .route-label {
+      color: #64748b;
+      font-weight: 500;
+    }
+    .route-value {
+      color: #0f172a;
+      font-weight: 600;
+    }
+    .items-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 24px;
+      font-size: 12px;
+    }
+    .items-table th {
+      background-color: #f8fafc;
+      color: #475569;
+      font-weight: 600;
+      text-align: left;
+      padding: 8px 10px;
+      border-bottom: 2px solid #e2e8f0;
+      text-transform: uppercase;
+      font-size: 10px;
+    }
+    .items-table td {
+      padding: 8px 10px;
+      border-bottom: 1px solid #f1f5f9;
+      color: #1e293b;
+    }
+    .btn-container {
+      text-align: center;
+      margin: 32px 0 24px;
+    }
+    .btn {
+      display: inline-block;
+      background: #2563eb;
+      color: #ffffff !important;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+      padding: 13px 28px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+    }
+    .footer {
+      background-color: #f8fafc;
+      padding: 24px 32px;
+      border-top: 1px solid #e2e8f0;
+      text-align: center;
+      font-size: 12px;
+      color: #94a3b8;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <table class="main-table" width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td class="header">
+          <div class="brand">
+            Inventra <span class="brand-badge" th:text="${shipment.status}">IN_TRANSIT</span>
+          </div>
+          <div class="header-sub">Inter-Store Stock Logistics Notice</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="content">
+          <h2 class="greeting">Transfer Order #<span th:text="${shipment.transferNumber}">TRF-001</span></h2>
+          <p class="lead-text">
+            Stock transfer requisition for branch <strong><span th:text="${storeName}">Destination Branch</span></strong> has been updated.
+          </p>
+
+          <div class="route-box">
+            <div class="route-row">
+              <span class="route-label">Origin (Shipping Store):</span>
+              <span class="route-value" th:text="${shipment.originStoreName}">Central Warehouse</span>
+            </div>
+            <div class="route-row">
+              <span class="route-label">Destination (Receiving Store):</span>
+              <span class="route-value" th:text="${shipment.destinationStoreName}">Store Branch</span>
+            </div>
+            <div class="route-row" th:if="${shipment.carrierName != null and !shipment.carrierName.isEmpty()}">
+              <span class="route-label">Carrier / Logistics:</span>
+              <span class="route-value" th:text="${shipment.carrierName}">BlueDart</span>
+            </div>
+            <div class="route-row" th:if="${shipment.trackingNumber != null and !shipment.trackingNumber.isEmpty()}">
+              <span class="route-label">Tracking / AWB #:</span>
+              <span class="route-value" th:text="${shipment.trackingNumber}">TRK-98124</span>
+            </div>
+          </div>
+
+          <table class="items-table" width="100%" th:if="${shipment.lines != null and !shipment.lines.isEmpty()}">
+            <thead>
+              <tr>
+                <th>Product Description</th>
+                <th style="text-align: right;">Requested</th>
+                <th style="text-align: right;">Shipped Qty</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr th:each="l : ${shipment.lines}">
+                <td style="font-weight: 600;" th:text="${l.productName}">Amoxicillin 500mg</td>
+                <td style="text-align: right;" th:text="${l.requestedQuantity}">50</td>
+                <td style="text-align: right; font-weight: 600;" th:text="${l.shippedQuantity}">50</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="btn-container">
+            <a th:href="${detailsUrl}" class="btn" target="_blank">View Transfer & Confirm Intake</a>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td class="footer">
+          &copy; <span th:text="${#calendars.format(#calendars.createNow(), 'yyyy')}">2026</span> Inventra Systems Inc. All rights reserved.<br>
+          Multi-Branch Inventory Synchronization Engine.
+        </td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>

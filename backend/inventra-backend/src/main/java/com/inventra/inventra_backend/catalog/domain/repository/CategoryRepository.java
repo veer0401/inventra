@@ -18,6 +18,8 @@ public interface CategoryRepository extends JpaRepository<Category, UUID> {
 
     List<Category> findByBusinessIdAndParentId(UUID businessId, UUID parentId);
 
+    Optional<Category> findByBusinessIdAndNameIgnoreCase(UUID businessId, String name);
+
     boolean existsByBusinessIdAndCode(UUID businessId, String code);
 
     boolean existsByBusinessIdAndParentIdAndNameIgnoreCase(UUID businessId, UUID parentId, String name);

@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment Receipt - Inventra Subscription</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #0f172a;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrapper {
+      width: 100%;
+      table-layout: fixed;
+      background-color: #f1f5f9;
+      padding: 30px 10px;
+    }
+    .main-table {
+      background-color: #ffffff;
+      margin: 0 auto;
+      max-width: 600px;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+      border: 1px solid #e2e8f0;
+    }
+    .header {
+      background: linear-gradient(135deg, #0f766e 0%, #0d9488 50%, #14b8a6 100%);
+      padding: 32px 30px;
+      text-align: left;
+    }
+    .brand {
+      color: #ffffff;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin: 0;
+    }
+    .brand-badge {
+      display: inline-block;
+      background-color: rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      margin-left: 8px;
+      vertical-align: middle;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .header-sub {
+      color: #ccfbf1;
+      font-size: 13px;
+      margin-top: 6px;
+    }
+    .content {
+      padding: 32px 30px;
+    }
+    .status-banner {
+      background-color: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+    }
+    .status-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #166534;
+      margin: 0 0 4px 0;
+    }
+    .status-desc {
+      font-size: 12px;
+      color: #15803d;
+      margin: 0;
+    }
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+      margin: 20px 0 8px 0;
+    }
+    .details-box {
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      padding: 6px 0;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .detail-row:last-child {
+      border-bottom: none;
+    }
+    .detail-label {
+      color: #64748b;
+    }
+    .detail-value {
+      font-weight: 600;
+      color: #0f172a;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    table.breakdown {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 24px;
+    }
+    table.breakdown th {
+      background-color: #f1f5f9;
+      color: #475569;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 10px 12px;
+      text-align: left;
+    }
+    table.breakdown td {
+      padding: 12px;
+      font-size: 13px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .amount-cell {
+      text-align: right;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-weight: 600;
+    }
+    .total-row {
+      background-color: #f0fdfa;
+      color: #0f766e;
+      font-size: 15px !important;
+      font-weight: 800 !important;
+    }
+    .cta-button {
+      display: inline-block;
+      background: #0f766e;
+      color: #ffffff !important;
+      font-weight: 700;
+      font-size: 13px;
+      padding: 12px 24px;
+      border-radius: 8px;
+      text-decoration: none;
+      margin-top: 10px;
+    }
+    .footer {
+      background-color: #f8fafc;
+      padding: 24px 30px;
+      border-top: 1px solid #e2e8f0;
+      font-size: 11px;
+      color: #94a3b8;
+      text-align: center;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <table class="main-table" align="center" cellpadding="0" cellspacing="0">
+      <tr>
+        <td class="header">
+          <h1 class="brand">INVENTRA <span class="brand-badge" th:text="${billingCycle}">MONTHLY</span></h1>
+          <div class="header-sub">Cloud Pharmacy ERP · GST Tax Invoice Receipt</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="content">
+          <div class="status-banner">
+            <div>
+              <div class="status-title">✔ Payment Successfully Verified & Received</div>
+              <div class="status-desc">Thank you! Your subscription for <strong th:text="${businessName}">Patwa Medical Store</strong> is now active.</div>
+            </div>
+          </div>
+
+          <div class="section-title">Payment & Gateway Details</div>
+          <div class="details-box">
+            <div class="detail-row">
+              <span class="detail-label">Invoice Number</span>
+              <span class="detail-value" th:text="${invoiceNumber}">INV-1788638084</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Invoice Date</span>
+              <span class="detail-value" th:text="${invoiceDateFormatted}">06 Sep 2026</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Razorpay Payment ID</span>
+              <span class="detail-value" style="color: #0d9488;" th:text="${razorpayPaymentId}">pay_abc123</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Razorpay Order ID</span>
+              <span class="detail-value" th:text="${razorpayOrderId}">order_xyz789</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">HSN/SAC Code</span>
+              <span class="detail-value" th:text="${hsnSac}">997331</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Plan Tier</span>
+              <span class="detail-value" th:text="${planName}">Inventra Pharmacy Pro</span>
+            </div>
+          </div>
+
+          <div class="section-title">Invoice Amount Breakdown</div>
+          <table class="breakdown">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th style="text-align: right;">Amount (INR)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <strong th:text="${planName}">Inventra Pharmacy Pro</strong>
+                  <span th:if="${isUpgrade}" style="display: block; font-size: 11px; color: #0284c7;">
+                    (Prorated Plan Upgrade)
+                  </span>
+                </td>
+                <td class="amount-cell" th:text="'₹' + ${#numbers.formatDecimal(subtotal, 1, 2)}">₹2,499.00</td>
+              </tr>
+              <tr th:if="${isUpgrade and unusedCredit != null and unusedCredit > 0}">
+                <td style="color: #059669;">
+                  Less: Unused Previous Plan Credit
+                </td>
+                <td class="amount-cell" style="color: #059669;" th:text="'-₹' + ${#numbers.formatDecimal(unusedCredit, 1, 2)}">-₹500.00</td>
+              </tr>
+              <tr th:if="${couponDiscount != null and couponDiscount > 0}">
+                <td style="color: #d97706;">
+                  Less: Promo / Coupon Discount (<strong th:text="${couponCode}">PROMO</strong>)
+                </td>
+                <td class="amount-cell" style="color: #d97706;" th:text="'-₹' + ${#numbers.formatDecimal(couponDiscount, 1, 2)}">-₹250.00</td>
+              </tr>
+              <tr>
+                <td>Central GST (CGST 9%)</td>
+                <td class="amount-cell" th:text="'₹' + ${#numbers.formatDecimal(cgstAmount, 1, 2)}">₹224.91</td>
+              </tr>
+              <tr>
+                <td>State GST (SGST 9%)</td>
+                <td class="amount-cell" th:text="'₹' + ${#numbers.formatDecimal(sgstAmount, 1, 2)}">₹224.91</td>
+              </tr>
+              <tr class="total-row">
+                <td style="font-weight: 800;">Total Amount Paid</td>
+                <td class="amount-cell" style="font-weight: 800; color: #0f766e;" th:text="'₹' + ${#numbers.formatDecimal(totalAmount, 1, 2)}">₹2,948.82</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div style="text-align: center; margin: 30px 0 10px 0;">
+            <a th:href="${dashboardUrl}" class="cta-button" target="_blank">
+              View Subscription & Download PDF Bill →
+            </a>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td class="footer">
+          <div>Inventra Technologies India Pvt Ltd · GSTIN: 27AAACI1234F1Z5 · SAC: 997331</div>
+          <div>This is an automated computerized invoice receipt. For billing support, email support@inventra.io</div>
+        </td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>

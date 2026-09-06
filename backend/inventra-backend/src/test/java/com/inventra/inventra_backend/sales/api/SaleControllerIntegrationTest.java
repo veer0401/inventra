@@ -237,9 +237,9 @@ class SaleControllerIntegrationTest {
         assertThat(updatedB.getQuantity()).isEqualByComparingTo("70.000"); // 100 - 30 = 70
         assertThat(updatedItem.getCurrentStock()).isEqualByComparingTo("70.000"); // 150 - 80 = 70
 
-        // Verify 2 Stock Movements of type SALE created
+        // Verify 2 Stock Movements of type SALE created for this business
         List<StockMovement> movements = stockMovementRepository.findAll().stream()
-            .filter(m -> m.getMovementType() == StockMovementType.SALE)
+            .filter(m -> m.getMovementType() == StockMovementType.SALE && m.getBusinessId().equals(businessId))
             .toList();
         assertThat(movements).hasSize(2);
     }

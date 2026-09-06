@@ -14,6 +14,8 @@ import com.inventra.inventra_backend.catalog.domain.repository.ProductIdentifier
 import com.inventra.inventra_backend.catalog.domain.repository.ProductRepository;
 import com.inventra.inventra_backend.common.domain.exception.BusinessRuleViolationException;
 import com.inventra.inventra_backend.common.domain.exception.ResourceNotFoundException;
+import com.inventra.inventra_backend.sync.domain.model.SyncChangeOperation;
+import com.inventra.inventra_backend.sync.infrastructure.ChangeFeedPublisher;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -27,15 +29,18 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final ProductIdentifierRepository productIdentifierRepository;
+    private final ChangeFeedPublisher changeFeedPublisher;
 
     public ProductService(
         ProductRepository productRepository,
         CategoryRepository categoryRepository,
-        ProductIdentifierRepository productIdentifierRepository
+        ProductIdentifierRepository productIdentifierRepository,
+        ChangeFeedPublisher changeFeedPublisher
     ) {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
         this.productIdentifierRepository = productIdentifierRepository;
+        this.changeFeedPublisher = changeFeedPublisher;
     }
 
     @Transactional
@@ -71,7 +76,9 @@ public class ProductService {
         }
 
         List<ProductIdentifierResponse> identifiers = loadIdentifiers(businessId, savedProduct.getId());
-        return ProductResponse.from(savedProduct, identifiers);
+        ProductResponse response = ProductResponse.from(savedProduct, identifiers);
+        changeFeedPublisher.publish(businessId, null, "PRODUCT", savedProduct.getId(), SyncChangeOperation.UPSERT, 1, response);
+        return response;
     }
 
     @Transactional
@@ -103,7 +110,9 @@ public class ProductService {
 
         Product saved = productRepository.save(product);
         List<ProductIdentifierResponse> identifiers = loadIdentifiers(businessId, saved.getId());
-        return ProductResponse.from(saved, identifiers);
+        ProductResponse response = ProductResponse.from(saved, identifiers);
+        changeFeedPublisher.publish(businessId, null, "PRODUCT", saved.getId(), SyncChangeOperation.UPSERT, 1, response);
+        return response;
     }
 
     @Transactional(readOnly = true)

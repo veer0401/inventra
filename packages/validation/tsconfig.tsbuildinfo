@@ -1,0 +1,1 @@
+{"root":["./src/auth.ts","./src/catalog.ts","./src/common.ts","./src/customer.ts","./src/index.ts","./src/inventory.ts","./src/onboarding.ts","./src/purchasing.ts","./src/sales.ts","./src/salesreturn.ts","./src/shortcuts.ts"],"version":"5.9.3"}

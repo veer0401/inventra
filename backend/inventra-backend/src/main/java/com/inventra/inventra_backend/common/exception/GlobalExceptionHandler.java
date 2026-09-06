@@ -97,6 +97,25 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(problem);
     }
 
+    @ExceptionHandler({
+        org.springframework.dao.OptimisticLockingFailureException.class,
+        org.springframework.orm.ObjectOptimisticLockingFailureException.class
+    })
+    public ResponseEntity<ProblemDetail> handleOptimisticLockingFailure(Exception ex, HttpServletRequest request) {
+        log.warn("Optimistic locking conflict at [{}]: {}", request.getRequestURI(), ex.getMessage());
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+            HttpStatus.CONFLICT,
+            "The resource was modified concurrently by another transaction. Please refresh and retry."
+        );
+        problem.setType(URI.create(ERROR_TYPE_BASE + "concurrent-modification"));
+        problem.setTitle("Concurrent Modification");
+        problem.setInstance(URI.create(request.getRequestURI()));
+        problem.setProperty("errorCode", "CONCURRENT_MODIFICATION");
+        problem.setProperty("timestamp", Instant.now());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleUnhandledException(Exception ex, HttpServletRequest request) {
         log.error("Unhandled internal server error at [{}]:", request.getRequestURI(), ex);

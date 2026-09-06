@@ -56,7 +56,11 @@ public class Store extends BaseAuditableEntity {
     @Column(name = "status", nullable = false, length = 30)
     private StoreStatus status = StoreStatus.ACTIVE;
 
+    @Column(name = "max_users", nullable = false)
+    private int maxUsers = 5;
+
     protected Store() {
+
         // Required by JPA
     }
 
@@ -194,7 +198,19 @@ public class Store extends BaseAuditableEntity {
         return this.status == StoreStatus.ACTIVE;
     }
 
+    public int getMaxUsers() {
+        return maxUsers;
+    }
+
+    public void setMaxUsers(int maxUsers) {
+        if (maxUsers <= 0) {
+            throw new IllegalArgumentException("Maximum users must be a positive integer");
+        }
+        this.maxUsers = maxUsers;
+    }
+
     @Override
+
     public boolean equals(Object o) {
         if (this == o) return true;
         if (!(o instanceof Store store)) return false;

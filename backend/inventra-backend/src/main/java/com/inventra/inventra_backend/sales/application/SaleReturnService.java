@@ -28,6 +28,7 @@ import com.inventra.inventra_backend.sales.domain.model.SaleReturnLine;
 import com.inventra.inventra_backend.sales.domain.model.SaleReturnLineBatchAllocation;
 import com.inventra.inventra_backend.sales.domain.model.SaleStatus;
 import com.inventra.inventra_backend.sales.domain.model.StockCondition;
+import com.inventra.inventra_backend.identity.application.SecurityAuditService;
 import com.inventra.inventra_backend.sales.domain.repository.SaleLineBatchAllocationRepository;
 import com.inventra.inventra_backend.sales.domain.repository.SaleLineRepository;
 import com.inventra.inventra_backend.sales.domain.repository.SaleRefundRepository;
@@ -66,6 +67,7 @@ public class SaleReturnService {
     private final InventoryItemRepository inventoryItemRepository;
     private final InventoryBatchRepository inventoryBatchRepository;
     private final StockMovementRepository stockMovementRepository;
+    private final SecurityAuditService securityAuditService;
 
     public SaleReturnService(
         SaleRepository saleRepository,
@@ -79,7 +81,8 @@ public class SaleReturnService {
         ProductRepository productRepository,
         InventoryItemRepository inventoryItemRepository,
         InventoryBatchRepository inventoryBatchRepository,
-        StockMovementRepository stockMovementRepository
+        StockMovementRepository stockMovementRepository,
+        SecurityAuditService securityAuditService
     ) {
         this.saleRepository = saleRepository;
         this.saleLineRepository = saleLineRepository;
@@ -93,6 +96,7 @@ public class SaleReturnService {
         this.inventoryItemRepository = inventoryItemRepository;
         this.inventoryBatchRepository = inventoryBatchRepository;
         this.stockMovementRepository = stockMovementRepository;
+        this.securityAuditService = securityAuditService;
     }
 
     @Transactional
@@ -111,8 +115,8 @@ public class SaleReturnService {
             }
         }
 
-        // Step 2: Load Sale & validate return eligibility
-        Sale sale = saleRepository.findByIdAndBusinessId(saleId, businessId)
+        // Step 2: Load Sale with pessimistic lock & validate return eligibility
+        Sale sale = saleRepository.findByIdAndBusinessIdForUpdate(saleId, businessId)
             .orElseThrow(() -> ResourceNotFoundException.forResource("Sale", saleId));
 
         if (sale.getStatus() != SaleStatus.COMPLETED && sale.getStatus() != SaleStatus.PARTIALLY_RETURNED) {
@@ -366,6 +370,16 @@ public class SaleReturnService {
         for (SaleRefund rf : saleReturn.getRefunds()) {
             saleRefundRepository.save(rf);
         }
+
+        securityAuditService.recordEvent(
+            returnedBy,
+            businessId,
+            deviceId,
+            com.inventra.inventra_backend.identity.domain.model.SecurityAuditEventType.SALE_RETURN_PROCESSED,
+            null,
+            null,
+            "Processed sale return " + savedReturn.getReturnNumber() + " for sale " + sale.getSaleNumber() + " (refund: " + savedReturn.getTotalRefundAmount() + ")"
+        );
 
         return buildSaleReturnResponse(businessId, savedReturn);
     }

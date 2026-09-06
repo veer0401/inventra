@@ -3,6 +3,7 @@ package com.inventra.inventra_backend.sales.domain.repository;
 import com.inventra.inventra_backend.sales.domain.model.Sale;
 import com.inventra.inventra_backend.sales.domain.model.SaleStatus;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
@@ -48,4 +49,28 @@ public interface SaleRepository extends JpaRepository<Sale, UUID> {
     );
 
     long countByBusinessIdAndStoreId(UUID businessId, UUID storeId);
+
+    @Query("SELECT s FROM Sale s WHERE s.businessId = :businessId AND s.customerId = :customerId ORDER BY s.createdAt DESC")
+    Page<Sale> findByBusinessIdAndCustomerId(
+        @Param("businessId") UUID businessId,
+        @Param("customerId") UUID customerId,
+        Pageable pageable
+    );
+
+    @Query("""
+        SELECT COUNT(s), COALESCE(SUM(s.totalAmount), 0.0), MAX(s.saleDate)
+        FROM Sale s
+        WHERE s.businessId = :businessId AND s.customerId = :customerId AND s.status != 'VOIDED'
+        """)
+    List<Object[]> getCustomerSaleStatistics(
+        @Param("businessId") UUID businessId,
+        @Param("customerId") UUID customerId
+    );
+
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM Sale s WHERE s.id = :id AND s.businessId = :businessId")
+    Optional<Sale> findByIdAndBusinessIdForUpdate(
+        @Param("id") UUID id,
+        @Param("businessId") UUID businessId
+    );
 }

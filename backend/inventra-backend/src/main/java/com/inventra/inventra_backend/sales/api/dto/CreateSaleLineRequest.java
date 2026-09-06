@@ -1,10 +1,12 @@
 package com.inventra.inventra_backend.sales.api.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.util.UUID;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record CreateSaleLineRequest(
     @NotNull(message = "productId is required")
     UUID productId,

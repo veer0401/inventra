@@ -5,6 +5,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public record PosProductSearchResponse(
     UUID productId,
     String name,
@@ -28,4 +30,18 @@ public record PosProductSearchResponse(
     BigDecimal fefoSellingPrice,
     BigDecimal fefoMrp
 ) {
+    @JsonProperty("id")
+    public UUID id() {
+        return productId();
+    }
+
+    @JsonProperty("sellingPrice")
+    public BigDecimal sellingPrice() {
+        return fefoSellingPrice != null ? fefoSellingPrice : defaultSellingPrice;
+    }
+
+    @JsonProperty("mrp")
+    public BigDecimal mrp() {
+        return fefoMrp != null ? fefoMrp : defaultMrp;
+    }
 }

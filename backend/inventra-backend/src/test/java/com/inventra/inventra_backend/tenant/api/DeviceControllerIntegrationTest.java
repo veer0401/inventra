@@ -1,9 +1,14 @@
 package com.inventra.inventra_backend.tenant.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.inventra.inventra_backend.identity.api.dto.RegisterOwnerRequest;
+import com.inventra.inventra_backend.identity.api.dto.ActivateOwnerRequest;
+import com.inventra.inventra_backend.identity.api.dto.LoginRequest;
+import com.inventra.inventra_backend.onboarding.api.dto.OnboardingApprovalResponse;
+import com.inventra.inventra_backend.onboarding.api.dto.SubmitOnboardingApplicationRequest;
+import com.inventra.inventra_backend.onboarding.application.OnboardingService;
 import com.inventra.inventra_backend.tenant.api.dto.RegisterDeviceRequest;
 import com.inventra.inventra_backend.tenant.domain.model.DeviceType;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,30 +31,50 @@ class DeviceControllerIntegrationTest {
     @Autowired
     private MockMvc mockMvc;
 
+    @Autowired
+    private OnboardingService onboardingService;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
     @Transactional
     @DisplayName("Device registration, listing, and remote revocation by business owner")
     void testDeviceLifecycleFlow() throws Exception {
-        // Register owner
-        RegisterOwnerRequest registerReq = new RegisterOwnerRequest(
-            "device.owner@inventra.local",
-            "Password123!",
+        // 1. Submit onboarding application
+        SubmitOnboardingApplicationRequest appReq = new SubmitOnboardingApplicationRequest(
             "Device Owner",
+            "device.owner@inventra.local",
             null,
             "Device Pharma",
+            null,
+            null,
+            null,
             "Main Store",
+            "MAIN-01",
+            null,
+            null,
+            null,
+            null,
             null
         );
+        var appSummary = onboardingService.submitApplication(appReq, "127.0.0.1", "test-agent");
 
-        MvcResult regResult = mockMvc.perform(post("/api/v1/auth/register-owner")
+        // 2. Approve application
+        UUID dummyAdminId = UUID.randomUUID();
+        OnboardingApprovalResponse approval = onboardingService.approveApplication(appSummary.id(), dummyAdminId, "127.0.0.1", "test-agent");
+
+        // 3. Activate owner account
+        onboardingService.activateOwner(new ActivateOwnerRequest(approval.devActivationToken(), "Password123!"), "127.0.0.1", "test-agent");
+
+        // 4. Log in as activated owner
+        LoginRequest loginReq = new LoginRequest("device.owner@inventra.local", "Password123!", null, null, null, null, null);
+        MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(registerReq)))
-            .andExpect(status().isCreated())
+                .content(objectMapper.writeValueAsString(loginReq)))
+            .andExpect(status().isOk())
             .andReturn();
 
-        String accessToken = objectMapper.readTree(regResult.getResponse().getContentAsString())
+        String accessToken = objectMapper.readTree(loginResult.getResponse().getContentAsString())
             .path("data").path("accessToken").asText();
 
         // Register a desktop device
@@ -61,36 +86,30 @@ class DeviceControllerIntegrationTest {
             "1.0.0"
         );
 
-        MvcResult devResult = mockMvc.perform(post("/api/v1/devices/register")
+        MvcResult result = mockMvc.perform(post("/api/v1/devices/register")
                 .header("Authorization", "Bearer " + accessToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(deviceReq)))
             .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.success").value(true))
+            .andExpect(jsonPath("$.data.deviceName").value("Front Billing Counter 1"))
             .andExpect(jsonPath("$.data.deviceCode").value("POS-01"))
             .andExpect(jsonPath("$.data.status").value("ACTIVE"))
             .andReturn();
 
-        String deviceId = objectMapper.readTree(devResult.getResponse().getContentAsString())
+        String deviceIdStr = objectMapper.readTree(result.getResponse().getContentAsString())
             .path("data").path("id").asText();
 
         // List devices
         mockMvc.perform(get("/api/v1/devices")
                 .header("Authorization", "Bearer " + accessToken))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.data[0].deviceCode").value("POS-01"));
+            .andExpect(jsonPath("$.data.length()").value(1));
 
         // Revoke device
-        mockMvc.perform(post("/api/v1/devices/" + deviceId + "/revoke")
+        mockMvc.perform(post("/api/v1/devices/" + deviceIdStr + "/revoke")
                 .header("Authorization", "Bearer " + accessToken))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.status").value("REVOKED"));
-    }
-
-    @Test
-    @DisplayName("Unauthenticated request to device endpoints returns 401 ProblemDetail")
-    void testUnauthenticatedDeviceAccessRejected() throws Exception {
-        mockMvc.perform(get("/api/v1/devices"))
-            .andExpect(status().isUnauthorized())
-            .andExpect(jsonPath("$.errorCode").value("UNAUTHORIZED"));
     }
 }

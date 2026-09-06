@@ -4,6 +4,8 @@ import com.inventra.inventra_backend.catalog.domain.model.Product;
 import com.inventra.inventra_backend.catalog.domain.repository.ProductRepository;
 import com.inventra.inventra_backend.common.domain.exception.BusinessRuleViolationException;
 import com.inventra.inventra_backend.common.domain.exception.ResourceNotFoundException;
+import com.inventra.inventra_backend.identity.application.SecurityAuditService;
+import com.inventra.inventra_backend.identity.domain.model.SecurityAuditEventType;
 import com.inventra.inventra_backend.inventory.domain.model.InventoryBatch;
 import com.inventra.inventra_backend.inventory.domain.model.InventoryItem;
 import com.inventra.inventra_backend.inventory.domain.model.StockMovement;
@@ -62,6 +64,8 @@ public class SaleService {
     private final InventoryItemRepository inventoryItemRepository;
     private final InventoryBatchRepository inventoryBatchRepository;
     private final StockMovementRepository stockMovementRepository;
+    private final SecurityAuditService securityAuditService;
+    private final com.inventra.inventra_backend.tenant.domain.repository.BusinessRepository businessRepository;
 
     public SaleService(
         SaleRepository saleRepository,
@@ -73,7 +77,9 @@ public class SaleService {
         ProductRepository productRepository,
         InventoryItemRepository inventoryItemRepository,
         InventoryBatchRepository inventoryBatchRepository,
-        StockMovementRepository stockMovementRepository
+        StockMovementRepository stockMovementRepository,
+        SecurityAuditService securityAuditService,
+        com.inventra.inventra_backend.tenant.domain.repository.BusinessRepository businessRepository
     ) {
         this.saleRepository = saleRepository;
         this.saleLineRepository = saleLineRepository;
@@ -85,6 +91,8 @@ public class SaleService {
         this.inventoryItemRepository = inventoryItemRepository;
         this.inventoryBatchRepository = inventoryBatchRepository;
         this.stockMovementRepository = stockMovementRepository;
+        this.securityAuditService = securityAuditService;
+        this.businessRepository = businessRepository;
     }
 
     @Transactional
@@ -135,6 +143,9 @@ public class SaleService {
             request.idempotencyKey(),
             request.notes()
         );
+        if (request.customerId() != null) {
+            sale.setCustomerId(request.customerId());
+        }
 
         List<SaleLine> saleLines = new ArrayList<>();
         List<SaleLineBatchAllocation> allAllocations = new ArrayList<>();
@@ -146,7 +157,7 @@ public class SaleService {
             .sorted(Comparator.comparing(CreateSaleLineRequest::productId))
             .toList();
 
-        // Step 5: Process lines & allocate inventory
+        // Step 5: Process lines & allocate inventory with pessimistic write locks
         for (CreateSaleLineRequest lineReq : sortedLineReqs) {
             Product product = productRepository.findByIdAndBusinessId(lineReq.productId(), businessId)
                 .orElseThrow(() -> ResourceNotFoundException.forResource("Product", lineReq.productId()));
@@ -155,7 +166,8 @@ public class SaleService {
                 prescriptionRequiredOverall = true;
             }
 
-            InventoryItem item = inventoryItemRepository.findByStoreIdAndProductIdAndBusinessId(
+            // Pessimistic write lock on InventoryItem
+            InventoryItem item = inventoryItemRepository.findByStoreIdAndProductIdAndBusinessIdForUpdate(
                 store.getId(),
                 product.getId(),
                 businessId
@@ -164,7 +176,26 @@ public class SaleService {
                 "Product " + product.getName() + " has no inventory record in store " + store.getStoreName()
             ));
 
-            int conversionFactor = product.getUnitsPerSellingUnit() >= 1 ? product.getUnitsPerSellingUnit() : 1;
+            boolean isBaseUnitSale = false;
+            int unitsPerSellingUnit = product.getUnitsPerSellingUnit() >= 1 ? product.getUnitsPerSellingUnit() : 1;
+
+            if (lineReq.sellingUnit() != null && !lineReq.sellingUnit().isBlank()) {
+                String reqUnit = lineReq.sellingUnit().trim().toLowerCase();
+                String baseUnit = product.getBaseUnit() != null ? product.getBaseUnit().trim().toLowerCase() : "";
+                String sellingUnit = product.getSellingUnit() != null ? product.getSellingUnit().trim().toLowerCase() : "";
+
+                if (reqUnit.equalsIgnoreCase(baseUnit)
+                    || reqUnit.startsWith(baseUnit)
+                    || "loose".equals(reqUnit)
+                    || "unit".equals(reqUnit)
+                    || "base_unit".equals(reqUnit)) {
+                    isBaseUnitSale = true;
+                } else if (unitsPerSellingUnit > 1 && !reqUnit.equalsIgnoreCase(sellingUnit)) {
+                    isBaseUnitSale = true;
+                }
+            }
+
+            int conversionFactor = isBaseUnitSale ? 1 : unitsPerSellingUnit;
             BigDecimal baseQuantity = lineReq.quantity().multiply(BigDecimal.valueOf(conversionFactor))
                 .setScale(3, RoundingMode.HALF_UP);
 
@@ -183,8 +214,8 @@ public class SaleService {
                 BigDecimal remainingBaseQty = baseQuantity;
 
                 if (lineReq.batchId() != null) {
-                    // Explicit manual batch selection
-                    InventoryBatch batch = inventoryBatchRepository.findByIdAndBusinessId(lineReq.batchId(), businessId)
+                    // Explicit manual batch selection with pessimistic write lock
+                    InventoryBatch batch = inventoryBatchRepository.findByIdAndBusinessIdForUpdate(lineReq.batchId(), businessId)
                         .orElseThrow(() -> ResourceNotFoundException.forResource("InventoryBatch", lineReq.batchId()));
 
                     if (!batch.getStoreId().equals(store.getId()) || !batch.getProductId().equals(product.getId())) {
@@ -200,7 +231,21 @@ public class SaleService {
                         );
                     }
 
-                    lineUnitPrice = batch.getSellingPrice();
+                    BigDecimal fullSellingPrice = batch.getSellingPrice();
+                    lineUnitPrice = (isBaseUnitSale && unitsPerSellingUnit > 1)
+                        ? fullSellingPrice.divide(BigDecimal.valueOf(unitsPerSellingUnit), 2, RoundingMode.HALF_UP)
+                        : fullSellingPrice;
+
+                    BigDecimal allocSellingPrice = (isBaseUnitSale && unitsPerSellingUnit > 1)
+                        ? batch.getSellingPrice().divide(BigDecimal.valueOf(unitsPerSellingUnit), 2, RoundingMode.HALF_UP)
+                        : batch.getSellingPrice();
+                    BigDecimal allocMrp = (isBaseUnitSale && unitsPerSellingUnit > 1)
+                        ? batch.getMrp().divide(BigDecimal.valueOf(unitsPerSellingUnit), 2, RoundingMode.HALF_UP)
+                        : batch.getMrp();
+                    BigDecimal allocUnitCost = (isBaseUnitSale && unitsPerSellingUnit > 1)
+                        ? batch.getPurchasePrice().divide(BigDecimal.valueOf(unitsPerSellingUnit), 2, RoundingMode.HALF_UP)
+                        : batch.getPurchasePrice();
+
                     batch.adjustQuantity(baseQuantity.negate());
                     inventoryBatchRepository.save(batch);
 
@@ -214,16 +259,16 @@ public class SaleService {
                         batch.getBatchNumber(),
                         batch.getExpiryDate(),
                         baseQuantity,
-                        batch.getPurchasePrice(),
-                        batch.getMrp(),
-                        batch.getSellingPrice()
+                        allocUnitCost,
+                        allocMrp,
+                        allocSellingPrice
                     );
                     lineAllocations.add(alloc);
                     allAllocations.add(alloc);
 
                 } else {
-                    // Automated FEFO Allocation
-                    List<InventoryBatch> fefoBatches = inventoryBatchRepository.findFefoBatches(businessId, store.getId(), product.getId());
+                    // Automated FEFO Allocation with pessimistic write lock
+                    List<InventoryBatch> fefoBatches = inventoryBatchRepository.findFefoBatchesForUpdate(businessId, store.getId(), product.getId());
                     List<InventoryBatch> validBatches = fefoBatches.stream()
                         .filter(b -> !b.getExpiryDate().isBefore(LocalDate.now()))
                         .toList();
@@ -240,7 +285,10 @@ public class SaleService {
                     }
 
                     // Sourced price from primary/first FEFO batch
-                    lineUnitPrice = validBatches.get(0).getSellingPrice();
+                    BigDecimal fullSellingPrice = validBatches.get(0).getSellingPrice();
+                    lineUnitPrice = (isBaseUnitSale && unitsPerSellingUnit > 1)
+                        ? fullSellingPrice.divide(BigDecimal.valueOf(unitsPerSellingUnit), 2, RoundingMode.HALF_UP)
+                        : fullSellingPrice;
 
                     for (InventoryBatch batch : validBatches) {
                         if (remainingBaseQty.compareTo(BigDecimal.ZERO) <= 0) {
@@ -249,6 +297,16 @@ public class SaleService {
                         BigDecimal allocQty = remainingBaseQty.min(batch.getQuantity());
                         batch.adjustQuantity(allocQty.negate());
                         inventoryBatchRepository.save(batch);
+
+                        BigDecimal allocSellingPrice = (isBaseUnitSale && unitsPerSellingUnit > 1)
+                            ? batch.getSellingPrice().divide(BigDecimal.valueOf(unitsPerSellingUnit), 2, RoundingMode.HALF_UP)
+                            : batch.getSellingPrice();
+                        BigDecimal allocMrp = (isBaseUnitSale && unitsPerSellingUnit > 1)
+                            ? batch.getMrp().divide(BigDecimal.valueOf(unitsPerSellingUnit), 2, RoundingMode.HALF_UP)
+                            : batch.getMrp();
+                        BigDecimal allocUnitCost = (isBaseUnitSale && unitsPerSellingUnit > 1)
+                            ? batch.getPurchasePrice().divide(BigDecimal.valueOf(unitsPerSellingUnit), 2, RoundingMode.HALF_UP)
+                            : batch.getPurchasePrice();
 
                         SaleLineBatchAllocation alloc = new SaleLineBatchAllocation(
                             businessId,
@@ -260,9 +318,9 @@ public class SaleService {
                             batch.getBatchNumber(),
                             batch.getExpiryDate(),
                             allocQty,
-                            batch.getPurchasePrice(),
-                            batch.getMrp(),
-                            batch.getSellingPrice()
+                            allocUnitCost,
+                            allocMrp,
+                            allocSellingPrice
                         );
                         lineAllocations.add(alloc);
                         allAllocations.add(alloc);
@@ -276,6 +334,10 @@ public class SaleService {
                 inventoryItemRepository.save(item);
 
                 // Create SaleLine
+                String actualSellingUnit = lineReq.sellingUnit() != null && !lineReq.sellingUnit().isBlank()
+                    ? lineReq.sellingUnit().trim()
+                    : (isBaseUnitSale ? product.getBaseUnit() : product.getSellingUnit());
+
                 SaleLine line = new SaleLine(
                     businessId,
                     sale.getId(),
@@ -285,7 +347,7 @@ public class SaleService {
                     product.getGenericName(),
                     product.getDosageForm() != null ? product.getDosageForm().name() : null,
                     product.getStrength(),
-                    lineReq.sellingUnit() != null ? lineReq.sellingUnit() : product.getSellingUnit(),
+                    actualSellingUnit,
                     conversionFactor,
                     lineReq.quantity(),
                     lineUnitPrice,
@@ -336,9 +398,17 @@ public class SaleService {
 
             } else {
                 // Non-batch product
-                lineUnitPrice = BigDecimal.valueOf(10.00); // Default non-batch price if none configured
+                BigDecimal baseNonBatchPrice = BigDecimal.valueOf(10.00); // Default non-batch price if none configured
+                lineUnitPrice = (isBaseUnitSale && unitsPerSellingUnit > 1)
+                    ? baseNonBatchPrice.divide(BigDecimal.valueOf(unitsPerSellingUnit), 2, RoundingMode.HALF_UP)
+                    : baseNonBatchPrice;
+
                 item.adjustStock(baseQuantity.negate());
                 inventoryItemRepository.save(item);
+
+                String actualSellingUnit = lineReq.sellingUnit() != null && !lineReq.sellingUnit().isBlank()
+                    ? lineReq.sellingUnit().trim()
+                    : (isBaseUnitSale ? product.getBaseUnit() : product.getSellingUnit());
 
                 SaleLine line = new SaleLine(
                     businessId,
@@ -349,7 +419,7 @@ public class SaleService {
                     product.getGenericName(),
                     product.getDosageForm() != null ? product.getDosageForm().name() : null,
                     product.getStrength(),
-                    lineReq.sellingUnit() != null ? lineReq.sellingUnit() : product.getSellingUnit(),
+                    actualSellingUnit,
                     conversionFactor,
                     lineReq.quantity(),
                     lineUnitPrice,
@@ -408,10 +478,17 @@ public class SaleService {
 
         // Invariant: SUM(SUCCESS payments) == totalAmount
         if (sumSuccessPayments.compareTo(sale.getTotalAmount()) != 0) {
-            throw new BusinessRuleViolationException(
-                "PAYMENT_AMOUNT_MISMATCH",
-                "Total payments (" + sumSuccessPayments + ") do not match sale total amount (" + sale.getTotalAmount() + ")"
-            );
+            BigDecimal diff = sumSuccessPayments.subtract(sale.getTotalAmount()).abs();
+            if (diff.compareTo(new BigDecimal("0.05")) <= 0 && !sale.getLines().isEmpty()) {
+                BigDecimal adjustment = sumSuccessPayments.subtract(sale.getTotalAmount());
+                sale.setRoundOffAmount(sale.getRoundOffAmount().add(adjustment));
+                sale.recalculateTotals();
+            } else {
+                throw new BusinessRuleViolationException(
+                    "PAYMENT_AMOUNT_MISMATCH",
+                    "Total payments (" + sumSuccessPayments + ") do not match sale total amount (" + sale.getTotalAmount() + ")"
+                );
+            }
         }
 
         sale.recalculateTotals();
@@ -427,6 +504,16 @@ public class SaleService {
         for (SalePayment p : sale.getPayments()) {
             salePaymentRepository.save(p);
         }
+
+        securityAuditService.recordEvent(
+            cashierId,
+            businessId,
+            deviceId,
+            SecurityAuditEventType.SALE_COMPLETED,
+            null,
+            null,
+            "Sale completed: " + saleNumber + ", total: " + sale.getTotalAmount()
+        );
 
         return buildSaleResponse(businessId, savedSale);
     }
@@ -518,6 +605,17 @@ public class SaleService {
 
         sale.voidSale(userId, request.reason());
         Sale saved = saleRepository.save(sale);
+
+        securityAuditService.recordEvent(
+            userId,
+            businessId,
+            null,
+            SecurityAuditEventType.SALE_VOIDED,
+            null,
+            null,
+            "Sale voided: " + sale.getSaleNumber() + ", reason: " + request.reason()
+        );
+
         return buildSaleResponse(businessId, saved);
     }
 
@@ -541,7 +639,9 @@ public class SaleService {
         Sale sale = saleRepository.findByIdAndBusinessId(saleId, businessId)
             .orElseThrow(() -> ResourceNotFoundException.forResource("Sale", saleId));
         SaleResponse saleRes = buildSaleResponse(businessId, sale);
-        return ReceiptResponse.from(sale, saleRes.lines(), saleRes.payments());
+        var store = storeRepository.findByIdAndBusinessId(sale.getStoreId(), businessId).orElse(null);
+        var business = businessRepository.findById(businessId).orElse(null);
+        return ReceiptResponse.from(sale, saleRes.lines(), saleRes.payments(), store, business);
     }
 
     @Transactional(readOnly = true)

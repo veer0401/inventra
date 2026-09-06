@@ -80,8 +80,17 @@ public class PosSearchService {
         Map<UUID, InventoryItem> itemMap = items.stream()
             .collect(Collectors.toMap(InventoryItem::getProductId, it -> it, (a, b) -> a));
 
-        List<PosProductSearchResponse> responses = new ArrayList<>();
+        // Bulk query active, non-expired FEFO batches for all matched products in this store
         LocalDate today = LocalDate.now();
+        List<InventoryBatch> bulkBatches = inventoryBatchRepository.findFefoBatchesForProducts(businessId, storeId, productIds, today);
+
+        // Map primary FEFO batch per product preserving FEFO ordering
+        java.util.Map<UUID, InventoryBatch> fefoBatchMap = new java.util.HashMap<>();
+        for (InventoryBatch batch : bulkBatches) {
+            fefoBatchMap.putIfAbsent(batch.getProductId(), batch);
+        }
+
+        List<PosProductSearchResponse> responses = new ArrayList<>();
 
         for (Product product : products) {
             InventoryItem item = itemMap.get(product.getId());
@@ -94,9 +103,8 @@ public class PosSearchService {
             BigDecimal fefoMrp = null;
 
             if (isBatchTracked) {
-                List<InventoryBatch> activeBatches = inventoryBatchRepository.findFefoBatches(businessId, storeId, product.getId());
-                if (!activeBatches.isEmpty()) {
-                    InventoryBatch fefo = activeBatches.get(0);
+                InventoryBatch fefo = fefoBatchMap.get(product.getId());
+                if (fefo != null) {
                     fefoBatchNumber = fefo.getBatchNumber();
                     fefoExpiryDate = fefo.getExpiryDate();
                     fefoSellingPrice = fefo.getSellingPrice();
@@ -143,7 +151,12 @@ public class PosSearchService {
         BigDecimal fefoMrp = null;
 
         if (isBatchTracked) {
-            List<InventoryBatch> activeBatches = inventoryBatchRepository.findFefoBatches(businessId, storeId, product.getId());
+            List<InventoryBatch> activeBatches = inventoryBatchRepository.findFefoBatchesForProducts(
+                businessId,
+                storeId,
+                List.of(product.getId()),
+                LocalDate.now()
+            );
             if (!activeBatches.isEmpty()) {
                 InventoryBatch fefo = activeBatches.get(0);
                 fefoBatchNumber = fefo.getBatchNumber();

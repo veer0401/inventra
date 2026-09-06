@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Batch Expiry Alert - Inventra</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #0f172a;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrapper {
+      width: 100%;
+      table-layout: fixed;
+      background-color: #f1f5f9;
+      padding: 30px 10px;
+    }
+    .main-table {
+      background-color: #ffffff;
+      margin: 0 auto;
+      max-width: 640px;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+      border: 1px solid #e2e8f0;
+    }
+    .header {
+      background: linear-gradient(135deg, #991b1b 0%, #dc2626 50%, #ea580c 100%);
+      padding: 32px 30px;
+      text-align: left;
+    }
+    .brand {
+      color: #ffffff;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin: 0;
+    }
+    .brand-badge {
+      display: inline-block;
+      background-color: rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      margin-left: 8px;
+      vertical-align: middle;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .header-sub {
+      color: #fecaca;
+      font-size: 13px;
+      margin-top: 6px;
+    }
+    .content {
+      padding: 36px 32px;
+    }
+    .greeting {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-top: 0;
+      margin-bottom: 12px;
+    }
+    .lead-text {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #475569;
+      margin-bottom: 24px;
+    }
+    .table-container {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 24px;
+      font-size: 12px;
+    }
+    .table-container th {
+      background-color: #f8fafc;
+      color: #475569;
+      font-weight: 600;
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 2px solid #e2e8f0;
+      text-transform: uppercase;
+      font-size: 10px;
+      letter-spacing: 0.5px;
+    }
+    .table-container td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #f1f5f9;
+      color: #1e293b;
+      vertical-align: middle;
+    }
+    .badge-critical {
+      background-color: #fee2e2;
+      color: #b91c1c;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+    }
+    .badge-warning {
+      background-color: #fef3c7;
+      color: #b45309;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+    }
+    .btn-container {
+      text-align: center;
+      margin: 32px 0 24px;
+    }
+    .btn {
+      display: inline-block;
+      background: #dc2626;
+      color: #ffffff !important;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+      padding: 13px 28px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25);
+    }
+    .footer {
+      background-color: #f8fafc;
+      padding: 24px 32px;
+      border-top: 1px solid #e2e8f0;
+      text-align: center;
+      font-size: 12px;
+      color: #94a3b8;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <table class="main-table" width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td class="header">
+          <div class="brand">
+            Inventra <span class="brand-badge">Inventory Risk Alert</span>
+          </div>
+          <div class="header-sub">Automated FEFO Expiry Surveillance</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="content">
+          <h2 class="greeting">Expiry Risk Notice: <span th:text="${storeName}">Store Branch</span></h2>
+          <p class="lead-text">
+            Our automated surveillance system detected <strong th:text="${batchCount}">0</strong> medicine batch(es) nearing expiration at <strong><span th:text="${storeName}">Your Store</span></strong>. Please review them promptly to prioritize FEFO sales dispensing, supplier return, or quarantine:
+          </p>
+
+          <table class="table-container" width="100%">
+            <thead>
+              <tr>
+                <th>Medicine / Product</th>
+                <th>Batch #</th>
+                <th>Expiry</th>
+                <th>Remaining</th>
+                <th>Stock Qty</th>
+                <th>Severity</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr th:each="b : ${batches}">
+                <td style="font-weight: 600;" th:text="${b.productName}">Paracetamol 500mg</td>
+                <td style="font-family: monospace;" th:text="${b.batchNumber}">BATCH-1029</td>
+                <td th:text="${b.expiryDate}">2026-10-15</td>
+                <td th:text="${b.daysRemaining} + ' days'">28 days</td>
+                <td style="font-weight: 600;" th:text="${b.quantityOnHand}">120</td>
+                <td>
+                  <span th:if="${b.daysRemaining <= 30}" class="badge-critical">CRITICAL</span>
+                  <span th:if="${b.daysRemaining > 30}" class="badge-warning">WARNING</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="btn-container">
+            <a th:href="${inventoryUrl}" class="btn" target="_blank">Manage Batches in Inventra</a>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td class="footer">
+          &copy; <span th:text="${#calendars.format(#calendars.createNow(), 'yyyy')}">2026</span> Inventra Systems Inc. All rights reserved.<br>
+          Automated Pharmacy Quality & Patient Safety System.
+        </td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>

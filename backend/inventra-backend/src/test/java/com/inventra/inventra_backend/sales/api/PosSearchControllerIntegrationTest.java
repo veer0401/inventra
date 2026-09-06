@@ -177,4 +177,78 @@ class PosSearchControllerIntegrationTest {
             .andExpect(jsonPath("$.data.content", hasSize(1)))
             .andExpect(jsonPath("$.data.content[0].name").value("Crocin 650 Advance"));
     }
+
+    @Test
+    @Transactional
+    @DisplayName("Bulk POS search over multiple products correctly selects FEFO batch and excludes expired batches")
+    void testSearchMultipleProductsWithBulkFefoAndExpiredBatches() throws Exception {
+        // Create second product matching generic "Paracetamol"
+        Product dolo = productRepository.save(new Product(
+            businessId,
+            null, null,
+            "Dolo 650mg",
+            "Paracetamol",
+            "Dolo",
+            "Micro Labs",
+            DosageForm.TABLET,
+            "650mg",
+            "TABLET",
+            "STRIP",
+            15,
+            "30049099",
+            new BigDecimal("12.00"),
+            true,
+            false
+        ));
+
+        InventoryItem doloItem = inventoryItemRepository.save(new InventoryItem(businessId, storeId, dolo.getId(), null, null, null, null, null, true));
+        doloItem.adjustStock(new BigDecimal("80.000"));
+        inventoryItemRepository.save(doloItem);
+
+        // Add expired batch to Dolo (should be skipped by FEFO query)
+        InventoryBatch doloExpired = new InventoryBatch(
+            businessId,
+            storeId,
+            dolo.getId(),
+            doloItem.getId(),
+            "DOLO-EXP",
+            LocalDate.now().minusMonths(6),
+            LocalDate.now().minusDays(5),
+            new BigDecimal("30.000"),
+            new BigDecimal("15.00"),
+            new BigDecimal("25.00"),
+            new BigDecimal("22.00")
+        );
+        inventoryBatchRepository.save(doloExpired);
+
+        // Add valid active batch to Dolo
+        InventoryBatch doloValid = new InventoryBatch(
+            businessId,
+            storeId,
+            dolo.getId(),
+            doloItem.getId(),
+            "DOLO-ACTIVE-01",
+            LocalDate.now().minusMonths(1),
+            LocalDate.now().plusMonths(8),
+            new BigDecimal("50.000"),
+            new BigDecimal("16.00"),
+            new BigDecimal("28.00"),
+            new BigDecimal("25.00")
+        );
+        inventoryBatchRepository.save(doloValid);
+
+        // Search by generic composition "Paracetamol" -> returns both Crocin and Dolo
+        mockMvc.perform(get("/api/v1/pos/products/search")
+                .header("Authorization", "Bearer " + cashierToken)
+                .param("q", "Paracetamol")
+                .contentType(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.success").value(true))
+            .andExpect(jsonPath("$.data.content", hasSize(2)))
+            // Verify Crocin FEFO is BATCH-001
+            .andExpect(jsonPath("$.data.content[?(@.name == 'Crocin 650 Advance')].fefoBatchNumber").value("BATCH-001"))
+            // Verify Dolo FEFO is DOLO-ACTIVE-01 (skipping expired DOLO-EXP)
+            .andExpect(jsonPath("$.data.content[?(@.name == 'Dolo 650mg')].fefoBatchNumber").value("DOLO-ACTIVE-01"))
+            .andExpect(jsonPath("$.data.content[?(@.name == 'Dolo 650mg')].fefoSellingPrice").value(25.0));
+    }
 }

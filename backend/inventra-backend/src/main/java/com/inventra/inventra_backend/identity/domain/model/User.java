@@ -35,6 +35,10 @@ public class User extends BaseAuditableEntity {
     @Column(name = "status", nullable = false, length = 30)
     private AccountStatus status = AccountStatus.ACTIVE;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "platform_role", length = 50)
+    private Role platformRole;
+
     @Column(name = "email_verified", nullable = false)
     private boolean emailVerified = false;
 
@@ -50,10 +54,18 @@ public class User extends BaseAuditableEntity {
         this.phoneNumber = phoneNumber != null ? phoneNumber.trim() : null;
         this.status = AccountStatus.ACTIVE;
         this.emailVerified = false;
+        this.platformRole = null;
     }
 
     public static User create(String email, String passwordHash, String fullName, String phoneNumber) {
         return new User(UuidUtils.newUuid7(), email, passwordHash, fullName, phoneNumber);
+    }
+
+    public static User createPlatformAdmin(String email, String passwordHash, String fullName) {
+        User user = new User(UuidUtils.newUuid7(), email, passwordHash, fullName, null);
+        user.setPlatformRole(Role.PLATFORM_ADMIN);
+        user.setEmailVerified(true);
+        return user;
     }
 
     public UUID getId() {
@@ -112,6 +124,18 @@ public class User extends BaseAuditableEntity {
 
     public void setStatus(AccountStatus status) {
         this.status = Objects.requireNonNull(status, "Status cannot be null");
+    }
+
+    public Role getPlatformRole() {
+        return platformRole;
+    }
+
+    public void setPlatformRole(Role platformRole) {
+        this.platformRole = platformRole;
+    }
+
+    public boolean isPlatformAdmin() {
+        return this.platformRole == Role.PLATFORM_ADMIN;
     }
 
     public boolean isEmailVerified() {

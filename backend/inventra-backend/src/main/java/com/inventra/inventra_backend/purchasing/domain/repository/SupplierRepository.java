@@ -18,6 +18,10 @@ public interface SupplierRepository extends JpaRepository<Supplier, UUID> {
 
     boolean existsByBusinessIdAndSupplierCodeIgnoreCase(UUID businessId, String supplierCode);
 
+    Optional<Supplier> findByBusinessIdAndGstin(UUID businessId, String gstin);
+
+    Optional<Supplier> findByBusinessIdAndTradeNameIgnoreCase(UUID businessId, String tradeName);
+
     Page<Supplier> findByBusinessId(UUID businessId, Pageable pageable);
 
     Page<Supplier> findByBusinessIdAndStatus(UUID businessId, SupplierStatus status, Pageable pageable);

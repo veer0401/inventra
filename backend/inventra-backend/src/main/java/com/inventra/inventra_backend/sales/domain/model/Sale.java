@@ -50,6 +50,9 @@ public class Sale extends BaseAuditableEntity {
     @Column(name = "sale_date", nullable = false)
     private LocalDate saleDate;
 
+    @Column(name = "customer_id")
+    private UUID customerId;
+
     @Column(name = "customer_name", length = 150)
     private String customerName;
 
@@ -255,6 +258,8 @@ public class Sale extends BaseAuditableEntity {
     public String getInvoiceNumber() { return invoiceNumber; }
     public SaleStatus getStatus() { return status; }
     public LocalDate getSaleDate() { return saleDate; }
+    public UUID getCustomerId() { return customerId; }
+    public void setCustomerId(UUID customerId) { this.customerId = customerId; }
     public String getCustomerName() { return customerName; }
     public String getCustomerPhone() { return customerPhone; }
     public boolean isPrescriptionRequired() { return prescriptionRequired; }
@@ -262,6 +267,9 @@ public class Sale extends BaseAuditableEntity {
     public BigDecimal getTaxAmount() { return taxAmount; }
     public BigDecimal getDiscountAmount() { return discountAmount; }
     public BigDecimal getRoundOffAmount() { return roundOffAmount; }
+    public void setRoundOffAmount(BigDecimal roundOffAmount) {
+        this.roundOffAmount = roundOffAmount != null ? roundOffAmount.setScale(4, RoundingMode.HALF_UP) : BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
+    }
     public BigDecimal getTotalAmount() { return totalAmount; }
     public BigDecimal getPaidAmount() { return paidAmount; }
     public BigDecimal getChangeAmount() { return changeAmount; }

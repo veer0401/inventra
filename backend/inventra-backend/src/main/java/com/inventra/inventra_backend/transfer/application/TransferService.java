@@ -515,8 +515,9 @@ public class TransferService {
                     );
                 }
 
-                // Deterministic destination batch lookup using (store_id, product_id, batch_number)
-                Optional<InventoryBatch> destBatchOpt = inventoryBatchRepository.findByStoreIdAndProductIdAndBatchNumber(
+                // Deterministic destination batch lookup using (business_id, store_id, product_id, batch_number)
+                Optional<InventoryBatch> destBatchOpt = inventoryBatchRepository.findByBusinessIdAndStoreIdAndProductIdAndBatchNumber(
+                    businessId,
                     destStore.getId(),
                     alloc.getProductId(),
                     alloc.getBatchNumber()

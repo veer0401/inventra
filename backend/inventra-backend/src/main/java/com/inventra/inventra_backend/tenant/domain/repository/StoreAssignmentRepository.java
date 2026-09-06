@@ -20,4 +20,10 @@ public interface StoreAssignmentRepository extends JpaRepository<StoreAssignment
     Optional<StoreAssignment> findByBusinessMembershipIdAndIsPrimaryStoreTrue(UUID businessMembershipId);
 
     List<StoreAssignment> findByBusinessIdAndStatus(UUID businessId, AssignmentStatus status);
+
+    long countByStoreIdAndStatus(UUID storeId, AssignmentStatus status);
+
+    long countByStoreId(UUID storeId);
 }
+
+

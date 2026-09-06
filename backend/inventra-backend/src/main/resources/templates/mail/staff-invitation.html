@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>You're Invited to Inventra</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #0f172a;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrapper {
+      width: 100%;
+      table-layout: fixed;
+      background-color: #f1f5f9;
+      padding: 30px 10px;
+    }
+    .main-table {
+      background-color: #ffffff;
+      margin: 0 auto;
+      max-width: 580px;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+      border: 1px solid #e2e8f0;
+    }
+    .header {
+      background: linear-gradient(135deg, #312e81 0%, #4338ca 50%, #6366f1 100%);
+      padding: 32px 30px;
+      text-align: left;
+    }
+    .brand {
+      color: #ffffff;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin: 0;
+    }
+    .brand-badge {
+      display: inline-block;
+      background-color: rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      margin-left: 8px;
+      vertical-align: middle;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .header-sub {
+      color: #c7d2fe;
+      font-size: 13px;
+      margin-top: 6px;
+    }
+    .content {
+      padding: 36px 32px;
+    }
+    .greeting {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-top: 0;
+      margin-bottom: 12px;
+    }
+    .lead-text {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #475569;
+      margin-bottom: 24px;
+    }
+    .card-info {
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 18px 20px;
+      margin-bottom: 28px;
+    }
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      font-size: 13px;
+      border-bottom: 1px dashed #e2e8f0;
+    }
+    .info-row:last-child {
+      border-bottom: none;
+    }
+    .info-label {
+      color: #64748b;
+      font-weight: 500;
+    }
+    .info-value {
+      color: #0f172a;
+      font-weight: 600;
+      text-align: right;
+    }
+    .btn-container {
+      text-align: center;
+      margin: 32px 0 24px;
+    }
+    .btn {
+      display: inline-block;
+      background: #4f46e5;
+      color: #ffffff !important;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+      padding: 13px 28px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
+    }
+    .btn:hover {
+      background: #4338ca;
+    }
+    .disclaimer {
+      font-size: 12px;
+      color: #64748b;
+      line-height: 1.5;
+      background-color: #f8fafc;
+      padding: 12px 16px;
+      border-radius: 8px;
+      border-left: 3px solid #6366f1;
+      margin-bottom: 24px;
+    }
+    .fallback-url {
+      font-size: 11px;
+      color: #94a3b8;
+      word-break: break-all;
+      line-height: 1.4;
+    }
+    .fallback-url a {
+      color: #4f46e5;
+      text-decoration: underline;
+    }
+    .footer {
+      background-color: #f8fafc;
+      padding: 24px 32px;
+      border-top: 1px solid #e2e8f0;
+      text-align: center;
+      font-size: 12px;
+      color: #94a3b8;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <table class="main-table" width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td class="header">
+          <div class="brand">
+            Inventra <span class="brand-badge">Pharmacy ERP</span>
+          </div>
+          <div class="header-sub">Team Member Invitation & Access Provisioning</div>
+        </td>
+      </tr>
+      <tr>
+        <td class="content">
+          <h2 class="greeting">Welcome to the Team!</h2>
+          <p class="lead-text">
+            You have been invited by <strong th:text="${businessName}">Pharmacy Name</strong> to join their pharmacy operations on <strong>Inventra</strong>.
+          </p>
+
+          <div class="card-info">
+            <div class="info-row">
+              <span class="info-label">Pharmacy Organization:</span>
+              <span class="info-value" th:text="${businessName}">Pharmacy Organization</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Designated Role:</span>
+              <span class="info-value" th:text="${role}">Pharmacist</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Assigned Branch:</span>
+              <span class="info-value" th:text="${storeName}">Main Branch</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Invitation Validity:</span>
+              <span class="info-value" th:text="${expiresDays} + ' Days'">7 Days</span>
+            </div>
+          </div>
+
+          <div class="btn-container">
+            <a th:href="${activationUrl}" class="btn" target="_blank">Activate Account & Set Password</a>
+          </div>
+
+          <div class="disclaimer">
+            <strong>Security Notice:</strong> This activation link is unique to your email address and can only be used once. Please complete your profile and set a secure password within <span th:text="${expiresDays}">7</span> days.
+          </div>
+
+          <div class="fallback-url">
+            If the button above does not work, copy and paste this URL into your browser:<br>
+            <a th:href="${activationUrl}" th:text="${activationUrl}">https://inventra.app/activate?token=...</a>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td class="footer">
+          &copy; <span th:text="${#calendars.format(#calendars.createNow(), 'yyyy')}">2026</span> Inventra Systems Inc. All rights reserved.<br>
+          Cloud-Native Pharmacy ERP, POS & Inventory Management Platform.
+        </td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>

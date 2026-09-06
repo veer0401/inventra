@@ -17,6 +17,8 @@ import com.inventra.inventra_backend.purchasing.domain.repository.SupplierReposi
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
+import com.inventra.inventra_backend.sync.domain.model.SyncChangeOperation;
+import com.inventra.inventra_backend.sync.infrastructure.ChangeFeedPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,15 +29,18 @@ public class SupplierService {
     private final SupplierRepository supplierRepository;
     private final SupplierProductRepository supplierProductRepository;
     private final ProductRepository productRepository;
+    private final ChangeFeedPublisher changeFeedPublisher;
 
     public SupplierService(
         SupplierRepository supplierRepository,
         SupplierProductRepository supplierProductRepository,
-        ProductRepository productRepository
+        ProductRepository productRepository,
+        ChangeFeedPublisher changeFeedPublisher
     ) {
         this.supplierRepository = supplierRepository;
         this.supplierProductRepository = supplierProductRepository;
         this.productRepository = productRepository;
+        this.changeFeedPublisher = changeFeedPublisher;
     }
 
     @Transactional
@@ -71,7 +76,10 @@ public class SupplierService {
         );
 
         Supplier saved = supplierRepository.save(supplier);
-        return SupplierResponse.from(saved);
+        SupplierResponse response = SupplierResponse.from(saved);
+        changeFeedPublisher.publish(businessId, null, "SUPPLIER", saved.getId(), SyncChangeOperation.UPSERT, 1, response);
+
+        return response;
     }
 
     @Transactional
@@ -101,7 +109,10 @@ public class SupplierService {
         );
 
         Supplier saved = supplierRepository.save(supplier);
-        return SupplierResponse.from(saved);
+        SupplierResponse response = SupplierResponse.from(saved);
+        changeFeedPublisher.publish(businessId, null, "SUPPLIER", saved.getId(), SyncChangeOperation.UPSERT, 1, response);
+
+        return response;
     }
 
     @Transactional(readOnly = true)
