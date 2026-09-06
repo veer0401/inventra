@@ -36,6 +36,7 @@ import { AdminSubscriptionPage } from "./pages/admin/AdminSubscriptionPage";
 import { AdminStoreDetailPage } from "./pages/admin/AdminStoreDetailPage";
 import { AdminCmsPage } from "./pages/admin/AdminCmsPage";
 import { AdminCareersPage } from "./pages/admin/AdminCareersPage";
+import { AdminGlobalMedicinesPage } from "./pages/admin/AdminGlobalMedicinesPage";
 
 // Public Marketing Pages
 import { MarketingLayout } from "./pages/marketing/MarketingLayout";
@@ -50,6 +51,8 @@ import { PricingPlansPage } from "./pages/marketing/PricingPlansPage";
 
 // Catalog Module Pages (Phase F3)
 import { CatalogPage } from "./pages/catalog/CatalogPage";
+import { GlobalMedicinesDirectoryPage } from "./pages/catalog/GlobalMedicinesDirectoryPage";
+import { GlobalMedicineGuidePage } from "./pages/catalog/GlobalMedicineGuidePage";
 import { ProductDetailPage } from "./pages/catalog/ProductDetailPage";
 import { ProductCreatePage } from "./pages/catalog/ProductCreatePage";
 import { ProductEditPage } from "./pages/catalog/ProductEditPage";
@@ -107,6 +110,7 @@ import { ImportReviewPage } from "./pages/imports/ImportReviewPage";
 
 // Reports & Regulatory Analytics Pages
 import { ReportsPage } from "./pages/reports/ReportsPage";
+import { OperationsGuidePage } from "./pages/guide/OperationsGuidePage";
 
 // Placeholder Components for Future Phases
 import { ModulePlaceholderPage } from "./pages/modules/ModulePlaceholderPage";
@@ -222,6 +226,7 @@ export const App: React.FC<AppProps> = ({ runtime }) => {
             >
               <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
               <Route path="/admin/applications" element={<OnboardingApplicationsPage />} />
+              <Route path="/admin/medicines" element={<AdminGlobalMedicinesPage />} />
               <Route path="/admin/subscriptions" element={<AdminSubscriptionPage />} />
               <Route path="/admin/subscriptions/:businessId" element={<AdminStoreDetailPage />} />
               <Route path="/admin/careers" element={<AdminCareersPage />} />
@@ -265,6 +270,8 @@ export const App: React.FC<AppProps> = ({ runtime }) => {
 
               {/* Product Catalog & Master Data (Phase F3 - Live) */}
               <Route path="/catalog" element={<CatalogPage />} />
+              <Route path="/catalog/global" element={<GlobalMedicinesDirectoryPage />} />
+              <Route path="/catalog/global/guide" element={<GlobalMedicineGuidePage />} />
               <Route path="/catalog/products/new" element={<ProductCreatePage />} />
               <Route path="/catalog/products/:productId" element={<ProductDetailPage />} />
               <Route path="/catalog/products/:productId/edit" element={<ProductEditPage />} />
@@ -327,6 +334,9 @@ export const App: React.FC<AppProps> = ({ runtime }) => {
 
               {/* Reports & Analytics */}
               <Route path="/reports" element={<ReportsPage />} />
+
+              {/* Functional Operations Guide (Whole Website) */}
+              <Route path="/guide" element={<OperationsGuidePage />} />
             </Route>
 
             {/* Fallback */}

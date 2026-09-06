@@ -56,6 +56,12 @@
     --info-subtle: #F0F9FF;
     --info-fg: #075985;
     --info-border: #BAE6FD;
+
+    /* Theme-Integrated Scrollbars (Light Mode) */
+    color-scheme: light;
+    --scrollbar-track: transparent;
+    --scrollbar-thumb: #CBD5E1;
+    --scrollbar-thumb-hover: #94A3B8;
   }
 
   .dark {
@@ -106,6 +112,41 @@
     --info-subtle: rgba(12, 74, 110, 0.4);
     --info-fg: #38BDF8;
     --info-border: #075985;
+
+    /* Theme-Integrated Scrollbars (Dark Mode) */
+    color-scheme: dark;
+    --scrollbar-track: transparent;
+    --scrollbar-thumb: #334155;
+    --scrollbar-thumb-hover: #475569;
+  }
+
+  /* Theme-integrated Scrollbars (Universal Standard & WebKit) */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb);
+    border-radius: 9999px;
+    transition: background-color 0.15s ease-in-out;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover);
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
   }
 
   html,
@@ -174,3 +215,22 @@ button, a, input, select, textarea, [role="button"] {
   app-region: no-drag;
   -webkit-app-region: no-drag;
 }
+
+@layer utilities {
+  /* Hide scrollbar while preserving scrollability */
+  .no-scrollbar::-webkit-scrollbar,
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar,
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Prevent layout jump when scrollbars appear/disappear */
+  .scrollbar-gutter-stable {
+    scrollbar-gutter: stable;
+  }
+}
+

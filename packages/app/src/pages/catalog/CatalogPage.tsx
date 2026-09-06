@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Plus, Layers, AlertTriangle } from "lucide-react";
+import { Plus, Layers, AlertTriangle, Globe } from "lucide-react";
 import { Button, Alert, EmptyState, Pagination } from "@inventra/ui";
 import { ProductTable } from "../../components/catalog/ProductTable";
 import { ProductSearch } from "../../components/catalog/ProductSearch";
 import { CategoryManagementModal } from "../../components/catalog/CategoryManagementModal";
+import { GlobalMedicineHelpModal } from "../../components/catalog/GlobalMedicineHelpModal";
 import { catalogApi } from "../../services/catalogApi";
 import { useAuthStore } from "../../stores/authStore";
 
@@ -86,6 +87,16 @@ export const CatalogPage: React.FC = () => {
         <div className="flex items-center gap-2">
           {canManage && (
             <>
+              <GlobalMedicineHelpModal />
+              <Link to="/catalog/global">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  leftIcon={<Globe className="h-4 w-4 text-primary" />}
+                >
+                  Global Medicines
+                </Button>
+              </Link>
               <Button
                 variant="outline"
                 size="sm"

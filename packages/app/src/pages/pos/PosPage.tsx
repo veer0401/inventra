@@ -25,6 +25,7 @@ import { useShortcutStore } from "../../stores/shortcutStore";
 import { PosCheckoutModal } from "../../components/pos/PosCheckoutModal";
 import { PosSaleSuccessModal } from "../../components/pos/PosSaleSuccessModal";
 import { CustomerSelectModal } from "../../components/customers/CustomerSelectModal";
+import { ContextualHelpModal } from "../../components/common/ContextualHelpModal";
 import { formatCurrency } from "../../utils/formatters";
 import { User, X } from "lucide-react";
 
@@ -188,11 +189,14 @@ export const PosPage: React.FC = () => {
 
         {/* Action Controls */}
         <div className="flex items-center gap-2">
+          <ContextualHelpModal topic="pos" />
+
           <Button
             variant="ghost"
             size="sm"
             onClick={() => setShortcutHelpOpen(true)}
             className="text-xs text-muted gap-1"
+            title="Keyboard Shortcuts"
           >
             <HelpCircle className="h-4 w-4" />
             <ShortcutHint shortcut="?" />

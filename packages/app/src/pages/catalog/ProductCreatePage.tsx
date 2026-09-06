@@ -1,19 +1,28 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { Button, useToast } from "@inventra/ui";
 import { ProductForm } from "../../components/catalog/ProductForm";
 import { catalogApi } from "../../services/catalogApi";
+import { globalMedicineApi } from "../../services/globalMedicineApi";
 import { useAuthStore } from "../../stores/authStore";
 import type { CreateProductInput } from "@inventra/validation";
 
 export const ProductCreatePage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const globalId = searchParams.get("globalId");
   const toast = useToast();
   const queryClient = useQueryClient();
   const activeContext = useAuthStore((state) => state.activeContext);
   const businessId = activeContext?.businessId;
+
+  const { data: globalMed, isLoading: isGlobalLoading } = useQuery({
+    queryKey: ["global-medicine-prefetch", globalId],
+    queryFn: () => globalMedicineApi.getGlobalMedicine(globalId!),
+    enabled: Boolean(globalId),
+  });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -27,6 +36,7 @@ export const ProductCreatePage: React.FC = () => {
       );
 
       const created = await catalogApi.createProduct({
+        globalProductId: data.globalProductId || undefined,
         name: data.name.trim(),
         genericName: data.genericName?.trim() || undefined,
         brandName: data.brandName?.trim() || undefined,
@@ -81,12 +91,58 @@ export const ProductCreatePage: React.FC = () => {
         </p>
       </div>
 
-      <ProductForm
-        onSubmit={handleSubmit}
-        isSubmitting={isSubmitting}
-        serverError={serverError}
-        onCancel={() => navigate("/catalog")}
-      />
+      {isGlobalLoading ? (
+        <div className="py-20 flex flex-col items-center justify-center text-muted gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <span className="text-sm font-medium">Loading global medicine formulation...</span>
+        </div>
+      ) : (
+        <ProductForm
+          key={globalMed ? globalMed.id : "new"}
+          initialData={
+            globalMed
+              ? {
+                  id: "",
+                  businessId: businessId || "",
+                  categoryId: "",
+                  globalProductId: globalMed.id,
+                  name: globalMed.name,
+                  genericName: globalMed.genericName,
+                  brandName: globalMed.brandName || "",
+                  manufacturer: globalMed.manufacturer || "",
+                  dosageForm: globalMed.dosageForm,
+                  strength: globalMed.strength || "",
+                  baseUnit: globalMed.baseUnit,
+                  sellingUnit: globalMed.sellingUnit,
+                  unitsPerSellingUnit: globalMed.unitsPerSellingUnit,
+                  hsnCode: globalMed.hsnCode || "",
+                  taxRate: globalMed.taxRate,
+                  isTaxInclusive: true,
+                  prescriptionRequired: globalMed.prescriptionRequired,
+                  status: "ACTIVE",
+                  identifiers: globalMed.barcode
+                    ? [
+                        {
+                          id: "",
+                          productId: "",
+                          identifierType: "BARCODE",
+                          identifierValue: globalMed.barcode,
+                          isPrimary: true,
+                          createdAt: "",
+                        },
+                      ]
+                    : [],
+                  createdAt: "",
+                  updatedAt: "",
+                }
+              : undefined
+          }
+          onSubmit={handleSubmit}
+          isSubmitting={isSubmitting}
+          serverError={serverError}
+          onCancel={() => navigate("/catalog")}
+        />
+      )}
     </div>
   );
 };

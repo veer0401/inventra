@@ -1,5 +1,6 @@
 import React from "react";
-import { Menu, Store, Shield, WifiOff, Search } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Menu, Store, Shield, WifiOff, Search, HelpCircle } from "lucide-react";
 import { useAuthStore } from "../../stores/authStore";
 import { useShortcutStore } from "../../stores/shortcutStore";
 import { ShortcutHint } from "@inventra/ui";
@@ -67,6 +68,16 @@ export const TopBar: React.FC<TopBarProps> = ({ onToggleSidebar, onOpenContextSw
 
       {/* Center/Right Area: Command Palette Affordance, Status, User Menu */}
       <div className="flex items-center gap-3">
+        {/* Operations & User Guide */}
+        <Link
+          to="/guide"
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-subtle bg-surface-muted hover:bg-surface-elevated text-secondary hover:text-primary transition-all text-xs focus:outline-none focus:ring-2 focus:ring-focus"
+          title="Open Pharmacy Operations & Site Guide"
+        >
+          <HelpCircle className="h-3.5 w-3.5 text-accent shrink-0" />
+          <span className="hidden sm:inline font-medium">Guide</span>
+        </Link>
+
         {/* Quick Command Palette Button */}
         <button
           type="button"

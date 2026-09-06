@@ -21,6 +21,11 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
 
     Optional<Product> findByBusinessIdAndNameIgnoreCase(UUID businessId, String name);
 
+    Optional<Product> findByBusinessIdAndGlobalProductId(UUID businessId, UUID globalProductId);
+
+    @Query("SELECT p.globalProductId FROM Product p WHERE p.businessId = :businessId AND p.globalProductId IS NOT NULL")
+    java.util.List<UUID> findImportedGlobalProductIds(@Param("businessId") UUID businessId);
+
     @Query("""
         SELECT DISTINCT p FROM Product p
         LEFT JOIN ProductIdentifier pi ON pi.productId = p.id AND pi.businessId = p.businessId

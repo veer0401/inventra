@@ -273,6 +273,9 @@ export const PurchaseOrderCreatePage: React.FC = () => {
                   </option>
                 ))}
               </Select>
+              <p className="text-[11px] text-muted mt-1">
+                The registered distributor or pharma company supplying this order.
+              </p>
             </div>
 
             {/* Order Date */}
@@ -286,6 +289,9 @@ export const PurchaseOrderCreatePage: React.FC = () => {
                 onChange={(e) => setOrderDate(e.target.value)}
                 className="h-9 text-xs"
               />
+              <p className="text-[11px] text-muted mt-1">
+                Date you send this purchase requirement.
+              </p>
             </div>
 
             {/* Expected Delivery Date */}
@@ -299,6 +305,9 @@ export const PurchaseOrderCreatePage: React.FC = () => {
                 onChange={(e) => setExpectedDeliveryDate(e.target.value)}
                 className="h-9 text-xs"
               />
+              <p className="text-[11px] text-muted mt-1">
+                Estimated arrival date at your pharmacy loading dock.
+              </p>
             </div>
           </div>
         </Card>
@@ -476,14 +485,19 @@ export const PurchaseOrderCreatePage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Notes */}
           <Card className="p-4 border-subtle space-y-2">
-            <label className="block text-xs font-medium text-secondary">
-              Purchase Order Notes / Instructions
-            </label>
+            <div>
+              <label className="block text-xs font-medium text-secondary">
+                Purchase Order Notes / Instructions
+              </label>
+              <p className="text-[11px] text-muted mb-2">
+                Provide instructions for the vendor (transporter details, cold chain delivery alerts, payment terms).
+              </p>
+            </div>
             <textarea
               rows={3}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Delivery instructions, payment terms, or vendor references..."
+              placeholder="e.g. Please deliver via cold chain van before Friday. Bill to HQ GSTIN."
               className="w-full p-2.5 rounded-md border border-subtle bg-surface text-xs text-primary focus:outline-none focus:ring-2 focus:ring-focus resize-none"
             />
           </Card>

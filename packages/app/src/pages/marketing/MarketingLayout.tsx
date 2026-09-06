@@ -1,5 +1,5 @@
-import React from "react";
-import { Link, NavLink, Outlet } from "react-router-dom";
+import React, { useState } from "react";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuthStore } from "../../stores/authStore";
 import {
   ShieldCheck,
@@ -10,49 +10,60 @@ import {
   MapPin,
   Layers,
   Award,
+  Menu,
+  X,
 } from "lucide-react";
 import { BrandLogo } from "../../components/common/BrandLogo";
 
 export const MarketingLayout: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
   const isAuthenticated = useAuthStore((s) => s.status === "AUTHENTICATED");
   const user = useAuthStore((s) => s.user);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const location = useLocation();
+
+  // Close mobile menu on route navigation
+  React.useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
+
+  const navLinks = [
+    { to: "/", label: "Home" },
+    { to: "/features", label: "Features" },
+    { to: "/plans", label: "Plans & Pricing" },
+    { to: "/about", label: "About Us" },
+    { to: "/careers", label: "Careers" },
+  ];
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 selection:bg-teal-500 selection:text-white font-sans overflow-x-hidden">
       {/* ─── Top Announcement Bar ─────────────────────────────────────────── */}
-      <div className="bg-gradient-to-r from-teal-900/80 via-emerald-900/80 to-teal-900/80 border-b border-teal-500/20 px-4 py-2 text-center text-xs font-medium text-teal-200 flex items-center justify-center gap-2">
-        <Sparkles className="w-3.5 h-3.5 text-teal-400 animate-pulse" />
+      <div className="bg-gradient-to-r from-teal-900/80 via-emerald-900/80 to-teal-900/80 border-b border-teal-500/20 px-4 py-2.5 text-center text-xs font-medium text-teal-200 flex items-center justify-center gap-2">
+        <Sparkles className="w-3.5 h-3.5 text-teal-400 animate-pulse shrink-0" />
         <span>Use coupon code <strong className="text-white tracking-wide bg-teal-800/60 px-2 py-0.5 rounded border border-teal-400/30">INVENTRAFIRST</strong> for 50% OFF your first pharmacy subscription!</span>
         <Link to="/plans" className="underline hover:text-white font-semibold ml-1 inline-flex items-center gap-0.5">
           View Plans <ArrowRight className="w-3 h-3" />
         </Link>
       </div>
 
-      {/* ─── Sticky Glassmorphism Header ───────────────────────────────────── */}
-      <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-950/80 border-b border-slate-800/80 transition-all">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
+      {/* ─── Sticky Glassmorphism Header (Spacious, Clear Borders, No Overlap) ───────────────────────── */}
+      <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-950/90 border-b border-slate-800/90 transition-all shadow-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 lg:h-22 flex items-center justify-between gap-4">
           {/* Brand Logo */}
-          <Link to="/" className="flex items-center gap-3 group">
+          <Link to="/" className="flex items-center gap-3 group shrink-0">
             <BrandLogo size="md" showText badgeText="ERP" subtitle="Smart Pharmacy Cloud OS" />
           </Link>
 
-          {/* Navigation Links */}
-          <nav className="hidden md:flex items-center gap-1 lg:gap-2">
-            {[
-              { to: "/", label: "Home" },
-              { to: "/features", label: "Features" },
-              { to: "/plans", label: "Plans & Pricing" },
-              { to: "/about", label: "About Us" },
-              { to: "/careers", label: "Careers" },
-            ].map((nav) => (
+          {/* Desktop Navigation Links */}
+          <nav className="hidden md:flex items-center gap-1.5 lg:gap-2.5">
+            {navLinks.map((nav) => (
               <NavLink
                 key={nav.to}
                 to={nav.to}
                 className={({ isActive }) =>
-                  `px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                  `px-3.5 py-2 rounded-xl text-sm font-medium transition-all border ${
                     isActive
-                      ? "text-teal-400 bg-teal-500/10 shadow-inner"
-                      : "text-slate-300 hover:text-white hover:bg-slate-800/60"
+                      ? "text-teal-400 bg-teal-500/10 border-teal-500/30 shadow-xs font-semibold"
+                      : "text-slate-300 hover:text-white hover:bg-slate-850 border-transparent hover:border-slate-800"
                   }`
                 }
               >
@@ -61,12 +72,12 @@ export const MarketingLayout: React.FC<{ children?: React.ReactNode }> = ({ chil
             ))}
           </nav>
 
-          {/* Action CTAs */}
-          <div className="flex items-center gap-3">
+          {/* Action CTAs (Clear Spacing, Separate Borders) */}
+          <div className="hidden sm:flex items-center gap-4 lg:gap-5 shrink-0">
             {isAuthenticated ? (
               <Link
                 to="/dashboard"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 text-slate-950 font-semibold text-sm hover:brightness-110 shadow-lg shadow-teal-500/25 transition-all"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 text-slate-950 font-semibold text-sm hover:brightness-110 shadow-lg shadow-teal-500/25 border border-teal-400/40 transition-all"
               >
                 <span>Dashboard ({user?.fullName?.split(" ")[0] || "Account"})</span>
                 <ArrowRight className="w-4 h-4" />
@@ -75,21 +86,85 @@ export const MarketingLayout: React.FC<{ children?: React.ReactNode }> = ({ chil
               <>
                 <Link
                   to="/login"
-                  className="px-4 py-2 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/80 rounded-xl transition-all"
+                  className="px-4.5 py-2.5 text-sm font-semibold text-slate-200 hover:text-white bg-slate-900/80 hover:bg-slate-850 rounded-xl border border-slate-700/80 hover:border-slate-500 shadow-xs transition-all"
                 >
                   Sign In
                 </Link>
                 <Link
                   to="/apply"
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 text-slate-950 font-semibold text-sm hover:brightness-110 shadow-lg shadow-teal-500/25 transition-all"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-teal-400 via-teal-500 to-emerald-500 text-slate-950 font-bold text-sm hover:brightness-110 shadow-lg shadow-teal-500/20 border border-teal-300/40 transition-all"
                 >
                   <span>Get Started</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
+                  <ArrowRight className="w-4 h-4" />
                 </Link>
               </>
             )}
           </div>
+
+          {/* Mobile Menu Hamburger Button */}
+          <div className="flex md:hidden items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((o) => !o)}
+              className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:text-white hover:bg-slate-800 transition-colors"
+              aria-label="Toggle navigation menu"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
         </div>
+
+        {/* Mobile Slide-down Navigation Menu */}
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t border-slate-800 bg-slate-950/95 backdrop-blur-2xl px-4 py-4 space-y-3 animate-in fade-in-50 duration-150">
+            <nav className="flex flex-col space-y-1">
+              {navLinks.map((nav) => (
+                <NavLink
+                  key={nav.to}
+                  to={nav.to}
+                  className={({ isActive }) =>
+                    `px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center justify-between border ${
+                      isActive
+                        ? "text-teal-400 bg-teal-500/10 border-teal-500/30 font-semibold"
+                        : "text-slate-300 hover:text-white hover:bg-slate-900 border-transparent"
+                    }`
+                  }
+                >
+                  <span>{nav.label}</span>
+                  <ArrowRight className="w-4 h-4 text-slate-500" />
+                </NavLink>
+              ))}
+            </nav>
+
+            <div className="pt-3 border-t border-slate-800 flex flex-col gap-2.5">
+              {isAuthenticated ? (
+                <Link
+                  to="/dashboard"
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 text-slate-950 font-semibold text-sm hover:brightness-110 shadow-lg shadow-teal-500/25"
+                >
+                  <span>Go to Dashboard</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              ) : (
+                <>
+                  <Link
+                    to="/login"
+                    className="w-full text-center px-4 py-2.5 text-sm font-semibold text-slate-200 hover:text-white bg-slate-900 rounded-xl border border-slate-700/80 transition-all"
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    to="/apply"
+                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-teal-400 to-emerald-500 text-slate-950 font-bold text-sm hover:brightness-110 shadow-md"
+                  >
+                    <span>Get Started</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </header>
 
       {/* ─── Main Content Container ────────────────────────────────────────── */}

@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   BarChart3,
@@ -29,6 +30,8 @@ import {
 import { useAuthStore } from "../../stores/authStore";
 import { reportApi } from "../../services/reportApi";
 import { formatCurrency, formatDate } from "../../utils/formatters";
+import { ContextualHelpModal } from "../../components/common/ContextualHelpModal";
+import { Info } from "lucide-react";
 
 type ReportTab = "sales" | "inventory" | "expiry" | "velocity" | "scheduleH";
 
@@ -285,7 +288,25 @@ export const ReportsPage: React.FC = () => {
           <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-1.5 text-xs">
             <Printer className="h-3.5 w-3.5 text-primary" /> Print
           </Button>
+          <ContextualHelpModal topic="reports" />
         </div>
+      </div>
+
+      {/* ── Non-Technical Reporting Quick Guide ── */}
+      <div className="bg-surface-muted/40 border border-subtle rounded-lg p-3 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 print:hidden">
+        <div className="flex items-center gap-2 text-secondary">
+          <Info className="h-4 w-4 text-accent shrink-0" />
+          <span>
+            <strong>Reporting Guide:</strong> Select a tab to see cashflow, shelf inventory worth, batches expiring soon, or government Schedule H logs. All reports export directly to CSV.
+          </span>
+        </div>
+        <Link
+          to="/guide"
+          className="text-accent hover:underline font-medium text-[11px] shrink-0 inline-flex items-center gap-1"
+        >
+          <span>Read Full Handbook</span>
+          <span>→</span>
+        </Link>
       </div>
 
       {/* ── Tab bar ── */}

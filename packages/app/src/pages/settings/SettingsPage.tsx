@@ -147,37 +147,43 @@ export const SettingsPage: React.FC = () => {
 
   return (
     <div className="space-y-6 w-full">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-primary">Workstation & Account Settings</h1>
-        <p className="text-xs text-secondary mt-1">
-          Customize your interface theme, manage operator credentials, inspect active device sessions, and configure keybindings.
-        </p>
-      </div>
+      {/* Page Header & Header Tabs */}
+      <div className="space-y-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-primary">Workstation & Account Settings</h1>
+          <p className="text-xs text-secondary mt-1">
+            Customize your interface theme, manage operator credentials, inspect active device sessions, configure keybindings, and manage your subscription plan.
+          </p>
+        </div>
 
-      {/* Modern Linear Tab Navigation Bar */}
-      <div className="border-b border-subtle pb-px">
-        <nav className="flex flex-wrap items-center gap-2" aria-label="Settings Tabs">
-          {TABS.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => handleTabChange(tab.id)}
-                className={`px-3.5 py-2 text-xs font-medium rounded-lg transition-all flex items-center gap-2 border ${
-                  isActive
-                    ? "bg-primary text-primary-fg border-primary shadow-xs font-semibold"
-                    : "text-secondary hover:text-primary hover:bg-surface-muted border-transparent"
-                }`}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
-        </nav>
+        {/* Header Tab Navigation Bar (Underline Header Style) */}
+        <div className="border-b border-subtle">
+          <nav className="flex flex-wrap items-center gap-1 sm:gap-2 -mb-px" aria-label="Settings Tabs">
+            {TABS.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => handleTabChange(tab.id)}
+                  className={`group relative pb-3 pt-2.5 px-3.5 sm:px-4 text-xs sm:text-sm font-medium transition-all flex items-center gap-2 border-b-2 cursor-pointer ${
+                    isActive
+                      ? "border-primary text-primary font-semibold"
+                      : "border-transparent text-secondary hover:text-primary hover:border-border-strong"
+                  }`}
+                >
+                  <Icon
+                    className={`h-4 w-4 shrink-0 transition-colors ${
+                      isActive ? "text-primary" : "text-muted group-hover:text-secondary"
+                    }`}
+                  />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
       </div>
 
       {/* Tab 1: Appearance & Theme */}

@@ -134,7 +134,7 @@ export const SupplierCreatePage: React.FC = () => {
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <FormField label="Supplier Code" required helperText="Unique vendor code (e.g. SUP-001)">
+            <FormField label="Supplier Code" required helperText="Short code for fast search and purchase orders (e.g. SUP-001).">
               <Input
                 value={supplierCode}
                 onChange={(e) => setSupplierCode(e.target.value)}
@@ -144,7 +144,7 @@ export const SupplierCreatePage: React.FC = () => {
               />
             </FormField>
 
-            <FormField label="Supplier Type" required>
+            <FormField label="Supplier Type" required helperText="Wholesaler, C&F Agent, Direct Manufacturer, or Local Stockist.">
               <Select
                 value={supplierType}
                 onChange={(e) => setSupplierType(e.target.value as SupplierType)}
@@ -158,7 +158,7 @@ export const SupplierCreatePage: React.FC = () => {
               </Select>
             </FormField>
 
-            <FormField label="Legal Name" required helperText="Registered company or firm name">
+            <FormField label="Legal Name" required helperText="Official registered company name matching tax invoices and GST portal.">
               <Input
                 value={legalName}
                 onChange={(e) => setLegalName(e.target.value)}
@@ -167,7 +167,7 @@ export const SupplierCreatePage: React.FC = () => {
               />
             </FormField>
 
-            <FormField label="Trade / Doing-Business-As Name">
+            <FormField label="Trade / Doing-Business-As Name" helperText="Common trade or brand name if different from legal registered entity.">
               <Input
                 value={tradeName}
                 onChange={(e) => setTradeName(e.target.value)}
@@ -184,7 +184,7 @@ export const SupplierCreatePage: React.FC = () => {
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <FormField label="GSTIN" helperText="15-digit GST Identifier">
+            <FormField label="GSTIN" helperText="15-character GST number for claiming Input Tax Credit (ITC).">
               <Input
                 value={gstin}
                 onChange={(e) => setGstin(e.target.value.toUpperCase())}
@@ -194,7 +194,7 @@ export const SupplierCreatePage: React.FC = () => {
               />
             </FormField>
 
-            <FormField label="Drug License Number" helperText="State Pharmacy DL Number">
+            <FormField label="Drug License Number" helperText="Mandatory State FDA wholesale drug license (Form 20B / 21B).">
               <Input
                 value={drugLicenseNumber}
                 onChange={(e) => setDrugLicenseNumber(e.target.value)}
@@ -204,7 +204,7 @@ export const SupplierCreatePage: React.FC = () => {
               />
             </FormField>
 
-            <FormField label="PAN" helperText="10-character Tax PAN">
+            <FormField label="PAN" helperText="10-character Income Tax Permanent Account Number.">
               <Input
                 value={pan}
                 onChange={(e) => setPan(e.target.value.toUpperCase())}
@@ -223,7 +223,7 @@ export const SupplierCreatePage: React.FC = () => {
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <FormField label="Contact Person Name">
+            <FormField label="Contact Person Name" helperText="Sales rep, medical representative (MR), or billing manager.">
               <Input
                 value={contactPersonName}
                 onChange={(e) => setContactPersonName(e.target.value)}
@@ -231,7 +231,7 @@ export const SupplierCreatePage: React.FC = () => {
               />
             </FormField>
 
-            <FormField label="Email Address">
+            <FormField label="Email Address" helperText="Where purchase orders and payment receipts will be emailed.">
               <Input
                 type="email"
                 value={email}
@@ -240,7 +240,7 @@ export const SupplierCreatePage: React.FC = () => {
               />
             </FormField>
 
-            <FormField label="Phone Number">
+            <FormField label="Phone Number" helperText="Mobile or WhatsApp number for order follow-up and delivery queries.">
               <Input
                 type="tel"
                 value={phoneNumber}
@@ -249,7 +249,7 @@ export const SupplierCreatePage: React.FC = () => {
               />
             </FormField>
 
-            <FormField label="Payment Terms (Days)" helperText="Credit window in calendar days">
+            <FormField label="Payment Terms (Days)" helperText="Credit window (e.g. 21 or 30 days allowed before invoice is overdue).">
               <Input
                 type="number"
                 min="0"
@@ -260,7 +260,7 @@ export const SupplierCreatePage: React.FC = () => {
               />
             </FormField>
 
-            <FormField label="Credit Limit (₹)" helperText="Approved credit line">
+            <FormField label="Credit Limit (₹)" helperText="Maximum allowed unpaid purchase balance before account hold.">
               <Input
                 type="number"
                 step="any"

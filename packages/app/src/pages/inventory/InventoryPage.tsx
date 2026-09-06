@@ -16,6 +16,7 @@ import { catalogApi } from "../../services/catalogApi";
 import { useAuthStore } from "../../stores/authStore";
 import { InventoryTable, type InventoryRowData } from "../../components/inventory/InventoryTable";
 import { StockAdjustmentModal } from "../../components/inventory/StockAdjustmentModal";
+import { ContextualHelpModal } from "../../components/common/ContextualHelpModal";
 import type { InventoryItemResponse } from "@inventra/api-types";
 import {
   Boxes,
@@ -176,6 +177,8 @@ export const InventoryPage: React.FC = () => {
             <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isFetching ? "animate-spin" : ""}`} />
             Refresh
           </Button>
+
+          <ContextualHelpModal topic="inventory" />
         </div>
       </div>
 

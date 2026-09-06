@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { transferApi } from "../../services/transferApi";
 import { TransferStatusBadge, Button, Card, Input, Spinner, EmptyState, Select, Pagination } from "@inventra/ui";
+import { ContextualHelpModal } from "../../components/common/ContextualHelpModal";
 import type { TransferStatus } from "@inventra/api-types";
 
 const STATUS_OPTIONS: { label: string; value: string }[] = [
@@ -95,6 +96,7 @@ export const TransfersPage: React.FC = () => {
             <Plus className="h-4 w-4" />
             <span>Request Transfer</span>
           </Button>
+          <ContextualHelpModal topic="transfers" />
         </div>
       </div>
 

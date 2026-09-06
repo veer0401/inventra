@@ -1,11 +1,5 @@
 import React, { useEffect, useState } from "react";
-import {
-  subscriptionApi,
-  type PricingConfig,
-  type TierPricing,
-  type UpdatePricingPayload,
-  type PlanTier,
-} from "../../services/subscriptionApi";
+import { Link } from "react-router-dom";
 import {
   cmsApi,
   type Coupon,
@@ -14,7 +8,6 @@ import {
 import { useToast } from "@inventra/ui";
 import {
   Layers,
-  Tag,
   FileEdit,
   Plus,
   Trash2,
@@ -23,7 +16,8 @@ import {
   ShieldAlert,
   RefreshCw,
   Clock,
-  Check,
+  CreditCard,
+  ArrowRight,
 } from "lucide-react";
 
 export const AdminCmsPage: React.FC = () => {
@@ -34,25 +28,7 @@ export const AdminCmsPage: React.FC = () => {
     else if (type === "warning") toast.warning(message, title);
     else toast.info(message, title);
   };
-  const [activeTab, setActiveTab] = useState<"PLANS" | "COUPONS" | "PAGES">("PLANS");
-
-  // ─── Plans State ──────────────────────────────────────────────────────────
-  const [pricingConfig, setPricingConfig] = useState<PricingConfig | null>(null);
-  const [selectedTier, setSelectedTier] = useState<PlanTier>("PRO");
-  const [tierForm, setTierForm] = useState<UpdatePricingPayload>({
-    tier: "PRO",
-    planName: "",
-    monthlyPrice: 2499,
-    description: "",
-    annualDiscountPct: 20,
-    features: [],
-    workstationLimit: 5,
-    branchLimit: 2,
-    storageLimitGb: 10,
-    alertLimit: 2000,
-  });
-  const [newFeatureInput, setNewFeatureInput] = useState("");
-  const [savingPlan, setSavingPlan] = useState(false);
+  const [activeTab, setActiveTab] = useState<"PAGES" | "COUPONS">("PAGES");
 
   // ─── Coupons State ────────────────────────────────────────────────────────
   const [coupons, setCoupons] = useState<Coupon[]>([]);
@@ -81,34 +57,6 @@ export const AdminCmsPage: React.FC = () => {
   const [savingCms, setSavingCms] = useState(false);
 
   // ─── Load Initial Data ───────────────────────────────────────────────────
-  const fetchPricing = async () => {
-    try {
-      const res = await subscriptionApi.getPricing();
-      setPricingConfig(res);
-      const cur = res.tiers.find((t) => t.tier === selectedTier) || res.tiers[0];
-      if (cur) {
-        populateTierForm(cur);
-      }
-    } catch {
-      showToast({ type: "error", title: "Error", message: "Failed to load pricing configurations." });
-    }
-  };
-
-  const populateTierForm = (tier: TierPricing) => {
-    setTierForm({
-      tier: tier.tier,
-      planName: tier.planName,
-      monthlyPrice: tier.monthlyPrice,
-      description: tier.description,
-      annualDiscountPct: tier.annualDiscountPct,
-      features: tier.features ? [...tier.features] : [],
-      workstationLimit: tier.workstationLimit ?? 1,
-      branchLimit: tier.branchLimit ?? 1,
-      storageLimitGb: tier.storageLimitGb ?? 2.0,
-      alertLimit: tier.alertLimit ?? 500,
-    });
-  };
-
   const fetchCoupons = async () => {
     try {
       const res = await cmsApi.getAllCoupons();
@@ -130,56 +78,9 @@ export const AdminCmsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchPricing();
     fetchCoupons();
     fetchCmsPage(selectedPageKey);
   }, []);
-
-  const handleSelectTier = (tier: PlanTier) => {
-    setSelectedTier(tier);
-    if (pricingConfig) {
-      const t = pricingConfig.tiers.find((item) => item.tier === tier);
-      if (t) populateTierForm(t);
-    }
-  };
-
-  const handleSavePlan = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSavingPlan(true);
-    try {
-      const res = await subscriptionApi.updatePricing(tierForm);
-      setPricingConfig(res);
-      showToast({
-        type: "success",
-        title: "Plan Updated",
-        message: `Successfully updated ${tierForm.planName || tierForm.tier} pricing, description, and features.`,
-      });
-    } catch (err: any) {
-      showToast({
-        type: "error",
-        title: "Update Failed",
-        message: err.response?.data?.message || err.message,
-      });
-    } finally {
-      setSavingPlan(false);
-    }
-  };
-
-  const handleAddFeature = () => {
-    if (!newFeatureInput.trim()) return;
-    setTierForm((prev) => ({
-      ...prev,
-      features: [...(prev.features || []), newFeatureInput.trim()],
-    }));
-    setNewFeatureInput("");
-  };
-
-  const handleRemoveFeature = (idx: number) => {
-    setTierForm((prev) => ({
-      ...prev,
-      features: (prev.features || []).filter((_, i) => i !== idx),
-    }));
-  };
 
   const handleCreateCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -271,15 +172,15 @@ export const AdminCmsPage: React.FC = () => {
         {/* Tab Buttons */}
         <div className="flex items-center gap-1.5 bg-surface-raised p-1 rounded-xl border border-border self-start sm:self-auto">
           <button
-            onClick={() => setActiveTab("PLANS")}
+            onClick={() => setActiveTab("PAGES")}
             className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
-              activeTab === "PLANS"
+              activeTab === "PAGES"
                 ? "bg-teal-500 text-slate-950 shadow-sm"
                 : "text-secondary hover:text-primary hover:bg-surface-hover"
             }`}
           >
-            <Tag className="w-3.5 h-3.5" />
-            <span>Plans & Features</span>
+            <FileEdit className="w-3.5 h-3.5" />
+            <span>Pages Content</span>
           </button>
           <button
             onClick={() => setActiveTab("COUPONS")}
@@ -292,217 +193,101 @@ export const AdminCmsPage: React.FC = () => {
             <Sparkles className="w-3.5 h-3.5" />
             <span>Coupons & Gift Codes</span>
           </button>
-          <button
-            onClick={() => setActiveTab("PAGES")}
-            className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
-              activeTab === "PAGES"
-                ? "bg-teal-500 text-slate-950 shadow-sm"
-                : "text-secondary hover:text-primary hover:bg-surface-hover"
-            }`}
-          >
-            <FileEdit className="w-3.5 h-3.5" />
-            <span>Pages Content</span>
-          </button>
         </div>
       </div>
 
-      {/* ─── TAB 1: PLANS & PRICING WITH DYNAMIC FEATURES ──────────────────── */}
-      {activeTab === "PLANS" && (
-        <div className="space-y-6">
-          {/* Tier Selector */}
-          <div className="flex items-center gap-3">
-            {(["STARTER", "PRO", "ENTERPRISE"] as PlanTier[]).map((tier) => (
-              <button
-                key={tier}
-                onClick={() => handleSelectTier(tier)}
-                className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all border ${
-                  selectedTier === tier
-                    ? "bg-teal-500/10 border-teal-500 text-teal-400 shadow-sm"
-                    : "bg-surface border-border text-secondary hover:text-primary"
-                }`}
-              >
-                {tier} TIER
-              </button>
-            ))}
+      {/* Canonical Plan Management Callout Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl border border-teal-500/20 bg-teal-500/5 text-xs text-secondary">
+        <div className="flex items-center gap-3.5">
+          <div className="p-2.5 rounded-xl bg-teal-500/10 text-teal-400 border border-teal-500/20 shrink-0">
+            <CreditCard className="w-5 h-5" />
           </div>
+          <div>
+            <p className="font-bold text-primary text-sm">Managing Subscription Plans & Pricing?</p>
+            <p className="text-secondary text-xs mt-0.5">
+              Plan tiers, monthly rates, annual discounts, feature lists, and workstation quotas are centrally governed in Store Subscriptions.
+            </p>
+          </div>
+        </div>
+        <Link
+          to="/admin/subscriptions?tab=pricing"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-500 text-slate-950 font-bold text-xs hover:bg-teal-400 shadow-md shadow-teal-500/20 transition-all shrink-0 self-start sm:self-auto"
+        >
+          <span>Configure Plans & Pricing</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
 
-          <form onSubmit={handleSavePlan} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left Col: Plan Metadata & Pricing */}
-            <div className="lg:col-span-1 bg-surface border border-border rounded-2xl p-6 space-y-5">
-              <h2 className="text-base font-bold text-primary border-b border-border pb-3">Plan Configuration</h2>
-
-              <div>
-                <label className="text-xs font-semibold text-secondary">Display Plan Name</label>
-                <input
-                  type="text"
-                  required
-                  value={tierForm.planName}
-                  onChange={(e) => setTierForm({ ...tierForm, planName: e.target.value })}
-                  className="mt-1 w-full px-3 py-2 text-xs rounded-xl bg-app border border-border text-primary focus:border-teal-500 focus:outline-none"
-                  placeholder="e.g. Inventra Pharmacy Pro"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-secondary">Monthly Rate (₹)</label>
-                  <input
-                    type="number"
-                    required
-                    min={0}
-                    value={tierForm.monthlyPrice}
-                    onChange={(e) => setTierForm({ ...tierForm, monthlyPrice: Number(e.target.value) })}
-                    className="mt-1 w-full px-3 py-2 text-xs rounded-xl bg-app border border-border text-primary focus:border-teal-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-secondary">Annual Discount (%)</label>
-                  <input
-                    type="number"
-                    required
-                    min={0}
-                    max={100}
-                    value={tierForm.annualDiscountPct}
-                    onChange={(e) => setTierForm({ ...tierForm, annualDiscountPct: Number(e.target.value) })}
-                    className="mt-1 w-full px-3 py-2 text-xs rounded-xl bg-app border border-border text-primary focus:border-teal-500 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-secondary">Marketing Plan Description</label>
-                <textarea
-                  rows={3}
-                  required
-                  value={tierForm.description}
-                  onChange={(e) => setTierForm({ ...tierForm, description: e.target.value })}
-                  className="mt-1 w-full px-3 py-2 text-xs rounded-xl bg-app border border-border text-primary focus:border-teal-500 focus:outline-none"
-                  placeholder="Describe target dispensary size and core benefits..."
-                />
-              </div>
-
-              <div className="border-t border-border pt-4 space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-secondary">Default Quotas</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <span className="text-[11px] text-secondary">Workstation Terminals</span>
-                    <input
-                      type="number"
-                      min={1}
-                      value={tierForm.workstationLimit}
-                      onChange={(e) => setTierForm({ ...tierForm, workstationLimit: Number(e.target.value) })}
-                      className="mt-1 w-full px-2.5 py-1.5 text-xs rounded-lg bg-app border border-border text-primary"
-                    />
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-secondary">Dispensary Branches</span>
-                    <input
-                      type="number"
-                      min={1}
-                      value={tierForm.branchLimit}
-                      onChange={(e) => setTierForm({ ...tierForm, branchLimit: Number(e.target.value) })}
-                      className="mt-1 w-full px-2.5 py-1.5 text-xs rounded-lg bg-app border border-border text-primary"
-                    />
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-secondary">Storage (GB)</span>
-                    <input
-                      type="number"
-                      step="0.5"
-                      min={1}
-                      value={tierForm.storageLimitGb}
-                      onChange={(e) => setTierForm({ ...tierForm, storageLimitGb: Number(e.target.value) })}
-                      className="mt-1 w-full px-2.5 py-1.5 text-xs rounded-lg bg-app border border-border text-primary"
-                    />
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-secondary">Monthly SMS / Alerts</span>
-                    <input
-                      type="number"
-                      min={0}
-                      value={tierForm.alertLimit}
-                      onChange={(e) => setTierForm({ ...tierForm, alertLimit: Number(e.target.value) })}
-                      className="mt-1 w-full px-2.5 py-1.5 text-xs rounded-lg bg-app border border-border text-primary"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={savingPlan}
-                  className="w-full py-2.5 rounded-xl bg-teal-500 text-slate-950 font-bold text-xs hover:bg-teal-400 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  <span>{savingPlan ? "Saving Plan..." : "Save Tier Configuration"}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Right Col: Dynamic Feature Bullet List Editor */}
-            <div className="lg:col-span-2 bg-surface border border-border rounded-2xl p-6 space-y-5">
-              <div className="flex items-center justify-between border-b border-border pb-3">
-                <div>
-                  <h2 className="text-base font-bold text-primary">Dynamic Features Checklist</h2>
-                  <p className="text-xs text-secondary">
-                    These feature points are dynamically rendered on the public Plans & Pricing cards.
-                  </p>
-                </div>
-                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-teal-500/10 text-teal-400 border border-teal-500/20">
-                  {tierForm.features?.length || 0} Features
-                </span>
-              </div>
-
-              {/* Add New Feature Row */}
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={newFeatureInput}
-                  onChange={(e) => setNewFeatureInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleAddFeature();
-                    }
-                  }}
-                  placeholder="Type new feature benefit e.g. 'Automated Schedule H Drug Registers' and press Add"
-                  className="flex-1 px-3.5 py-2.5 text-xs rounded-xl bg-app border border-border text-primary focus:border-teal-500 focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddFeature}
-                  className="px-4 py-2.5 rounded-xl bg-surface-raised border border-border text-primary hover:text-teal-400 hover:border-teal-500/50 text-xs font-semibold transition-all flex items-center gap-1.5 shrink-0"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Add Feature</span>
-                </button>
-              </div>
-
-              {/* Feature List */}
-              <div className="space-y-2 pt-2">
-                {(tierForm.features || []).map((feat, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between gap-3 p-3 rounded-xl bg-app border border-border group hover:border-teal-500/30 transition-all"
+      {/* ─── TAB: PAGES CONTENT ───────────────────────────────────────────── */}
+      {activeTab === "PAGES" && (
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="lg:col-span-1 space-y-3">
+            <div className="bg-surface border border-border rounded-2xl p-4">
+              <h3 className="text-xs font-bold text-secondary uppercase tracking-wider mb-3 px-1">Editable Pages</h3>
+              <div className="space-y-1">
+                {(["HOME", "ABOUT", "PRICING", "CONTACT"] as string[]).map((key) => (
+                  <button
+                    key={key}
+                    onClick={() => {
+                      setSelectedPageKey(key);
+                      fetchCmsPage(key);
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                      selectedPageKey === key
+                        ? "bg-teal-500/10 text-teal-400"
+                        : "text-secondary hover:text-primary hover:bg-surface-hover"
+                    }`}
                   >
-                    <div className="flex items-center gap-2.5 text-xs text-primary">
-                      <Check className="w-4 h-4 text-teal-400 shrink-0" />
-                      <span>{feat}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveFeature(idx)}
-                      className="p-1 text-secondary hover:text-red-400 transition-colors opacity-60 group-hover:opacity-100"
-                      title="Remove feature"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                    {key.charAt(0) + key.slice(1).toLowerCase()} Page
+                  </button>
                 ))}
               </div>
             </div>
-          </form>
+          </div>
+
+          <div className="lg:col-span-3 bg-surface border border-border rounded-2xl p-6 space-y-4">
+            <form onSubmit={handleSaveCmsPage} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-semibold text-secondary">Page Title</label>
+                  <input
+                    type="text"
+                    value={cmsTitle}
+                    onChange={(e) => setCmsTitle(e.target.value)}
+                    className="mt-1 w-full px-3 py-2 text-xs rounded-xl bg-app border border-border text-primary"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-secondary">Subtitle</label>
+                  <input
+                    type="text"
+                    value={cmsSubtitle}
+                    onChange={(e) => setCmsSubtitle(e.target.value)}
+                    className="mt-1 w-full px-3 py-2 text-xs rounded-xl bg-app border border-border text-primary"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-secondary">JSON Content Body</label>
+                <textarea
+                  rows={15}
+                  value={cmsJsonString}
+                  onChange={(e) => setCmsJsonString(e.target.value)}
+                  className="mt-1 w-full px-3 py-2 text-xs font-mono rounded-xl bg-app border border-border text-primary focus:border-teal-500 focus:outline-none"
+                />
+              </div>
+              <div className="flex justify-end pt-2">
+                <button
+                  type="submit"
+                  disabled={savingCms}
+                  className="px-6 py-2.5 rounded-xl bg-teal-500 text-slate-950 font-bold text-xs hover:bg-teal-400 disabled:opacity-50 transition-all flex items-center gap-2"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  <span>{savingCms ? "Saving..." : "Save Page Content"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

@@ -30,17 +30,20 @@ public class ProductService {
     private final CategoryRepository categoryRepository;
     private final ProductIdentifierRepository productIdentifierRepository;
     private final ChangeFeedPublisher changeFeedPublisher;
+    private final GlobalMedicineService globalMedicineService;
 
     public ProductService(
         ProductRepository productRepository,
         CategoryRepository categoryRepository,
         ProductIdentifierRepository productIdentifierRepository,
-        ChangeFeedPublisher changeFeedPublisher
+        ChangeFeedPublisher changeFeedPublisher,
+        GlobalMedicineService globalMedicineService
     ) {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
         this.productIdentifierRepository = productIdentifierRepository;
         this.changeFeedPublisher = changeFeedPublisher;
+        this.globalMedicineService = globalMedicineService;
     }
 
     @Transactional
@@ -73,6 +76,12 @@ public class ProductService {
             for (AddProductIdentifierRequest idReq : request.identifiers()) {
                 addIdentifierInternal(businessId, savedProduct.getId(), idReq);
             }
+        }
+
+        // If this product was NOT imported from the Global Medicine Database,
+        // silently submit a proposal to the Platform Admin queue for potential inclusion.
+        if (request.globalProductId() == null) {
+            globalMedicineService.recordSilentSuggestion(businessId, savedProduct.getId(), request);
         }
 
         List<ProductIdentifierResponse> identifiers = loadIdentifiers(businessId, savedProduct.getId());

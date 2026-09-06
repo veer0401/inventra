@@ -315,7 +315,7 @@ export const GoodsReceiptCreatePage: React.FC = () => {
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <FormField label="Supplier" required>
+            <FormField label="Supplier" required helperText="The registered distributor delivering this stock consignment.">
               <Select
                 value={supplierId}
                 onChange={(e) => setSupplierId(e.target.value)}
@@ -331,7 +331,7 @@ export const GoodsReceiptCreatePage: React.FC = () => {
               </Select>
             </FormField>
 
-            <FormField label="Delivery Note / Invoice No." helperText="Vendor DC or Bill reference">
+            <FormField label="Delivery Note / Invoice No." helperText="Challan (DC) or invoice number printed on the paper delivery note.">
               <Input
                 value={vendorDeliveryNote}
                 onChange={(e) => setVendorDeliveryNote(e.target.value)}
@@ -340,7 +340,7 @@ export const GoodsReceiptCreatePage: React.FC = () => {
               />
             </FormField>
 
-            <FormField label="Received Date" required>
+            <FormField label="Received Date" required helperText="The exact date this physical delivery arrived at your store.">
               <Input
                 type="date"
                 value={receivedDate}
@@ -351,11 +351,11 @@ export const GoodsReceiptCreatePage: React.FC = () => {
             </FormField>
 
             <div className="sm:col-span-3">
-              <FormField label="Receiving Notes">
+              <FormField label="Receiving Notes" helperText="Record cold-chain ice pack condition, box damages, or driver remarks.">
                 <Input
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="e.g. Temperature-controlled shipment received in good condition."
+                  placeholder="e.g. Cold-chain insulin gel packs intact. Inspected by pharmacist."
                 />
               </FormField>
             </div>
@@ -371,7 +371,7 @@ export const GoodsReceiptCreatePage: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
             <div className="sm:col-span-2">
-              <FormField label="Product" required>
+              <FormField label="Product" required helperText="The medicine matching the vendor's delivery slip.">
                 <Select
                   value={currentProductId}
                   onChange={(e) => setCurrentProductId(e.target.value)}
@@ -387,7 +387,7 @@ export const GoodsReceiptCreatePage: React.FC = () => {
               </FormField>
             </div>
 
-            <FormField label="Received Qty" required>
+            <FormField label="Received Qty" required helperText="Count of physical packs/boxes unloaded.">
               <Input
                 type="number"
                 min="0.01"
@@ -399,7 +399,7 @@ export const GoodsReceiptCreatePage: React.FC = () => {
               />
             </FormField>
 
-            <FormField label="Pack Unit" required helperText="e.g. BOX / STRIP">
+            <FormField label="Pack Unit" required helperText="e.g. BOX, STRIP, BOTTLE, VIAL">
               <Input
                 value={currentUnit}
                 onChange={(e) => setCurrentUnit(e.target.value)}
@@ -408,7 +408,7 @@ export const GoodsReceiptCreatePage: React.FC = () => {
               />
             </FormField>
 
-            <FormField label="Conversion Multiplier" required helperText="Base units per pack">
+            <FormField label="Conversion Multiplier" required helperText="Total retail tablets/units inside 1 box.">
               <Input
                 type="number"
                 min="1"
@@ -419,7 +419,7 @@ export const GoodsReceiptCreatePage: React.FC = () => {
               />
             </FormField>
 
-            <FormField label="Batch Lot Number" required>
+            <FormField label="Batch Lot Number" required helperText="Manufacturer batch stamped on carton/blister.">
               <Input
                 value={currentBatchNumber}
                 onChange={(e) => setCurrentBatchNumber(e.target.value)}
@@ -428,7 +428,7 @@ export const GoodsReceiptCreatePage: React.FC = () => {
               />
             </FormField>
 
-            <FormField label="Mfg Date (YYYY-MM-DD)">
+            <FormField label="Mfg Date (YYYY-MM-DD)" helperText="Manufacturing date printed on medicine packaging.">
               <Input
                 type="date"
                 value={currentMfgDate}
@@ -437,7 +437,7 @@ export const GoodsReceiptCreatePage: React.FC = () => {
               />
             </FormField>
 
-            <FormField label="Expiry Date (YYYY-MM-DD)" required>
+            <FormField label="Expiry Date (YYYY-MM-DD)" required helperText="Critical: System will auto-prioritize this batch for FEFO sales.">
               <Input
                 type="date"
                 value={currentExpiryDate}
@@ -447,7 +447,7 @@ export const GoodsReceiptCreatePage: React.FC = () => {
               />
             </FormField>
 
-            <FormField label="Unit Cost (₹)" required>
+            <FormField label="Unit Cost (₹)" required helperText="Net purchase cost paid to supplier per box (pre-tax).">
               <Input
                 type="number"
                 step="any"
@@ -459,7 +459,7 @@ export const GoodsReceiptCreatePage: React.FC = () => {
               />
             </FormField>
 
-            <FormField label="MRP (₹)">
+            <FormField label="MRP (₹)" helperText="Maximum Retail Price printed on box (statutory ceiling).">
               <Input
                 type="number"
                 step="any"
@@ -471,7 +471,7 @@ export const GoodsReceiptCreatePage: React.FC = () => {
               />
             </FormField>
 
-            <FormField label="Selling Price (₹)">
+            <FormField label="Selling Price (₹)" helperText="Your pharmacy's regular retail price for patients.">
               <Input
                 type="number"
                 step="any"
@@ -483,7 +483,7 @@ export const GoodsReceiptCreatePage: React.FC = () => {
               />
             </FormField>
 
-            <FormField label="GST Rate (%)">
+            <FormField label="GST Rate (%)" helperText="Applicable GST tax slab (e.g. 0%, 5%, 12%, 18%).">
               <Input
                 type="number"
                 min="0"

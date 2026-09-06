@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { salesApi } from "../../services/salesApi";
 import { ReturnReceiptView } from "../../components/returns/ReturnReceiptView";
+import { ContextualHelpModal } from "../../components/common/ContextualHelpModal";
 import type { SaleReturnResponse } from "@inventra/api-types";
 import { Pagination } from "@inventra/ui";
 
@@ -75,6 +76,9 @@ export const ReturnsPage: React.FC = () => {
           <p className="text-sm text-text-muted mt-1">
             Customer return transactions, refunded batches, and restocked merchandise
           </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <ContextualHelpModal topic="returns" />
         </div>
       </div>
 

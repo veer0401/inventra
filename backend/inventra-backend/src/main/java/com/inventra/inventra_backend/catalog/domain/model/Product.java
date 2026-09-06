@@ -229,6 +229,10 @@ public class Product extends BaseAuditableEntity {
         return globalProductId;
     }
 
+    public void linkGlobalProduct(UUID globalProductId) {
+        this.globalProductId = globalProductId;
+    }
+
     public String getName() {
         return name;
     }

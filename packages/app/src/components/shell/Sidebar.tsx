@@ -19,7 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
-  CreditCard,
+  BookOpen,
 } from "lucide-react";
 import { useAuthStore } from "../../stores/authStore";
 import { ShortcutHint } from "@inventra/ui";
@@ -167,6 +167,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               icon: ArrowLeftRight,
               shortcut: "G R",
               allowedRoles: ["OWNER", "MANAGER", "CASHIER", "PHARMACIST", "STAFF", "INVENTORY_OPERATOR"],
+            },
+            {
+              label: "e-Prescriptions",
+              to: "/prescriptions",
+              icon: Receipt,
+              isFuture: true,
+              futurePhase: "F9",
+              allowedRoles: ["OWNER", "MANAGER", "PHARMACIST"],
             },
           ],
         },
@@ -316,18 +324,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           allowedRoles: ["OWNER", "ADMIN", "MANAGER", "PHARMACIST"],
         },
         {
-          id: "billing",
-          label: "Plan & Billing",
-          to: "/settings?tab=billing",
-          icon: CreditCard,
-          allowedRoles: ["OWNER", "ADMIN", "MANAGER", "PLATFORM_ADMIN"],
-        },
-        {
           id: "settings",
           label: "Workstation Settings",
           to: "/settings",
           icon: Settings,
           shortcut: "G T",
+        },
+      ],
+    },
+    {
+      title: "HELP & RESOURCES",
+      items: [
+        {
+          id: "operations-guide",
+          label: "Operations Guide",
+          to: "/guide",
+          icon: BookOpen,
         },
       ],
     },

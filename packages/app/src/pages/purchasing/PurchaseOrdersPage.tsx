@@ -21,6 +21,7 @@ import {
 } from "@inventra/ui";
 import { purchasingApi } from "../../services/purchasingApi";
 import { useAuthStore } from "../../stores/authStore";
+import { ContextualHelpModal } from "../../components/common/ContextualHelpModal";
 import type { PurchaseOrderStatus } from "@inventra/api-types";
 import {
   FileSpreadsheet,
@@ -157,6 +158,8 @@ export const PurchaseOrdersPage: React.FC = () => {
               </Button>
             </Link>
           )}
+
+          <ContextualHelpModal topic="purchase-orders" />
         </div>
       </div>
 

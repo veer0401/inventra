@@ -19,6 +19,7 @@ import {
 } from "@inventra/ui";
 import { purchasingApi } from "../../services/purchasingApi";
 import { useAuthStore } from "../../stores/authStore";
+import { ContextualHelpModal } from "../../components/common/ContextualHelpModal";
 import type { GoodsReceiptStatus } from "@inventra/api-types";
 import {
   Truck,
@@ -122,6 +123,8 @@ export const GoodsReceiptsPage: React.FC = () => {
               </Button>
             </Link>
           )}
+
+          <ContextualHelpModal topic="goods-receipts" />
         </div>
       </div>
 

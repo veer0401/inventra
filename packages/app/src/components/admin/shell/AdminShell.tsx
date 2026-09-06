@@ -10,6 +10,7 @@ import {
   ChevronRight,
   X,
   LogOut,
+  Globe,
 } from "lucide-react";
 import { useAuthStore } from "../../../stores/authStore";
 import { ShortcutHint } from "@inventra/ui";
@@ -44,6 +45,17 @@ const AdminNavGroups: NavGroupDef[] = [
         to: "/admin/applications",
         icon: ShieldCheck,
         shortcut: "G A",
+      },
+    ],
+  },
+  {
+    title: "GLOBAL CATALOG",
+    items: [
+      {
+        label: "Global Medicines",
+        to: "/admin/medicines",
+        icon: Globe,
+        shortcut: "G M",
       },
     ],
   },

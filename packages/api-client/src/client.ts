@@ -67,11 +67,16 @@ export class InventraClient {
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
+      const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
       const fetchOptions: RequestInit = {
         ...options,
         headers,
         signal: options.signal ?? controller.signal,
-        body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+        body: isFormData
+          ? (options.body as FormData)
+          : options.body !== undefined
+          ? JSON.stringify(options.body)
+          : undefined,
       };
 
       let response = await fetch(url, fetchOptions);
@@ -137,12 +142,16 @@ export class InventraClient {
   }
 
   private async buildHeaders(options: RequestOptions): Promise<Record<string, string>> {
+    const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
     const headers: Record<string, string> = {
-      "Content-Type": "application/json",
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       Accept: "application/json, application/problem+json",
       ...this.customHeaders,
       ...(options.headers as Record<string, string>),
     };
+    if (isFormData && headers["Content-Type"]) {
+      delete headers["Content-Type"];
+    }
 
     if (!options.skipAuth && this.tokenProvider) {
       const token = await this.tokenProvider.getAccessToken();

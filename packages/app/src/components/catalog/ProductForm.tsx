@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -25,8 +25,14 @@ import {
   Plus,
   Trash2,
   Save,
+  Globe,
+  Sparkles,
+  CheckCircle2,
+  X,
 } from "lucide-react";
 import { CategorySelect } from "./CategorySelect";
+import { GlobalMedicineSelectModal } from "./GlobalMedicineSelectModal";
+import type { GlobalMedicineResponse } from "../../services/globalMedicineApi";
 import type { ProductResponse, DosageForm } from "@inventra/api-types";
 
 export interface ProductFormProps {
@@ -45,15 +51,27 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   onCancel,
 }) => {
   const isEditMode = Boolean(initialData);
+  const [globalModalOpen, setGlobalModalOpen] = useState(false);
+  const [linkedMedicine, setLinkedMedicine] = useState<{
+    name: string;
+    genericName: string;
+  } | null>(
+    initialData?.globalProductId
+      ? { name: initialData.name, genericName: initialData.genericName || "" }
+      : null
+  );
 
   const {
     register,
     handleSubmit,
     control,
+    setValue,
+    watch,
     formState: { errors, isDirty },
   } = useForm<CreateProductInput>({
     resolver: zodResolver(createProductSchema),
     defaultValues: {
+      globalProductId: initialData?.globalProductId || "",
       name: initialData?.name || "",
       genericName: initialData?.genericName || "",
       brandName: initialData?.brandName || "",
@@ -80,6 +98,35 @@ export const ProductForm: React.FC<ProductFormProps> = ({
     name: "identifiers",
   });
 
+  const watchGlobalProductId = watch("globalProductId");
+
+  const handleSelectGlobalMedicine = (med: GlobalMedicineResponse) => {
+    setValue("globalProductId", med.id, { shouldDirty: true });
+    setValue("name", med.name, { shouldDirty: true });
+    setValue("genericName", med.genericName, { shouldDirty: true });
+    if (med.brandName) setValue("brandName", med.brandName, { shouldDirty: true });
+    if (med.manufacturer) setValue("manufacturer", med.manufacturer, { shouldDirty: true });
+    setValue("dosageForm", med.dosageForm, { shouldDirty: true });
+    if (med.strength) setValue("strength", med.strength, { shouldDirty: true });
+    setValue("baseUnit", med.baseUnit, { shouldDirty: true });
+    setValue("sellingUnit", med.sellingUnit, { shouldDirty: true });
+    setValue("unitsPerSellingUnit", med.unitsPerSellingUnit, { shouldDirty: true });
+    if (med.hsnCode) setValue("hsnCode", med.hsnCode, { shouldDirty: true });
+    setValue("taxRate", med.taxRate, { shouldDirty: true });
+    setValue("prescriptionRequired", med.prescriptionRequired, { shouldDirty: true });
+
+    if (med.barcode && fields.length > 0 && !fields[0].identifierValue) {
+      setValue("identifiers.0.identifierValue", med.barcode, { shouldDirty: true });
+    }
+
+    setLinkedMedicine({ name: med.name, genericName: med.genericName });
+  };
+
+  const handleUnlinkGlobal = () => {
+    setValue("globalProductId", "", { shouldDirty: true });
+    setLinkedMedicine(null);
+  };
+
   const handleCancelClick = () => {
     if (isDirty) {
       if (window.confirm("You have unsaved changes. Are you sure you want to discard them?")) {
@@ -91,12 +138,76 @@ export const ProductForm: React.FC<ProductFormProps> = ({
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-w-5xl">
-      {serverError && (
-        <Alert variant="danger" title="Error">
-          {serverError}
-        </Alert>
-      )}
+    <>
+      <GlobalMedicineSelectModal
+        open={globalModalOpen}
+        onOpenChange={setGlobalModalOpen}
+        onSelect={handleSelectGlobalMedicine}
+      />
+
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 max-w-5xl">
+        {serverError && (
+          <Alert variant="danger" title="Error">
+            {serverError}
+          </Alert>
+        )}
+
+        {/* Global Medicine Master Banner (For Create Mode) */}
+        {!isEditMode && (
+          <div className="bg-gradient-to-r from-primary-subtle via-surface to-surface border border-primary-border rounded-lg p-4 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-primary text-white shrink-0 mt-0.5">
+                  <Globe className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-semibold text-primary">
+                      Global Medicine Master Integration
+                    </h3>
+                    <span className="text-2xs bg-primary/10 text-primary font-mono px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">
+                      Verified DB
+                    </span>
+                  </div>
+                  <p className="text-xs text-secondary mt-0.5">
+                    Search millions of official standard formulations. Auto-populates salt, dosage, strength, and tax. Your store purchase & retail prices remain 100% custom.
+                  </p>
+                </div>
+              </div>
+
+              {linkedMedicine ? (
+                <div className="flex items-center gap-2 bg-surface px-3 py-1.5 rounded-md border border-subtle shrink-0">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                  <div className="text-xs">
+                    <span className="text-secondary">Linked: </span>
+                    <strong className="text-primary">{linkedMedicine.name}</strong>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 text-muted hover:text-danger ml-1"
+                    onClick={handleUnlinkGlobal}
+                    title="Unlink from global master"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  leftIcon={<Sparkles className="h-3.5 w-3.5" />}
+                  onClick={() => setGlobalModalOpen(true)}
+                  className="shrink-0"
+                >
+                  Browse Global Medicines
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
 
       {/* 1. Core Clinical Identity Section */}
       <Card className="shadow-card border-subtle">
@@ -116,6 +227,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               label="Product Trade / Display Name"
               htmlFor="product-name"
               required
+              helperText="The branded medicine name on the packaging (e.g. Augmentin 625 Duo Tablet, Dolo 650)."
               error={errors.name?.message}
             >
               <Input
@@ -130,6 +242,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             <FormField
               label="Generic / Salt Composition"
               htmlFor="generic-name"
+              helperText="The active medical ingredient (e.g. Paracetamol). Essential for pharmacists to recommend substitutes."
               error={errors.genericName?.message}
             >
               <Input
@@ -144,6 +257,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             <FormField
               label="Brand / Marketing Name"
               htmlFor="brand-name"
+              helperText="The parent product line or brand name (e.g. Augmentin, Calpol)."
               error={errors.brandName?.message}
             >
               <Input
@@ -158,6 +272,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             <FormField
               label="Manufacturer / Pharmaceutical Lab"
               htmlFor="manufacturer"
+              helperText="The pharma company that makes this medicine (e.g. Cipla, Sun Pharma, GlaxoSmithKline)."
               error={errors.manufacturer?.message}
             >
               <Input
@@ -173,6 +288,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               label="Dosage Form"
               htmlFor="dosage-form"
               required
+              helperText="How the medicine is physically administered. Controls how inventory counts are tracked."
               error={errors.dosageForm?.message}
             >
               <Select
@@ -196,6 +312,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             <FormField
               label="Strength / Potency"
               htmlFor="strength"
+              helperText="Active medicine concentration per dose (e.g. 625mg, 500mg, 10mg/5ml, 2% w/w)."
               error={errors.strength?.message}
             >
               <Input
@@ -240,6 +357,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             <FormField
               label="Product Category"
               htmlFor="category-select"
+              helperText="Optional store shelf category (e.g. Antibiotics, Pain Relief, Cardiac)."
               error={errors.categoryId?.message}
             >
               <Controller
@@ -261,6 +379,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               label="Base Dispensing Unit"
               htmlFor="base-unit"
               required
+              helperText="The smallest single item you dispense or count in stock (e.g. 1 Tablet, 1 Bottle, 1 Tube)."
               error={errors.baseUnit?.message}
             >
               <Input
@@ -275,6 +394,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             <FormField
               label="Selling Pack Description"
               htmlFor="selling-unit"
+              helperText="How you sell it to customers (e.g. Strip of 10 Tablets, Box of 100, 100ml Bottle)."
               error={errors.sellingUnit?.message}
             >
               <Input
@@ -290,6 +410,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               label="Base Units per Selling Pack"
               htmlFor="units-per-selling-unit"
               required
+              helperText="Number of single base units inside 1 pack (e.g. 10 tablets per strip, 1 for a bottle)."
               error={errors.unitsPerSellingUnit?.message}
             >
               <Input
@@ -323,6 +444,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
             <FormField
               label="HSN Classification Code"
               htmlFor="hsn-code"
+              helperText="Government 8-digit GST classification (usually 3004 for all retail medicines)."
               error={errors.hsnCode?.message}
             >
               <Input
@@ -339,6 +461,7 @@ export const ProductForm: React.FC<ProductFormProps> = ({
               label="Applicable GST Tax Rate (%)"
               htmlFor="tax-rate"
               required
+              helperText="Standard GST tax slab (typically 12% for standard medicines, 5% for critical/life-saving)."
               error={errors.taxRate?.message}
             >
               <Input
@@ -458,17 +581,28 @@ export const ProductForm: React.FC<ProductFormProps> = ({
       )}
 
       {/* Form Submission Actions */}
-      <div className="flex items-center justify-between p-4 bg-surface rounded-lg border border-subtle shadow-card">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={handleCancelClick}
-          disabled={isSubmitting}
-        >
-          Cancel
-        </Button>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-surface rounded-lg border border-subtle shadow-card">
+        <div>
+          {!isEditMode && !watchGlobalProductId && (
+            <p className="text-xs text-muted flex items-center gap-1.5">
+              <Globe className="h-3.5 w-3.5 text-primary" />
+              <span>
+                New custom formulation: will be silently suggested to platform administrators for global database review.
+              </span>
+            </p>
+          )}
+        </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-end gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleCancelClick}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+
           <Button
             type="submit"
             variant="primary"
@@ -480,5 +614,6 @@ export const ProductForm: React.FC<ProductFormProps> = ({
         </div>
       </div>
     </form>
+    </>
   );
 };

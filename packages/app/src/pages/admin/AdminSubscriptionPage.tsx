@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Card, Button, useToast } from "@inventra/ui";
 import {
   Building2,
@@ -31,6 +31,9 @@ import {
   Eye,
   Activity,
   Monitor,
+  Plus,
+  Trash2,
+  Check,
 } from "lucide-react";
 import {
   subscriptionApi,
@@ -905,6 +908,7 @@ function PricingTab() {
   const [isLoading, setIsLoading] = useState(true);
   const [editingTier, setEditingTier] = useState<string | null>(null);
   const [draftPricing, setDraftPricing] = useState<Partial<UpdatePricingPayload>>({});
+  const [newFeatureText, setNewFeatureText] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -925,13 +929,40 @@ function PricingTab() {
     setEditingTier(tier.tier);
     setDraftPricing({
       tier: tier.tier,
+      planName: tier.planName,
       monthlyPrice: tier.monthlyPrice,
       description: tier.description,
       annualDiscountPct: tier.annualDiscountPct,
+      features: [...(tier.features || [])],
+      workstationLimit: tier.workstationLimit ?? (tier.tier === "ENTERPRISE" ? 25 : tier.tier === "PRO" ? 5 : 1),
+      branchLimit: tier.branchLimit ?? (tier.tier === "ENTERPRISE" ? 10 : tier.tier === "PRO" ? 2 : 1),
+      storageLimitGb: tier.storageLimitGb ?? (tier.tier === "ENTERPRISE" ? 100 : tier.tier === "PRO" ? 10 : 2),
+      alertLimit: tier.alertLimit ?? (tier.tier === "ENTERPRISE" ? 10000 : tier.tier === "PRO" ? 2000 : 500),
     });
+    setNewFeatureText("");
   };
 
-  const cancelEdit = () => { setEditingTier(null); setDraftPricing({}); };
+  const cancelEdit = () => {
+    setEditingTier(null);
+    setDraftPricing({});
+    setNewFeatureText("");
+  };
+
+  const handleAddFeature = () => {
+    if (!newFeatureText.trim()) return;
+    setDraftPricing((d) => ({
+      ...d,
+      features: [...(d.features || []), newFeatureText.trim()],
+    }));
+    setNewFeatureText("");
+  };
+
+  const handleRemoveFeature = (idx: number) => {
+    setDraftPricing((d) => ({
+      ...d,
+      features: (d.features || []).filter((_, i) => i !== idx),
+    }));
+  };
 
   const handleSave = async () => {
     if (!draftPricing.tier || draftPricing.monthlyPrice === undefined) return;
@@ -939,7 +970,7 @@ function PricingTab() {
     try {
       const updated = await subscriptionApi.updatePricing(draftPricing as UpdatePricingPayload);
       setConfig(updated);
-      toast.success(`${draftPricing.tier} pricing updated.`);
+      toast.success(`${draftPricing.planName || draftPricing.tier} pricing, quotas & features updated.`);
       cancelEdit();
     } catch {
       toast.error("Failed to update pricing.");
@@ -962,9 +993,9 @@ function PricingTab() {
       <div className="p-4 rounded-xl border border-warning-border bg-warning-subtle flex items-start gap-3">
         <BadgePercent className="h-5 w-5 text-warning shrink-0 mt-0.5" />
         <div>
-          <p className="text-sm font-semibold text-warning-fg">Pricing changes take effect immediately</p>
+          <p className="text-sm font-semibold text-warning-fg">Official Canonical Plan Governance Console</p>
           <p className="text-xs text-warning-fg/70 mt-0.5">
-            Updates will be reflected for all new plan selections. Existing subscribers are unaffected until their next billing cycle.
+            All plan tier pricing, descriptions, quotas, and dynamic marketing features configured here are directly reflected across public website pricing, customer checkout, and store subscription billing.
           </p>
         </div>
       </div>
@@ -972,112 +1003,271 @@ function PricingTab() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {config?.tiers.map((tier) => {
           const isEditing = editingTier === tier.tier;
-          const annualPrice = Math.round(tier.monthlyPrice * 12 * (1 - tier.annualDiscountPct / 100));
+          const currentMonthly = isEditing ? (draftPricing.monthlyPrice ?? tier.monthlyPrice) : tier.monthlyPrice;
+          const currentDiscount = isEditing ? (draftPricing.annualDiscountPct ?? tier.annualDiscountPct) : tier.annualDiscountPct;
+          const annualPrice = Math.round(currentMonthly * 12 * (1 - currentDiscount / 100));
+          const currentFeatures = isEditing ? (draftPricing.features || []) : (tier.features || []);
 
           return (
             <Card
               key={tier.tier}
-              className={`border-subtle bg-surface shadow-xs overflow-hidden transition-all ${
+              className={`border-subtle bg-surface shadow-xs overflow-hidden transition-all flex flex-col justify-between ${
                 isEditing ? "ring-2 ring-primary/30 border-focus" : ""
               }`}
             >
               {/* Header */}
-              <div className="px-5 pt-5 pb-3 border-b border-subtle flex items-center justify-between">
-                <TierBadge tier={tier.tier} />
-                {!isEditing ? (
-                  <Button variant="ghost" size="sm" onClick={() => startEdit(tier)} className="gap-1.5 text-xs">
-                    <Edit3 className="h-3.5 w-3.5" />
-                    Edit
-                  </Button>
-                ) : (
-                  <button type="button" onClick={cancelEdit} className="p-1.5 rounded-md text-muted hover:text-primary hover:bg-surface-muted transition-colors">
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-
-              <div className="p-5 space-y-4">
-                <p className="text-sm font-bold text-primary">{tier.planName}</p>
-
-                {/* Monthly Price */}
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1.5">
-                    Monthly Price (₹)
-                  </label>
-                  {isEditing ? (
-                    <input
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={draftPricing.monthlyPrice ?? ""}
-                      onChange={(e) => setDraftPricing((d) => ({ ...d, monthlyPrice: parseFloat(e.target.value) || 0 }))}
-                      className={inputCls}
-                    />
-                  ) : (
-                    <div className="text-2xl font-black font-mono text-primary">
-                      {formatCurrency(tier.monthlyPrice)}
-                      <span className="text-xs font-normal text-muted ml-1">/ mo</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Annual Discount */}
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1.5">
-                    Annual Discount (%)
-                  </label>
-                  {isEditing ? (
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={draftPricing.annualDiscountPct ?? ""}
-                      onChange={(e) => setDraftPricing((d) => ({ ...d, annualDiscountPct: parseInt(e.target.value, 10) || 0 }))}
-                      className={inputCls}
-                    />
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg font-bold font-mono text-success">{tier.annualDiscountPct}% OFF</span>
-                      <span className="text-xs text-muted">→ {formatCurrency(annualPrice)}/yr</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Description */}
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1.5">
-                    Plan Description
-                  </label>
-                  {isEditing ? (
-                    <RichEditor
-                      value={draftPricing.description ?? ""}
-                      onChange={(html) => setDraftPricing((d) => ({ ...d, description: html }))}
-                    />
-                  ) : (
-                    <div
-                      className="text-xs text-secondary leading-relaxed [&_ul]:list-disc [&_ul]:pl-4 [&_b]:font-bold [&_strong]:font-bold [&_em]:italic"
-                      dangerouslySetInnerHTML={{ __html: tier.description }}
-                    />
-                  )}
-                </div>
-
-                {isEditing && (
-                  <div className="flex gap-2 pt-1">
-                    <Button variant="primary" onClick={handleSave} disabled={isSaving} className="flex-1 gap-2">
-                      <Save className="h-3.5 w-3.5" />
-                      {isSaving ? "Saving…" : "Save Changes"}
+              <div>
+                <div className="px-5 pt-5 pb-3 border-b border-subtle flex items-center justify-between">
+                  <TierBadge tier={tier.tier} />
+                  {!isEditing ? (
+                    <Button variant="ghost" size="sm" onClick={() => startEdit(tier)} className="gap-1.5 text-xs">
+                      <Edit3 className="h-3.5 w-3.5" />
+                      Edit Tier
                     </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => config && startEdit(config.tiers.find(t => t.tier === editingTier)!)}
-                      disabled={isSaving}
-                      title="Reset to last saved"
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={cancelEdit}
+                      className="p-1.5 rounded-md text-muted hover:text-primary hover:bg-surface-muted transition-colors cursor-pointer"
+                      title="Cancel edit"
                     >
-                      <RotateCcw className="h-3.5 w-3.5" />
-                    </Button>
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="p-5 space-y-4">
+                  {/* Plan Name */}
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1.5">
+                      Display Plan Name
+                    </label>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={draftPricing.planName ?? ""}
+                        onChange={(e) => setDraftPricing((d) => ({ ...d, planName: e.target.value }))}
+                        className={inputCls}
+                        placeholder="e.g. Inventra Pharmacy Pro"
+                      />
+                    ) : (
+                      <p className="text-base font-bold text-primary">{tier.planName}</p>
+                    )}
                   </div>
-                )}
+
+                  {/* Monthly Price & Discount Grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1.5">
+                        Monthly Rate (₹)
+                      </label>
+                      {isEditing ? (
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={draftPricing.monthlyPrice ?? ""}
+                          onChange={(e) => setDraftPricing((d) => ({ ...d, monthlyPrice: parseFloat(e.target.value) || 0 }))}
+                          className={inputCls}
+                        />
+                      ) : (
+                        <div className="text-xl font-black font-mono text-primary">
+                          {formatCurrency(tier.monthlyPrice)}
+                          <span className="text-xs font-normal text-muted ml-1">/ mo</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1.5">
+                        Annual Discount (%)
+                      </label>
+                      {isEditing ? (
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={draftPricing.annualDiscountPct ?? ""}
+                          onChange={(e) => setDraftPricing((d) => ({ ...d, annualDiscountPct: parseInt(e.target.value, 10) || 0 }))}
+                          className={inputCls}
+                        />
+                      ) : (
+                        <div>
+                          <span className="text-sm font-bold font-mono text-success">{tier.annualDiscountPct}% OFF</span>
+                          <p className="text-[11px] text-muted truncate">→ {formatCurrency(annualPrice)}/yr</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Quotas Grid */}
+                  <div className="pt-2 border-t border-subtle">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-2">
+                      Operational Quotas
+                    </label>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="p-2 rounded-lg bg-surface-muted border border-subtle">
+                        <span className="text-[10px] text-muted block">Workstations</span>
+                        {isEditing ? (
+                          <input
+                            type="number"
+                            min="1"
+                            value={draftPricing.workstationLimit ?? 1}
+                            onChange={(e) => setDraftPricing((d) => ({ ...d, workstationLimit: parseInt(e.target.value, 10) || 1 }))}
+                            className="w-full text-xs font-mono font-bold bg-surface rounded border border-subtle px-1.5 py-0.5 mt-1"
+                          />
+                        ) : (
+                          <span className="font-bold text-primary font-mono">{tier.workstationLimit ?? 1} terminals</span>
+                        )}
+                      </div>
+
+                      <div className="p-2 rounded-lg bg-surface-muted border border-subtle">
+                        <span className="text-[10px] text-muted block">Branch Stores</span>
+                        {isEditing ? (
+                          <input
+                            type="number"
+                            min="1"
+                            value={draftPricing.branchLimit ?? 1}
+                            onChange={(e) => setDraftPricing((d) => ({ ...d, branchLimit: parseInt(e.target.value, 10) || 1 }))}
+                            className="w-full text-xs font-mono font-bold bg-surface rounded border border-subtle px-1.5 py-0.5 mt-1"
+                          />
+                        ) : (
+                          <span className="font-bold text-primary font-mono">{tier.branchLimit ?? 1} branches</span>
+                        )}
+                      </div>
+
+                      <div className="p-2 rounded-lg bg-surface-muted border border-subtle">
+                        <span className="text-[10px] text-muted block">Cloud Storage</span>
+                        {isEditing ? (
+                          <input
+                            type="number"
+                            min="1"
+                            step="0.5"
+                            value={draftPricing.storageLimitGb ?? 2}
+                            onChange={(e) => setDraftPricing((d) => ({ ...d, storageLimitGb: parseFloat(e.target.value) || 2 }))}
+                            className="w-full text-xs font-mono font-bold bg-surface rounded border border-subtle px-1.5 py-0.5 mt-1"
+                          />
+                        ) : (
+                          <span className="font-bold text-primary font-mono">{tier.storageLimitGb ?? 2} GB</span>
+                        )}
+                      </div>
+
+                      <div className="p-2 rounded-lg bg-surface-muted border border-subtle">
+                        <span className="text-[10px] text-muted block">Alert Quota</span>
+                        {isEditing ? (
+                          <input
+                            type="number"
+                            min="100"
+                            value={draftPricing.alertLimit ?? 500}
+                            onChange={(e) => setDraftPricing((d) => ({ ...d, alertLimit: parseInt(e.target.value, 10) || 500 }))}
+                            className="w-full text-xs font-mono font-bold bg-surface rounded border border-subtle px-1.5 py-0.5 mt-1"
+                          />
+                        ) : (
+                          <span className="font-bold text-primary font-mono">{tier.alertLimit ?? 500} alerts</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1.5">
+                      Plan Description
+                    </label>
+                    {isEditing ? (
+                      <RichEditor
+                        value={draftPricing.description ?? ""}
+                        onChange={(html) => setDraftPricing((d) => ({ ...d, description: html }))}
+                      />
+                    ) : (
+                      <div
+                        className="text-xs text-secondary leading-relaxed [&_ul]:list-disc [&_ul]:pl-4 [&_b]:font-bold [&_strong]:font-bold [&_em]:italic"
+                        dangerouslySetInnerHTML={{ __html: tier.description }}
+                      />
+                    )}
+                  </div>
+
+                  {/* Dynamic Features List */}
+                  <div className="pt-2 border-t border-subtle">
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-muted mb-1.5">
+                      Plan Feature Points ({currentFeatures.length})
+                    </label>
+                    
+                    {isEditing ? (
+                      <div className="space-y-2">
+                        <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                          {currentFeatures.map((feat, idx) => (
+                            <div key={idx} className="flex items-center gap-2 p-1.5 rounded-lg bg-surface-muted border border-subtle text-xs">
+                              <span className="flex-1 truncate">{feat}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveFeature(idx)}
+                                className="text-muted hover:text-danger p-1 transition-colors cursor-pointer"
+                                title="Remove feature"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-1">
+                          <input
+                            type="text"
+                            value={newFeatureText}
+                            onChange={(e) => setNewFeatureText(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                handleAddFeature();
+                              }
+                            }}
+                            placeholder="Add feature bullet point..."
+                            className="flex-1 px-2.5 py-1.5 rounded-lg text-xs bg-surface border border-subtle text-primary placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-primary"
+                          />
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={handleAddFeature}
+                            className="px-2.5 py-1.5 text-xs gap-1"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            Add
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <ul className="space-y-1.5 text-xs text-secondary">
+                        {currentFeatures.map((feat, idx) => (
+                          <li key={idx} className="flex items-start gap-2">
+                            <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                            <span>{feat}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
               </div>
+
+              {/* Card Footer for Editing */}
+              {isEditing && (
+                <div className="p-5 pt-3 border-t border-subtle bg-surface-muted/50 flex gap-2">
+                  <Button variant="primary" onClick={handleSave} disabled={isSaving} className="flex-1 gap-2">
+                    <Save className="h-3.5 w-3.5" />
+                    {isSaving ? "Saving…" : "Save Changes"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => config && startEdit(config.tiers.find((t) => t.tier === editingTier)!)}
+                    disabled={isSaving}
+                    title="Reset to last saved"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )}
             </Card>
           );
         })}
@@ -1088,7 +1278,23 @@ function PricingTab() {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export const AdminSubscriptionPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<AdminBillingTab>("stores");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab") === "pricing" ? "pricing" : "stores";
+  const [activeTab, setActiveTab] = useState<AdminBillingTab>(initialTab);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "pricing" && activeTab !== "pricing") {
+      setActiveTab("pricing");
+    } else if (tab !== "pricing" && activeTab === "pricing" && !tab) {
+      setActiveTab("stores");
+    }
+  }, [searchParams, activeTab]);
+
+  const handleTabChange = (tabId: AdminBillingTab) => {
+    setActiveTab(tabId);
+    setSearchParams(tabId === "pricing" ? { tab: "pricing" } : {});
+  };
 
   const tabs: { id: AdminBillingTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: "stores", label: "Store Subscriptions", icon: Building2 },
@@ -1101,7 +1307,7 @@ export const AdminSubscriptionPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-primary mb-1">Subscription Management</h1>
           <p className="text-sm text-secondary">
-            Oversee all store plans, manage platform pricing, and record manual payments.
+            Oversee all store plans, manage platform pricing, quotas, features, and record manual payments.
           </p>
         </div>
       </div>
@@ -1111,7 +1317,7 @@ export const AdminSubscriptionPage: React.FC = () => {
           <button
             key={tab.id}
             type="button"
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => handleTabChange(tab.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
               activeTab === tab.id
                 ? "bg-primary text-primary-fg shadow-sm"
