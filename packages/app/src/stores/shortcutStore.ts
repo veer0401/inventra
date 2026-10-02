@@ -47,6 +47,15 @@ export const DEFAULT_COMMANDS: CommandDefinition[] = [
     scope: "GLOBAL",
     keywords: ["help", "shortcuts", "hotkeys", "reference"],
   },
+  {
+    id: "OPEN_INTELLIGENCE",
+    label: "Inventra Intelligence",
+    description: "Open natural language intelligence command surface",
+    category: "SYSTEM",
+    defaultBinding: "Ctrl+J",
+    scope: "GLOBAL",
+    keywords: ["ai", "intelligence", "nlp", "query", "ask", "understand"],
+  },
 
   // NAVIGATION
   {
@@ -352,10 +361,16 @@ export interface ShortcutStoreState {
   // Modals UI state
   commandPaletteOpen: boolean;
   shortcutHelpOpen: boolean;
+  intelligenceOpen: boolean;
+  copilotOpen: boolean;
 
   // Actions
   setCommandPaletteOpen: (open: boolean) => void;
   setShortcutHelpOpen: (open: boolean) => void;
+  setIntelligenceOpen: (open: boolean) => void;
+  setCopilotOpen: (open: boolean) => void;
+  toggleIntelligence: () => void;
+  toggleCopilot: () => void;
   fetchProfiles: () => Promise<void>;
   createProfile: (name: string, description?: string, shortcuts?: Record<string, string>) => Promise<ShortcutProfile>;
   updateProfile: (id: string, name?: string, description?: string, shortcuts?: Record<string, string>) => Promise<ShortcutProfile>;
@@ -399,9 +414,23 @@ export const useShortcutStore = create<ShortcutStoreState>()(
         recentCommandIds: ["OPEN_COMMAND_PALETTE", "GO_TO_INVENTORY", "NEW_PRODUCT"],
         commandPaletteOpen: false,
         shortcutHelpOpen: false,
+        intelligenceOpen: false,
+        copilotOpen: false,
 
         setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
         setShortcutHelpOpen: (open) => set({ shortcutHelpOpen: open }),
+        setIntelligenceOpen: (open) => set({ intelligenceOpen: open, copilotOpen: open }),
+        setCopilotOpen: (open) => set({ copilotOpen: open, intelligenceOpen: open }),
+        toggleIntelligence: () =>
+          set((state) => {
+            const next = !state.intelligenceOpen;
+            return { intelligenceOpen: next, copilotOpen: next };
+          }),
+        toggleCopilot: () =>
+          set((state) => {
+            const next = !state.copilotOpen;
+            return { copilotOpen: next, intelligenceOpen: next };
+          }),
 
         fetchProfiles: async () => {
           set({ isLoading: true, error: null });
@@ -582,7 +611,16 @@ export const useShortcutStore = create<ShortcutStoreState>()(
       name: "inventra_shortcuts_cache",
       partialize: (state) => ({
         recentCommandIds: state.recentCommandIds,
+        copilotOpen: state.copilotOpen,
+        intelligenceOpen: state.intelligenceOpen,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          const isOpen = Boolean(state.intelligenceOpen || state.copilotOpen);
+          state.intelligenceOpen = isOpen;
+          state.copilotOpen = isOpen;
+        }
+      },
     }
   )
 );

@@ -7,6 +7,7 @@ import { Breadcrumbs } from "./Breadcrumbs";
 import { ContextSwitcher } from "./ContextSwitcher";
 import { CommandPalette } from "../command/CommandPalette";
 import { ShortcutHelpModal } from "../command/ShortcutHelpModal";
+import { IntelligencePanel } from "../intelligence/IntelligencePanel";
 import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
 import { useShortcutStore } from "../../stores/shortcutStore";
 
@@ -54,6 +55,9 @@ export const AppShell: React.FC = () => {
             </main>
           </div>
         )}
+
+        {/* Inventra Intelligence Canonical Docked Right Side Panel */}
+        <IntelligencePanel />
       </div>
 
       {/* Context Switcher Modal */}

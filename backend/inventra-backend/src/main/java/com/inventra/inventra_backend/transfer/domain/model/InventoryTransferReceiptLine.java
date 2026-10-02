@@ -7,6 +7,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
@@ -64,7 +65,7 @@ public class InventoryTransferReceiptLine {
         this.destinationBatchId = Objects.requireNonNull(destinationBatchId, "destinationBatchId must not be null");
         this.productId = Objects.requireNonNull(productId, "productId must not be null");
         
-        this.receivedBaseQuantity = Objects.requireNonNull(receivedBaseQuantity, "receivedBaseQuantity must not be null").setScale(3);
+        this.receivedBaseQuantity = Objects.requireNonNull(receivedBaseQuantity, "receivedBaseQuantity must not be null").setScale(3, RoundingMode.HALF_UP);
         if (this.receivedBaseQuantity.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessRuleViolationException("INVALID_RECEIPT_LINE_QUANTITY", "Received base quantity must be positive");
         }

@@ -36,7 +36,8 @@ import {
 } from "lucide-react";
 
 export const InventoryDetailPage: React.FC = () => {
-  const { productId } = useParams<{ productId: string }>();
+  const { productId, inventoryItemId } = useParams<{ productId?: string; inventoryItemId?: string }>();
+  const routeParam = inventoryItemId || productId;
   const activeContext = useAuthStore((state) => state.activeContext);
   const storeId = activeContext?.storeId;
   const businessId = activeContext?.businessId;
@@ -44,46 +45,76 @@ export const InventoryDetailPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"BATCHES" | "MOVEMENTS">("BATCHES");
   const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
 
-  // 1. Fetch Product Master Data from Catalog
-  const { data: product, isLoading: isLoadingProduct } = useQuery({
-    queryKey: ["catalog-product", businessId, productId],
-    queryFn: () => catalogApi.getProduct(productId!),
-    enabled: !!businessId && !!productId,
+  // 1. Try to fetch as direct inventory item by ID (when navigating via /inventory/{inventoryItemId})
+  const {
+    data: directInventoryItem,
+    isLoading: isLoadingDirectItem,
+    refetch: refetchDirectItem,
+  } = useQuery({
+    queryKey: ["inventory-item", businessId, storeId, routeParam],
+    queryFn: async () => {
+      try {
+        if (!inventoryApi.getInventoryItem) return null;
+        const res = await inventoryApi.getInventoryItem(routeParam!, storeId);
+        return res ?? null;
+      } catch {
+        return null;
+      }
+    },
+    enabled: !!businessId && !!routeParam,
+    retry: false,
   });
 
-  // 2. Fetch Store Inventory Item for this product
+  // 2. Resolve the underlying Product ID:
+  // If directInventoryItem succeeded, it gives us item.productId.
+  // Otherwise, routeParam is treated as productId for legacy route compatibility.
+  const resolvedProductId = directInventoryItem?.productId || routeParam;
+
+  // 3. Fetch Product Master Data from Catalog
+  const { data: product, isLoading: isLoadingProduct } = useQuery({
+    queryKey: ["catalog-product", businessId, resolvedProductId],
+    queryFn: () => catalogApi.getProduct(resolvedProductId!),
+    enabled: !!businessId && !!resolvedProductId,
+  });
+
+  // 4. Fetch Store Inventory Item list if direct item was not found (fallback for legacy /inventory/:productId routes)
   const {
     data: inventoryPage,
-    isLoading: isLoadingInventory,
-    refetch: refetchInventory,
+    isLoading: isLoadingInventoryList,
+    refetch: refetchInventoryList,
   } = useQuery({
-    queryKey: ["inventory", businessId, storeId, { productId }],
+    queryKey: ["inventory", businessId, storeId, { productId: resolvedProductId }],
     queryFn: () => inventoryApi.listInventory({ storeId, size: 50 }),
-    enabled: !!storeId && !!productId,
+    enabled: !!storeId && !!resolvedProductId && !directInventoryItem,
   });
 
-  const inventoryItem = inventoryPage?.content?.find((item) => item.productId === productId);
+  const inventoryItem = directInventoryItem || inventoryPage?.content?.find((item) => item.productId === resolvedProductId);
+  const isLoadingInventory = directInventoryItem ? isLoadingDirectItem : isLoadingInventoryList;
+  const refetchInventory = () => {
+    if (directInventoryItem) refetchDirectItem();
+    else refetchInventoryList();
+  };
 
-  // 3. Fetch FEFO-Ordered Batches (Preserving Backend FEFO Ordering)
+  // 5. Fetch FEFO-Ordered Batches (Preserving Backend FEFO Ordering)
   const {
     data: fefoBatches = [],
     isLoading: isLoadingBatches,
     refetch: refetchBatches,
   } = useQuery({
-    queryKey: ["inventory-fefo", businessId, storeId, productId],
-    queryFn: () => inventoryApi.listFefoBatches(productId!, storeId),
-    enabled: !!storeId && !!productId,
+    queryKey: ["inventory-fefo", businessId, storeId, resolvedProductId],
+    queryFn: () => inventoryApi.listFefoBatches(resolvedProductId!, storeId),
+    enabled: !!storeId && !!resolvedProductId,
   });
 
-  // 4. Fetch Stock Movement Ledger for this product
+  // 6. Fetch Stock Movement Ledger for this product
   const {
     data: movementsPage,
     isLoading: isLoadingMovements,
     refetch: refetchMovements,
   } = useQuery({
-    queryKey: ["inventory-movements", businessId, storeId, productId],
-    queryFn: () => inventoryApi.listStockMovements({ storeId, productId, size: 20 }),
-    enabled: !!storeId && !!productId && activeTab === "MOVEMENTS",
+    queryKey: ["inventory-movements", businessId, storeId, resolvedProductId],
+    queryFn: () => inventoryApi.listStockMovements({ storeId, productId: resolvedProductId, size: 20 }),
+    enabled: !!storeId && !!resolvedProductId && activeTab === "MOVEMENTS",
   });
 
   const getBatchUrgency = (expiryDate: string, status: BatchStatus) => {

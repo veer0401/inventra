@@ -45,6 +45,7 @@ export function useKeyboardShortcuts(options?: UseKeyboardShortcutsOptions) {
     activeKeymap,
     setCommandPaletteOpen,
     setShortcutHelpOpen,
+    toggleCopilot,
     recordRecentCommand,
   } = useShortcutStore();
 
@@ -75,6 +76,13 @@ export function useKeyboardShortcuts(options?: UseKeyboardShortcutsOptions) {
         e.preventDefault();
         setCommandPaletteOpen(true);
         recordRecentCommand("OPEN_COMMAND_PALETTE");
+        return;
+      }
+
+      if (directCommandId === "OPEN_INTELLIGENCE") {
+        e.preventDefault();
+        toggleCopilot();
+        recordRecentCommand("OPEN_INTELLIGENCE");
         return;
       }
 

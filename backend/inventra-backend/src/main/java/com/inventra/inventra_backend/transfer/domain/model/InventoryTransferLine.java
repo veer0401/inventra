@@ -7,6 +7,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
@@ -98,11 +99,11 @@ public class InventoryTransferLine {
         this.sellingUnit = Objects.requireNonNull(sellingUnit, "sellingUnit must not be null");
         this.conversionFactor = conversionFactor != null && conversionFactor >= 1 ? conversionFactor : 1;
         
-        this.requestedQuantity = Objects.requireNonNull(requestedQuantity, "requestedQuantity must not be null").setScale(3);
+        this.requestedQuantity = Objects.requireNonNull(requestedQuantity, "requestedQuantity must not be null").setScale(3, RoundingMode.HALF_UP);
         if (this.requestedQuantity.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessRuleViolationException("INVALID_REQUESTED_QUANTITY", "Requested quantity must be positive");
         }
-        this.requestedBaseQuantity = this.requestedQuantity.multiply(BigDecimal.valueOf(this.conversionFactor)).setScale(3);
+        this.requestedBaseQuantity = this.requestedQuantity.multiply(BigDecimal.valueOf(this.conversionFactor)).setScale(3, RoundingMode.HALF_UP);
         
         this.approvedQuantity = this.requestedQuantity;
         this.approvedBaseQuantity = this.requestedBaseQuantity;
@@ -110,7 +111,7 @@ public class InventoryTransferLine {
         this.shippedBaseQuantity = BigDecimal.ZERO.setScale(3);
         this.receivedQuantity = BigDecimal.ZERO.setScale(3);
         this.receivedBaseQuantity = BigDecimal.ZERO.setScale(3);
-        this.unitCost = unitCost != null ? unitCost.setScale(4) : BigDecimal.ZERO.setScale(4);
+        this.unitCost = unitCost != null ? unitCost.setScale(4, RoundingMode.HALF_UP) : BigDecimal.ZERO.setScale(4);
         this.notes = notes != null ? notes.trim() : null;
         this.createdAt = Instant.now();
     }
@@ -122,8 +123,8 @@ public class InventoryTransferLine {
         if (qty.compareTo(this.requestedQuantity) > 0) {
             throw new BusinessRuleViolationException("APPROVED_QUANTITY_EXCEEDS_REQUESTED", "Approved quantity cannot exceed requested quantity");
         }
-        this.approvedQuantity = qty.setScale(3);
-        this.approvedBaseQuantity = this.approvedQuantity.multiply(BigDecimal.valueOf(this.conversionFactor)).setScale(3);
+        this.approvedQuantity = qty.setScale(3, RoundingMode.HALF_UP);
+        this.approvedBaseQuantity = this.approvedQuantity.multiply(BigDecimal.valueOf(this.conversionFactor)).setScale(3, RoundingMode.HALF_UP);
     }
 
     public void recordShipment(BigDecimal qty, BigDecimal unitCost) {
@@ -133,10 +134,10 @@ public class InventoryTransferLine {
         if (qty.compareTo(this.approvedQuantity) != 0) {
             throw new BusinessRuleViolationException("SHIPMENT_QUANTITY_MISMATCH", "Shipped quantity must exactly match approved quantity (All-or-Nothing shipment)");
         }
-        this.shippedQuantity = qty.setScale(3);
-        this.shippedBaseQuantity = this.shippedQuantity.multiply(BigDecimal.valueOf(this.conversionFactor)).setScale(3);
+        this.shippedQuantity = qty.setScale(3, RoundingMode.HALF_UP);
+        this.shippedBaseQuantity = this.shippedQuantity.multiply(BigDecimal.valueOf(this.conversionFactor)).setScale(3, RoundingMode.HALF_UP);
         if (unitCost != null) {
-            this.unitCost = unitCost.setScale(4);
+            this.unitCost = unitCost.setScale(4, RoundingMode.HALF_UP);
         }
     }
 
@@ -144,7 +145,7 @@ public class InventoryTransferLine {
         if (receivedBaseQty == null || receivedBaseQty.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessRuleViolationException("INVALID_RECEIVED_QUANTITY", "Received quantity must be positive");
         }
-        BigDecimal newReceivedBase = this.receivedBaseQuantity.add(receivedBaseQty).setScale(3);
+        BigDecimal newReceivedBase = this.receivedBaseQuantity.add(receivedBaseQty).setScale(3, RoundingMode.HALF_UP);
         if (newReceivedBase.compareTo(this.shippedBaseQuantity) > 0) {
             throw new BusinessRuleViolationException("RECEIVED_QUANTITY_EXCEEDS_SHIPPED", "Cumulative received base quantity (" + newReceivedBase + ") cannot exceed shipped base quantity (" + this.shippedBaseQuantity + ")");
         }

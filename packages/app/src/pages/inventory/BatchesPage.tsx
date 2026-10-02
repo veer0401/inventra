@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   Card,
@@ -41,11 +41,39 @@ export const BatchesPage: React.FC = () => {
   const activeContext = useAuthStore((state) => state.activeContext);
   const storeId = activeContext?.storeId;
   const businessId = activeContext?.businessId;
+  const [searchParams] = useSearchParams();
 
-  const [expiryFilter, setExpiryFilter] = useState<ExpiryFilter>("ALL");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [expiryFilter, setExpiryFilter] = useState<ExpiryFilter>(() => {
+    const f = searchParams.get("filter")?.toUpperCase();
+    if (f === "EXPIRING" || f === "60_DAYS" || f === "60") return "60_DAYS";
+    if (f === "30_DAYS" || f === "30") return "30_DAYS";
+    if (f === "90_DAYS" || f === "90") return "90_DAYS";
+    if (f === "EXPIRED") return "EXPIRED";
+    return "ALL";
+  });
+  const [searchQuery, setSearchQuery] = useState<string>(() => {
+    return searchParams.get("search") || "";
+  });
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);
+
+  React.useEffect(() => {
+    const f = searchParams.get("filter")?.toUpperCase();
+    if (f === "EXPIRING" || f === "60_DAYS" || f === "60") {
+      setExpiryFilter("60_DAYS");
+    } else if (f === "30_DAYS" || f === "30") {
+      setExpiryFilter("30_DAYS");
+    } else if (f === "90_DAYS" || f === "90") {
+      setExpiryFilter("90_DAYS");
+    } else if (f === "EXPIRED") {
+      setExpiryFilter("EXPIRED");
+    }
+
+    const s = searchParams.get("search");
+    if (s !== null) {
+      setSearchQuery(s);
+    }
+  }, [searchParams]);
 
   // Convert filter tab to API parameters
   const expiringWithinDays =

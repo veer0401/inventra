@@ -10,6 +10,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
@@ -106,12 +107,12 @@ public class StockMovement {
         this.productId = Objects.requireNonNull(productId, "productId must not be null");
         this.batchId = batchId;
         this.movementType = Objects.requireNonNull(movementType, "movementType must not be null");
-        this.quantityDelta = Objects.requireNonNull(quantityDelta, "quantityDelta must not be null").setScale(3);
+        this.quantityDelta = Objects.requireNonNull(quantityDelta, "quantityDelta must not be null").setScale(3, RoundingMode.HALF_UP);
         if (this.quantityDelta.compareTo(BigDecimal.ZERO) == 0) {
             throw new BusinessRuleViolationException("ZERO_QUANTITY_DELTA", "Stock movement delta must not be zero");
         }
-        this.unitCost = unitCost != null ? unitCost.setScale(2) : null;
-        this.balanceAfter = Objects.requireNonNull(balanceAfter, "balanceAfter must not be null").setScale(3);
+        this.unitCost = unitCost != null ? unitCost.setScale(2, RoundingMode.HALF_UP) : null;
+        this.balanceAfter = Objects.requireNonNull(balanceAfter, "balanceAfter must not be null").setScale(3, RoundingMode.HALF_UP);
         this.referenceType = referenceType != null ? referenceType.trim() : null;
         this.referenceId = referenceId;
         this.reason = reason != null ? reason.trim() : null;

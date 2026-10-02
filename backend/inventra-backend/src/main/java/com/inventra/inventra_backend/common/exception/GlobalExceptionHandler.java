@@ -71,6 +71,31 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return ResponseEntity.badRequest().body(problem);
     }
 
+    @Override
+    protected ResponseEntity<Object> handleHttpMessageNotReadable(
+        org.springframework.http.converter.HttpMessageNotReadableException ex,
+        HttpHeaders headers,
+        HttpStatusCode status,
+        WebRequest request
+    ) {
+        Throwable cause = ex.getCause();
+        while (cause != null) {
+            if (cause instanceof DomainException domainEx) {
+                String requestUri = extractRequestUri(request);
+                String sanitizedType = domainEx.getErrorCode().toLowerCase().replace('_', '-').replaceAll("[^a-z0-9-]", "");
+                ProblemDetail problem = ProblemDetail.forStatusAndDetail(domainEx.getHttpStatus(), domainEx.getMessage());
+                problem.setType(URI.create(ERROR_TYPE_BASE + sanitizedType));
+                problem.setTitle(formatTitle(domainEx.getErrorCode()));
+                problem.setInstance(URI.create(requestUri));
+                problem.setProperty("errorCode", domainEx.getErrorCode());
+                problem.setProperty("timestamp", Instant.now());
+                return ResponseEntity.status(domainEx.getHttpStatus()).body(problem);
+            }
+            cause = cause.getCause();
+        }
+        return super.handleHttpMessageNotReadable(ex, headers, status, request);
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ProblemDetail> handleAccessDenied(AccessDeniedException ex, HttpServletRequest request) {
         log.warn("Access denied at [{}]: {}", request.getRequestURI(), ex.getMessage());

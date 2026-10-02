@@ -33,6 +33,7 @@ import { ShortcutHint } from "@inventra/ui";
 
 const ICON_MAP: Record<string, React.ReactNode> = {
   OPEN_COMMAND_PALETTE: <Search className="h-4 w-4 text-primary" />,
+  OPEN_INTELLIGENCE: <Sparkles className="h-4 w-4 text-accent" />,
   TOGGLE_SIDEBAR: <SlidersHorizontal className="h-4 w-4 text-secondary" />,
   SHOW_SHORTCUT_HELP: <HelpCircle className="h-4 w-4 text-secondary" />,
   GO_TO_DASHBOARD: <LayoutDashboard className="h-4 w-4 text-primary" />,
@@ -212,6 +213,9 @@ export const CommandPalette: React.FC = () => {
         break;
       case "SHOW_SHORTCUT_HELP":
         useShortcutStore.getState().setShortcutHelpOpen(true);
+        break;
+      case "OPEN_INTELLIGENCE":
+        useShortcutStore.getState().setIntelligenceOpen(true);
         break;
       default:
         window.dispatchEvent(new CustomEvent("inventra:command", { detail: { commandId: cmd.id } }));

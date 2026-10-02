@@ -98,6 +98,8 @@ export interface ProductSummaryResponse {
   taxRate?: number;
   prescriptionRequired: boolean;
   status: ProductStatus;
+  inventoryItemId?: string | null;
+  currentStock?: number | null;
 }
 
 export interface CreateProductRequest {
@@ -136,3 +138,40 @@ export interface UpdateProductRequest {
   prescriptionRequired?: boolean;
   status?: ProductStatus;
 }
+
+export type ProductQueryField =
+  | "NAME"
+  | "GENERIC_NAME"
+  | "BRAND"
+  | "DOSAGE_FORM"
+  | "STRENGTH"
+  | "PRICE"
+  | "STOCK"
+  | "REORDER_LEVEL"
+  | "SKU";
+
+export type QueryOperator =
+  | "EQUALS"
+  | "CONTAINS"
+  | "STARTS_WITH"
+  | "ENDS_WITH"
+  | "GREATER_THAN"
+  | "GREATER_THAN_OR_EQUAL"
+  | "LESS_THAN"
+  | "LESS_THAN_OR_EQUAL"
+  | "BETWEEN";
+
+export interface ProductQueryCondition {
+  field: ProductQueryField;
+  operator: QueryOperator;
+  value: string;
+  secondaryValue?: string | null;
+  unit?: string | null;
+}
+
+export interface ProductSearchRequest {
+  query?: string | null;
+  conditions?: ProductQueryCondition[];
+  storeId?: string | null;
+}
+

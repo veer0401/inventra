@@ -10,6 +10,7 @@ import type {
   CategoryResponse,
   CreateCategoryRequest,
   UpdateCategoryRequest,
+  ProductSearchRequest,
 } from "@inventra/api-types";
 
 export const catalogApi = {
@@ -26,6 +27,18 @@ export const catalogApi = {
     });
     return response.data;
   },
+
+  searchProductsStructured: async (
+    request: ProductSearchRequest,
+    page = 0,
+    size = 20
+  ): Promise<Page<ProductSummaryResponse>> => {
+    const response = await apiClient.post<Page<ProductSummaryResponse>>("/api/v1/products/search", request, {
+      params: { page, size },
+    });
+    return response.data;
+  },
+
 
   getProduct: async (productId: string): Promise<ProductResponse> => {
     const response = await apiClient.get<ProductResponse>(`/api/v1/products/${productId}`);

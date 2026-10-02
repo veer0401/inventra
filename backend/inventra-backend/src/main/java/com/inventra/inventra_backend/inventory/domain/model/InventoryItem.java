@@ -9,6 +9,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -74,10 +75,10 @@ public class InventoryItem extends BaseAuditableEntity {
         this.storeId = Objects.requireNonNull(storeId, "storeId must not be null");
         this.productId = Objects.requireNonNull(productId, "productId must not be null");
         this.currentStock = BigDecimal.ZERO.setScale(3);
-        this.reorderLevel = reorderLevel != null ? reorderLevel.setScale(3) : BigDecimal.ZERO.setScale(3);
-        this.reorderQuantity = reorderQuantity != null ? reorderQuantity.setScale(3) : BigDecimal.ZERO.setScale(3);
-        this.minStock = minStock != null ? minStock.setScale(3) : BigDecimal.ZERO.setScale(3);
-        this.maxStock = maxStock != null ? maxStock.setScale(3) : null;
+        this.reorderLevel = reorderLevel != null ? reorderLevel.setScale(3, RoundingMode.HALF_UP) : BigDecimal.ZERO.setScale(3);
+        this.reorderQuantity = reorderQuantity != null ? reorderQuantity.setScale(3, RoundingMode.HALF_UP) : BigDecimal.ZERO.setScale(3);
+        this.minStock = minStock != null ? minStock.setScale(3, RoundingMode.HALF_UP) : BigDecimal.ZERO.setScale(3);
+        this.maxStock = maxStock != null ? maxStock.setScale(3, RoundingMode.HALF_UP) : null;
         this.locationRack = locationRack != null ? locationRack.trim() : null;
         this.isBatchTracked = isBatchTracked != null ? isBatchTracked : false;
     }
@@ -86,7 +87,7 @@ public class InventoryItem extends BaseAuditableEntity {
         if (delta == null) {
             return;
         }
-        BigDecimal newStock = this.currentStock.add(delta).setScale(3);
+        BigDecimal newStock = this.currentStock.add(delta).setScale(3, RoundingMode.HALF_UP);
         if (newStock.compareTo(BigDecimal.ZERO) < 0) {
             throw new BusinessRuleViolationException(
                 "INSUFFICIENT_STOCK",
@@ -103,7 +104,7 @@ public class InventoryItem extends BaseAuditableEntity {
                 "Stock quantity must be non-negative"
             );
         }
-        this.currentStock = newStock.setScale(3);
+        this.currentStock = newStock.setScale(3, RoundingMode.HALF_UP);
     }
 
     public void updateSettings(
@@ -115,16 +116,16 @@ public class InventoryItem extends BaseAuditableEntity {
         Boolean isBatchTracked
     ) {
         if (reorderLevel != null) {
-            this.reorderLevel = reorderLevel.setScale(3);
+            this.reorderLevel = reorderLevel.setScale(3, RoundingMode.HALF_UP);
         }
         if (reorderQuantity != null) {
-            this.reorderQuantity = reorderQuantity.setScale(3);
+            this.reorderQuantity = reorderQuantity.setScale(3, RoundingMode.HALF_UP);
         }
         if (minStock != null) {
-            this.minStock = minStock.setScale(3);
+            this.minStock = minStock.setScale(3, RoundingMode.HALF_UP);
         }
         if (maxStock != null) {
-            this.maxStock = maxStock.setScale(3);
+            this.maxStock = maxStock.setScale(3, RoundingMode.HALF_UP);
         }
         if (locationRack != null) {
             this.locationRack = locationRack.trim();

@@ -319,4 +319,24 @@ public class InventoryService {
             pageable
         ).map(StockMovementResponse::from);
     }
+
+    @Transactional(readOnly = true)
+    public InventoryItemResponse getInventoryItem(UUID businessId, UUID authorizedStoreId, UUID id) {
+        InventoryItem item = inventoryItemRepository.findByIdAndBusinessId(id, businessId)
+            .orElseThrow(() -> ResourceNotFoundException.forResource("InventoryItem", id));
+
+        if (authorizedStoreId != null && !item.getStoreId().equals(authorizedStoreId)) {
+            var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            boolean isElevated = auth != null && auth.getAuthorities().stream().anyMatch(a ->
+                a.getAuthority().equals("ROLE_OWNER") || a.getAuthority().equals("ROLE_MANAGER")
+            );
+            if (!isElevated) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                    "User is not authorized to view inventory item for store " + item.getStoreId()
+                );
+            }
+        }
+
+        return InventoryItemResponse.from(item);
+    }
 }

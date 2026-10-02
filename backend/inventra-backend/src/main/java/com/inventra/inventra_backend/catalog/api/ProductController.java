@@ -27,6 +27,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.inventra.inventra_backend.catalog.api.dto.ProductSearchRequest;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.context.SecurityContextHolder;
+
 @RestController
 @RequestMapping("/api/v1/products")
 public class ProductController {
@@ -54,6 +58,20 @@ public class ProductController {
     ) {
         UUID businessId = getRequiredBusinessId();
         return ApiResponse.ok(productService.searchProducts(businessId, query, pageable));
+    }
+
+    @PostMapping("/search")
+    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER', 'INVENTORY_OPERATOR', 'CASHIER')")
+    public ApiResponse<Page<ProductSummaryResponse>> searchProductsStructured(
+        @RequestParam(value = "storeId", required = false) UUID paramStoreId,
+        @Valid @RequestBody(required = false) ProductSearchRequest request,
+        @PageableDefault(size = 20) Pageable pageable
+    ) {
+        UUID businessId = getRequiredBusinessId();
+        ProductSearchRequest searchRequest = request != null ? request : new ProductSearchRequest(null, null, null);
+        UUID requestedStoreId = paramStoreId != null ? paramStoreId : searchRequest.storeId();
+        UUID resolvedStoreId = resolveAuthorizedStoreId(requestedStoreId);
+        return ApiResponse.ok(productService.searchProductsStructured(businessId, resolvedStoreId, searchRequest, pageable));
     }
 
     @GetMapping("/{id}")
@@ -97,5 +115,26 @@ public class ProductController {
     private UUID getRequiredBusinessId() {
         TenantContext context = TenantContextHolder.requireContext();
         return UUID.fromString(context.tenantId().value());
+    }
+
+    private UUID resolveAuthorizedStoreId(UUID requestedStoreId) {
+        TenantContext context = TenantContextHolder.requireContext();
+        UUID contextStoreId = context.storeId() != null ? UUID.fromString(context.storeId()) : null;
+        UUID targetStoreId = requestedStoreId != null ? requestedStoreId : contextStoreId;
+
+        if (targetStoreId == null) {
+            return null;
+        }
+
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean isElevated = auth != null && auth.getAuthorities().stream().anyMatch(a ->
+            a.getAuthority().equals("ROLE_OWNER") || a.getAuthority().equals("ROLE_MANAGER")
+        );
+
+        if (contextStoreId != null && !contextStoreId.equals(targetStoreId) && !isElevated) {
+            throw new AccessDeniedException("User is not authorized to query store " + targetStoreId);
+        }
+
+        return targetStoreId;
     }
 }

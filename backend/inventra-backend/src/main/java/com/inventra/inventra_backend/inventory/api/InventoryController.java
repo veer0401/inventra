@@ -20,6 +20,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -117,9 +118,41 @@ public class InventoryController {
         return ApiResponse.ok(inventoryService.listStockMovements(businessId, storeId, productId, batchId, pageable));
     }
 
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER', 'INVENTORY_OPERATOR', 'CASHIER')")
+    public ApiResponse<InventoryItemResponse> getInventoryItem(
+        @PathVariable("id") UUID id,
+        @RequestParam(value = "storeId", required = false) UUID paramStoreId
+    ) {
+        UUID businessId = getRequiredBusinessId();
+        UUID authorizedStoreId = resolveAuthorizedStoreId(paramStoreId);
+        return ApiResponse.ok(inventoryService.getInventoryItem(businessId, authorizedStoreId, id));
+    }
+
     private UUID getRequiredBusinessId() {
         TenantContext context = TenantContextHolder.requireContext();
         return UUID.fromString(context.tenantId().value());
+    }
+
+    private UUID resolveAuthorizedStoreId(UUID paramStoreId) {
+        TenantContext context = TenantContextHolder.requireContext();
+        UUID contextStoreId = context.storeId() != null ? UUID.fromString(context.storeId()) : null;
+        UUID targetStoreId = paramStoreId != null ? paramStoreId : contextStoreId;
+
+        if (targetStoreId == null) {
+            return null;
+        }
+
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        boolean isElevated = auth != null && auth.getAuthorities().stream().anyMatch(a ->
+            a.getAuthority().equals("ROLE_OWNER") || a.getAuthority().equals("ROLE_MANAGER")
+        );
+
+        if (contextStoreId != null && !contextStoreId.equals(targetStoreId) && !isElevated) {
+            throw new org.springframework.security.access.AccessDeniedException("User is not authorized to query store " + targetStoreId);
+        }
+
+        return targetStoreId;
     }
 
     private UUID resolveStoreId(UUID paramStoreId) {

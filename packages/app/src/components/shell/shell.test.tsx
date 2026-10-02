@@ -8,6 +8,7 @@ import { TopBar } from "./TopBar";
 import { Breadcrumbs } from "./Breadcrumbs";
 import { ConnectionStatus } from "./ConnectionStatus";
 import { useAuthStore } from "../../stores/authStore";
+import { useShortcutStore } from "../../stores/shortcutStore";
 
 const renderWithProviders = (ui: React.ReactElement, initialEntries = ["/dashboard"]) => {
   return render(
@@ -104,6 +105,23 @@ describe("Application Shell Components", () => {
       // Click to expand again
       fireEvent.click(expandButton);
       expect(localStorage.getItem("inventra_sidebar_collapsed")).toBe("false");
+    });
+
+    it("toggles Inventra Copilot side panel from sidebar control", () => {
+      useShortcutStore.setState({ copilotOpen: false });
+      renderWithProviders(<Sidebar isOpen={true} onClose={() => {}} />);
+
+      const toggleBtn = screen.getByTestId("test-sidebar-copilot-toggle");
+      expect(toggleBtn).toBeDefined();
+      expect(toggleBtn.getAttribute("aria-pressed")).toBe("false");
+
+      // Click to toggle ON
+      fireEvent.click(toggleBtn);
+      expect(useShortcutStore.getState().copilotOpen).toBe(true);
+
+      // Click to toggle OFF
+      fireEvent.click(toggleBtn);
+      expect(useShortcutStore.getState().copilotOpen).toBe(false);
     });
   });
 

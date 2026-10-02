@@ -11,6 +11,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.Objects;
 import java.util.UUID;
@@ -89,11 +90,11 @@ public class InventoryBatch extends BaseAuditableEntity {
         this.batchNumber = validateBatchNumber(batchNumber);
         this.manufacturingDate = manufacturingDate;
         this.expiryDate = Objects.requireNonNull(expiryDate, "expiryDate must not be null");
-        this.quantity = initialQuantity != null ? initialQuantity.setScale(3) : BigDecimal.ZERO.setScale(3);
+        this.quantity = initialQuantity != null ? initialQuantity.setScale(3, RoundingMode.HALF_UP) : BigDecimal.ZERO.setScale(3);
         validateQuantity(this.quantity);
-        this.purchasePrice = purchasePrice != null ? purchasePrice.setScale(2) : BigDecimal.ZERO.setScale(2);
-        this.mrp = mrp != null ? mrp.setScale(2) : BigDecimal.ZERO.setScale(2);
-        this.sellingPrice = sellingPrice != null ? sellingPrice.setScale(2) : this.mrp;
+        this.purchasePrice = purchasePrice != null ? purchasePrice.setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO.setScale(2);
+        this.mrp = mrp != null ? mrp.setScale(2, RoundingMode.HALF_UP) : BigDecimal.ZERO.setScale(2);
+        this.sellingPrice = sellingPrice != null ? sellingPrice.setScale(2, RoundingMode.HALF_UP) : this.mrp;
         validatePrices(this.purchasePrice, this.mrp, this.sellingPrice);
         this.status = this.quantity.compareTo(BigDecimal.ZERO) == 0 ? BatchStatus.DEPLETED : BatchStatus.ACTIVE;
     }
@@ -102,7 +103,7 @@ public class InventoryBatch extends BaseAuditableEntity {
         if (delta == null) {
             return;
         }
-        BigDecimal newQuantity = this.quantity.add(delta).setScale(3);
+        BigDecimal newQuantity = this.quantity.add(delta).setScale(3, RoundingMode.HALF_UP);
         if (newQuantity.compareTo(BigDecimal.ZERO) < 0) {
             throw new BusinessRuleViolationException(
                 "INSUFFICIENT_BATCH_STOCK",
@@ -119,13 +120,13 @@ public class InventoryBatch extends BaseAuditableEntity {
 
     public void updatePrices(BigDecimal purchasePrice, BigDecimal mrp, BigDecimal sellingPrice) {
         if (purchasePrice != null) {
-            this.purchasePrice = purchasePrice.setScale(2);
+            this.purchasePrice = purchasePrice.setScale(2, RoundingMode.HALF_UP);
         }
         if (mrp != null) {
-            this.mrp = mrp.setScale(2);
+            this.mrp = mrp.setScale(2, RoundingMode.HALF_UP);
         }
         if (sellingPrice != null) {
-            this.sellingPrice = sellingPrice.setScale(2);
+            this.sellingPrice = sellingPrice.setScale(2, RoundingMode.HALF_UP);
         }
         validatePrices(this.purchasePrice, this.mrp, this.sellingPrice);
     }

@@ -34,6 +34,13 @@ export interface ListStockMovementsParams {
 }
 
 export const inventoryApi = {
+  getInventoryItem: async (id: string, storeId?: string): Promise<InventoryItemResponse> => {
+    const response = await apiClient.get<InventoryItemResponse>(`/api/v1/inventory/${id}`, {
+      params: storeId ? { storeId } : undefined,
+    });
+    return response.data;
+  },
+
   listInventory: async (params: ListInventoryParams = {}): Promise<Page<InventoryItemResponse>> => {
     const { storeId, lowStockOnly = false, page = 0, size = 20, sort = "createdAt,desc" } = params;
     const response = await apiClient.get<Page<InventoryItemResponse>>("/api/v1/inventory", {

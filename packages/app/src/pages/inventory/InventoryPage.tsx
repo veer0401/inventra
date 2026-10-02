@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from "react";
-import { Link } from "react-router-dom";
+import React, { useState, useMemo, useEffect } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   Card,
@@ -31,11 +31,31 @@ import {
 type FilterTab = "ALL" | "LOW_STOCK" | "EXPIRING";
 
 export const InventoryPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab")?.toLowerCase();
+  const initialTab: FilterTab =
+    tabParam === "low-stock" || tabParam === "low_stock"
+      ? "LOW_STOCK"
+      : tabParam === "expiring"
+      ? "EXPIRING"
+      : "ALL";
+
   const activeContext = useAuthStore((state) => state.activeContext);
   const storeId = activeContext?.storeId;
   const businessId = activeContext?.businessId;
 
-  const [activeTab, setActiveTab] = useState<FilterTab>("ALL");
+  const [activeTab, setActiveTab] = useState<FilterTab>(initialTab);
+
+  useEffect(() => {
+    if (tabParam === "low-stock" || tabParam === "low_stock") {
+      setActiveTab("LOW_STOCK");
+    } else if (tabParam === "expiring") {
+      setActiveTab("EXPIRING");
+    } else if (tabParam === "all") {
+      setActiveTab("ALL");
+    }
+  }, [tabParam]);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(20);

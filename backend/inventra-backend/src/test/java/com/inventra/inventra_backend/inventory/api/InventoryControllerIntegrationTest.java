@@ -332,4 +332,232 @@ class InventoryControllerIntegrationTest {
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.errorCode").value("ACCESS_DENIED"));
     }
+
+    @Test
+    @Transactional
+    @DisplayName("List low-stock inventory items filters by currentStock <= reorderLevel")
+    void testListLowStockInventory() throws Exception {
+        InventoryItem lowStockItem = new InventoryItem(
+            businessA.getId(),
+            storeA.getId(),
+            productNonBatch.getId(),
+            new BigDecimal("10.000"),
+            new BigDecimal("50.000"),
+            new BigDecimal("5.000"),
+            new BigDecimal("100.000"),
+            "Rack A-1",
+            false
+        );
+        lowStockItem.adjustStock(new BigDecimal("3.000"));
+        inventoryItemRepository.save(lowStockItem);
+
+        mockMvc.perform(get("/api/v1/inventory?lowStockOnly=true")
+                .header("Authorization", "Bearer " + operatorToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.content.length()").value(org.hamcrest.Matchers.greaterThanOrEqualTo(1)))
+            .andExpect(jsonPath("$.data.content[0].productId").value(productNonBatch.getId().toString()))
+            .andExpect(jsonPath("$.data.content[0].currentStock").value(3.0));
+    }
+
+    @Test
+    @Transactional
+    @DisplayName("List near-expiry batches strictly excludes already-expired and far-future batches, enforcing tenant and store boundaries")
+    void testListExpiringBatchesIsolationAndFilters() throws Exception {
+        LocalDate today = LocalDate.now();
+
+        InventoryItem itemA = inventoryItemRepository.findByStoreIdAndProductIdAndBusinessId(
+            storeA.getId(),
+            productBatch.getId(),
+            businessA.getId()
+        ).orElseGet(() -> inventoryItemRepository.save(new InventoryItem(
+            businessA.getId(),
+            storeA.getId(),
+            productBatch.getId(),
+            BigDecimal.ZERO,
+            new BigDecimal("50.000"),
+            new BigDecimal("10.000"),
+            new BigDecimal("200.000"),
+            "A1",
+            false
+        )));
+
+        // 1. Expired batch (expiry = today - 5 days) -> MUST BE EXCLUDED
+        InventoryBatch expiredBatch = new InventoryBatch(
+            businessA.getId(),
+            storeA.getId(),
+            productBatch.getId(),
+            itemA.getId(),
+            "BATCH-EXPIRED",
+            today.minusMonths(6),
+            today.minusDays(5),
+            new BigDecimal("20.000"),
+            new BigDecimal("5.00"),
+            new BigDecimal("10.00"),
+            new BigDecimal("9.00")
+        );
+        inventoryBatchRepository.save(expiredBatch);
+
+        // 2. Near-expiry batch (expiry = today + 30 days) -> MUST BE INCLUDED
+        InventoryBatch nearExpiryBatch = new InventoryBatch(
+            businessA.getId(),
+            storeA.getId(),
+            productBatch.getId(),
+            itemA.getId(),
+            "BATCH-NEAR-EXPIRY",
+            today.minusMonths(3),
+            today.plusDays(30),
+            new BigDecimal("25.000"),
+            new BigDecimal("5.00"),
+            new BigDecimal("10.00"),
+            new BigDecimal("9.00")
+        );
+        inventoryBatchRepository.save(nearExpiryBatch);
+
+        // 3. Far-future batch (expiry = today + 120 days) -> MUST BE EXCLUDED for 60-day window
+        InventoryBatch farBatch = new InventoryBatch(
+            businessA.getId(),
+            storeA.getId(),
+            productBatch.getId(),
+            itemA.getId(),
+            "BATCH-FAR-FUTURE",
+            today.minusMonths(1),
+            today.plusDays(120),
+            new BigDecimal("30.000"),
+            new BigDecimal("5.00"),
+            new BigDecimal("10.00"),
+            new BigDecimal("9.00")
+        );
+        inventoryBatchRepository.save(farBatch);
+
+        // 4. Batch in Store B -> MUST BE EXCLUDED from Store A queries
+        Store storeB = storeRepository.save(Store.create(businessA.getId(), "ISB", "Inv Store B", false));
+        InventoryItem itemB = inventoryItemRepository.save(new InventoryItem(
+            businessA.getId(),
+            storeB.getId(),
+            productBatch.getId(),
+            BigDecimal.ZERO,
+            new BigDecimal("50.000"),
+            new BigDecimal("10.000"),
+            new BigDecimal("200.000"),
+            "B1",
+            false
+        ));
+        InventoryBatch storeBBatch = new InventoryBatch(
+            businessA.getId(),
+            storeB.getId(),
+            productBatch.getId(),
+            itemB.getId(),
+            "BATCH-STORE-B",
+            today.minusMonths(1),
+            today.plusDays(20),
+            new BigDecimal("15.000"),
+            new BigDecimal("5.00"),
+            new BigDecimal("10.00"),
+            new BigDecimal("9.00")
+        );
+        inventoryBatchRepository.save(storeBBatch);
+
+        // 5. Batch in Business B -> MUST BE EXCLUDED due to tenant isolation
+        Store storeBusinessB = storeRepository.save(Store.create(businessB.getId(), "ISB-B", "Inv Store Business B", true));
+        Product productB = productRepository.save(new Product(
+            businessB.getId(),
+            null,
+            null,
+            "Amoxicillin 500mg B",
+            "Amoxicillin",
+            "Mox-B",
+            "Ranbaxy",
+            DosageForm.CAPSULE,
+            "500mg",
+            "CAPSULE",
+            "STRIP",
+            10,
+            "30041010",
+            new BigDecimal("12.00"),
+            true,
+            true
+        ));
+        InventoryItem itemBusinessB = inventoryItemRepository.save(new InventoryItem(
+            businessB.getId(),
+            storeBusinessB.getId(),
+            productB.getId(),
+            BigDecimal.ZERO,
+            new BigDecimal("50.000"),
+            new BigDecimal("10.000"),
+            new BigDecimal("200.000"),
+            "B-Tenant",
+            false
+        ));
+        InventoryBatch businessBBatch = new InventoryBatch(
+            businessB.getId(),
+            storeBusinessB.getId(),
+            productB.getId(),
+            itemBusinessB.getId(),
+            "BATCH-BIZ-B",
+            today.minusMonths(1),
+            today.plusDays(15),
+            new BigDecimal("50.000"),
+            new BigDecimal("5.00"),
+            new BigDecimal("10.00"),
+            new BigDecimal("9.00")
+        );
+        inventoryBatchRepository.save(businessBBatch);
+
+        // Query near-expiry batches within 60 days for Store A
+        mockMvc.perform(get("/api/v1/inventory/batches?expiringWithinDays=60")
+                .header("Authorization", "Bearer " + operatorToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.content.length()").value(1))
+            .andExpect(jsonPath("$.data.content[0].batchNumber").value("BATCH-NEAR-EXPIRY"))
+            .andExpect(jsonPath("$.data.content[0].quantity").value(25.0));
+    }
+
+    @Test
+    @Transactional
+    @DisplayName("GET /api/v1/inventory/{id} returns store inventory record and enforces store scoping")
+    void testGetInventoryItemById() throws Exception {
+        // Create an inventory item in Store A
+        InventoryItem itemA = new InventoryItem(
+            businessA.getId(),
+            storeA.getId(),
+            productNonBatch.getId(),
+            new BigDecimal("10.000"),
+            new BigDecimal("50.000"),
+            new BigDecimal("5.000"),
+            null,
+            null,
+            false
+        );
+        itemA.setStock(new BigDecimal("75.000"));
+        itemA = inventoryItemRepository.save(itemA);
+
+        // 1. Success: Operator authorized in Store A retrieves item
+        mockMvc.perform(get("/api/v1/inventory/" + itemA.getId())
+                .header("Authorization", "Bearer " + operatorToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.id").value(itemA.getId().toString()))
+            .andExpect(jsonPath("$.data.storeId").value(storeA.getId().toString()))
+            .andExpect(jsonPath("$.data.productId").value(productNonBatch.getId().toString()))
+            .andExpect(jsonPath("$.data.currentStock").value(75.0));
+
+        // 2. Cross-store denial: Cashier in Store B cannot access item from Store A
+        Store storeB = storeRepository.save(Store.create(businessA.getId(), "STORE-B", "Store B", true));
+        String cashierStoreBToken = jwtTokenProvider.generateAccessToken(
+            UUID.randomUUID(),
+            "cashier.b@iba.local",
+            businessA.getId(),
+            storeB.getId(),
+            null,
+            "CASHIER"
+        );
+        mockMvc.perform(get("/api/v1/inventory/" + itemA.getId())
+                .header("Authorization", "Bearer " + cashierStoreBToken))
+            .andExpect(status().isForbidden());
+
+        // 3. Not found: Non-existent UUID
+        mockMvc.perform(get("/api/v1/inventory/" + UUID.randomUUID())
+                .header("Authorization", "Bearer " + operatorToken))
+            .andExpect(status().isNotFound());
+    }
 }
+

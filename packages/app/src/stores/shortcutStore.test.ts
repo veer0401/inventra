@@ -68,4 +68,22 @@ describe("F5 shortcutStore", () => {
     store.setShortcutHelpOpen(true);
     expect(useShortcutStore.getState().shortcutHelpOpen).toBe(true);
   });
+
+  it("keeps intelligenceOpen and copilotOpen strictly synchronized", () => {
+    const store = useShortcutStore.getState();
+    expect(store.intelligenceOpen).toBe(false);
+    expect(store.copilotOpen).toBe(false);
+
+    store.toggleCopilot();
+    expect(useShortcutStore.getState().copilotOpen).toBe(true);
+    expect(useShortcutStore.getState().intelligenceOpen).toBe(true);
+
+    store.setIntelligenceOpen(false);
+    expect(useShortcutStore.getState().copilotOpen).toBe(false);
+    expect(useShortcutStore.getState().intelligenceOpen).toBe(false);
+
+    store.setCopilotOpen(true);
+    expect(useShortcutStore.getState().copilotOpen).toBe(true);
+    expect(useShortcutStore.getState().intelligenceOpen).toBe(true);
+  });
 });

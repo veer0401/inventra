@@ -13,3 +13,4 @@ export * from "./storeCapacity";
 export * from "./customer";
 export * from "./imports";
 export * from "./reports";
+export * from "./intelligence";

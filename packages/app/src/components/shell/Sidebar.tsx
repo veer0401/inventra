@@ -20,8 +20,10 @@ import {
   ChevronRight,
   ChevronDown,
   BookOpen,
+  Bot,
 } from "lucide-react";
 import { useAuthStore } from "../../stores/authStore";
+import { useShortcutStore } from "../../stores/shortcutStore";
 import { ShortcutHint } from "@inventra/ui";
 import { BrandLogo } from "../common/BrandLogo";
 
@@ -65,6 +67,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const userRole = activeContext?.role || "STAFF";
   const isPlatformAdmin = userRole === "PLATFORM_ADMIN";
   const location = useLocation();
+  const { copilotOpen, intelligenceOpen, toggleCopilot } = useShortcutStore();
+  const isCopilotActive = Boolean(copilotOpen || intelligenceOpen);
 
   // Persistent collapsed state for desktop (rail mode)
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
@@ -703,6 +707,65 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             );
           })}
         </nav>
+
+        {/* Inventra Intelligence Action Button */}
+        <div className="p-2 border-t border-subtle">
+          <button
+            type="button"
+            onClick={toggleCopilot}
+            className={`group relative flex items-center justify-between w-full p-2 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer select-none ${
+              isCopilotActive
+                ? "bg-primary text-primary-fg shadow-xs font-semibold"
+                : "text-secondary hover:text-primary hover:bg-surface-muted"
+            }`}
+            title="Inventra Intelligence (Ctrl+J)"
+            data-testid="test-sidebar-copilot-toggle"
+            aria-pressed={isCopilotActive}
+            aria-label="Toggle Inventra Intelligence"
+          >
+            <div className="flex items-center gap-2.5 truncate">
+              <Bot
+                className={`h-4 w-4 shrink-0 transition-transform group-hover:scale-110 ${
+                  isCopilotActive ? "text-primary-fg" : "text-muted group-hover:text-primary"
+                }`}
+              />
+              <span className={`truncate ${isCollapsed ? "lg:hidden" : "block"}`}>
+                Intelligence
+              </span>
+            </div>
+
+            {!isCollapsed && (
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span
+                  className={`text-[9px] font-mono px-1 py-0.2 rounded font-normal ${
+                    isCopilotActive
+                      ? "bg-primary-hover text-primary-fg"
+                      : "bg-surface-muted text-muted border border-subtle"
+                  }`}
+                >
+                  Ctrl+J
+                </span>
+              </div>
+            )}
+
+            {/* Tooltip when sidebar is collapsed in rail mode */}
+            {isCollapsed && (
+              <div className="hidden lg:group-hover:flex absolute left-full ml-2 px-2.5 py-1 bg-surface-elevated text-primary text-xs font-medium rounded-md shadow-md border border-subtle whitespace-nowrap z-50 pointer-events-none items-center gap-2">
+                <span>Intelligence</span>
+                <ShortcutHint shortcut="Ctrl+J" compact />
+                <span
+                  className={`text-[9px] px-1 py-0.2 rounded font-mono ${
+                    isCopilotActive
+                      ? "bg-primary text-primary-fg"
+                      : "bg-surface-muted text-muted border border-subtle"
+                  }`}
+                >
+                  {isCopilotActive ? "OPEN" : "OFF"}
+                </span>
+              </div>
+            )}
+          </button>
+        </div>
 
         {/* Sidebar Footer with Collapse/Expand Toggle & Build Marker */}
         <div className="p-2.5 border-t border-subtle text-[10px] text-muted flex flex-col gap-2 font-mono">

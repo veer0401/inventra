@@ -7,6 +7,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Objects;
@@ -103,14 +104,14 @@ public class TransferLineBatchAllocation {
         this.manufacturingDate = manufacturingDate;
         this.expiryDate = Objects.requireNonNull(expiryDate, "expiryDate must not be null");
         
-        this.shippedBaseQuantity = Objects.requireNonNull(shippedBaseQuantity, "shippedBaseQuantity must not be null").setScale(3);
+        this.shippedBaseQuantity = Objects.requireNonNull(shippedBaseQuantity, "shippedBaseQuantity must not be null").setScale(3, RoundingMode.HALF_UP);
         if (this.shippedBaseQuantity.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessRuleViolationException("INVALID_SHIPPED_BATCH_QUANTITY", "Shipped batch quantity must be positive");
         }
         this.receivedBaseQuantity = BigDecimal.ZERO.setScale(3);
-        this.unitCost = Objects.requireNonNull(unitCost, "unitCost must not be null").setScale(4);
-        this.mrp = mrp != null ? mrp.setScale(4) : this.unitCost;
-        this.sellingPrice = sellingPrice != null ? sellingPrice.setScale(4) : this.unitCost;
+        this.unitCost = Objects.requireNonNull(unitCost, "unitCost must not be null").setScale(4, RoundingMode.HALF_UP);
+        this.mrp = mrp != null ? mrp.setScale(4, RoundingMode.HALF_UP) : this.unitCost;
+        this.sellingPrice = sellingPrice != null ? sellingPrice.setScale(4, RoundingMode.HALF_UP) : this.unitCost;
         this.createdAt = Instant.now();
     }
 
@@ -118,7 +119,7 @@ public class TransferLineBatchAllocation {
         if (receivedQty == null || receivedQty.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessRuleViolationException("INVALID_RECEIVED_BATCH_QUANTITY", "Received batch quantity must be positive");
         }
-        BigDecimal newReceived = this.receivedBaseQuantity.add(receivedQty).setScale(3);
+        BigDecimal newReceived = this.receivedBaseQuantity.add(receivedQty).setScale(3, RoundingMode.HALF_UP);
         if (newReceived.compareTo(this.shippedBaseQuantity) > 0) {
             throw new BusinessRuleViolationException(
                 "RECEIVED_BATCH_QUANTITY_EXCEEDS_SHIPPED",
