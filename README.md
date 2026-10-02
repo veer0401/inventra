@@ -166,23 +166,20 @@ flowchart LR
         LocalDB[("Local Cache DB")]
         SyncQueue["Client Sync Mutation Queue"]
         SyncWorker["Background Sync Worker"]
-    end
-
+    end 
     subgraph CentralCloud["Inventra Cloud Infrastructure"]
         SyncEndpoint["/api/v1/sync/transactions"]
         ConflictEngine["Vector Clock & Conflict Resolver"]
         CentralDB[("Master PostgreSQL 17")]
-    end
-
-    UI -->|1. Create Sale (Offline)| LocalDB
-    UI -->|2. Enqueue Mutation| SyncQueue
-    LocalDB -. Read Stock / Prices .-> UI
-
-    SyncWorker -->|3. Poll Pending Mutations| SyncQueue
-    SyncWorker -.->|4. Ping Liveness & Push Batches| SyncEndpoint
-    SyncEndpoint --> ConflictEngine
-    ConflictEngine -->|5. Idempotent Commit| CentralDB
-    ConflictEngine -->>|6. Server Acknowledgement & Watermark| SyncWorker
+    end 
+    UI -- "1. Create Sale (Offline)" --> LocalDB 
+    UI -->|2. Enqueue Mutation| SyncQueue 
+    LocalDB -.->|"Read Stock / Prices"| UI 
+    SyncWorker -->|3. Poll Pending Mutations| SyncQueue 
+    SyncWorker -.->|4. Ping Liveness & Push Batches| SyncEndpoint 
+    SyncEndpoint --> ConflictEngine 
+    ConflictEngine -->|5. Idempotent Commit| CentralDB 
+    ConflictEngine -->|"6. Server Acknowledgement & Watermark"| SyncWorker 
     SyncWorker -->|7. Purge Committed Queue| SyncQueue
 ```
 
