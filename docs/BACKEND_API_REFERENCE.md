@@ -687,7 +687,7 @@ Provides keyboard shortcut configurations for high-speed POS billing terminals (
       "orderId": "order_Rzp12345678",
       "amount": 2653938,
       "currency": "INR",
-      "keyId": "rzp_live_InventraKey99"
+      "keyId": "rzp_test_EXAMPLE_KEY_ID"
     },
     "timestamp": "2026-10-03T02:15:00.000Z"
   }
