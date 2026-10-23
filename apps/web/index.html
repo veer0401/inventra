@@ -9,7 +9,7 @@
       (function() {
         try {
           var raw = localStorage.getItem('inventra_theme_preferences');
-          var prefs = raw ? JSON.parse(raw) : { mode: 'system', preset: 'clinical', density: 'comfortable' };
+          var prefs = raw ? JSON.parse(raw) : { mode: 'light', preset: 'clinical', density: 'comfortable' };
           var isDark = prefs.mode === 'dark' || (prefs.mode === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
           var root = document.documentElement;
           if (isDark) {
@@ -27,7 +27,7 @@
       })();
     </script>
   </head>
-  <body class="bg-[var(--bg-app,#0B0F17)] text-[var(--text-primary,#F8FAFC)] antialiased h-full overflow-hidden">
+  <body class="bg-[var(--bg-app,#F8FAFC)] text-[var(--text-primary,#0F172A)] antialiased h-full overflow-hidden">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -67,7 +67,7 @@ function resolveIsDark(mode: ThemeMode): boolean {
   if (typeof window !== "undefined" && window.matchMedia) {
     return window.matchMedia("(prefers-color-scheme: dark)").matches;
   }
-  return true; // Default dark clinical for operational workstation
+  return false; // Default clean light for modern pharmacy ERP
 }
 
 function applyThemeDom(prefs: ThemePreferences): { isDark: boolean; tokens: SemanticTheme } {

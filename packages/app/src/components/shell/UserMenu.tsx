@@ -9,10 +9,11 @@ import {
   Store,
   Palette,
   Keyboard,
+  SlidersHorizontal,
 } from "lucide-react";
+import { useWorkspaceStore } from "../../stores/workspaceStore";
 import {
   Button,
-  Badge,
   Dialog,
   DialogHeader,
   DialogTitle,
@@ -123,50 +124,74 @@ export const UserMenu: React.FC<UserMenuProps> = ({ onOpenContextSwitcher }) => 
 
   return (
     <div className="relative" ref={menuRef}>
-      {/* Trigger Button */}
+      {/* Trigger Button — Ultra-Compact Desktop Avatar Chip */}
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-surface-muted border border-transparent hover:border-subtle transition-all focus:outline-none focus:ring-2 focus:ring-focus text-left"
+        className="flex items-center gap-1 p-0.5 rounded hover:bg-surface-muted border border-transparent hover:border-subtle transition-all focus:outline-none focus:ring-1 focus:ring-focus text-left cursor-pointer shrink-0"
         aria-expanded={isOpen}
         aria-haspopup="true"
         aria-label="User Account Menu"
       >
-        <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center font-bold text-xs text-primary-fg shadow-xs">
+        <div className="h-5.5 w-5.5 rounded-sm bg-surface-muted border border-subtle text-primary flex items-center justify-center font-mono font-bold text-[9px] uppercase shrink-0">
           {getInitials(user?.fullName)}
         </div>
-        <div className="hidden lg:block text-xs leading-tight">
-          <div className="font-semibold text-primary truncate max-w-[120px]">
-            {user?.fullName || "Operator"}
-          </div>
-          <div className="text-[10px] text-secondary font-mono">
-            {activeContext?.role || "Staff"}
-          </div>
-        </div>
-        <ChevronDown className={`h-3.5 w-3.5 text-muted transition-transform ${isOpen ? "rotate-180" : ""}`} />
+        <ChevronDown
+          className={`h-3 w-3 text-muted transition-transform duration-150 ${
+            isOpen ? "rotate-180" : ""
+          }`}
+        />
       </button>
 
-      {/* Popover Dropdown */}
+      {/* Popover Dropdown — Professional Desktop ERP Identity Panel */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-72 rounded-lg border border-strong bg-surface-elevated text-primary shadow-modal py-2 z-50 animate-in fade-in-0 zoom-in-95 duration-150">
-          {/* Identity Header */}
-          <div className="px-4 py-3 border-b border-subtle space-y-1">
-            <div className="font-semibold text-sm text-primary">{user?.fullName}</div>
-            <div className="text-xs text-secondary font-mono truncate">{user?.email}</div>
-            <div className="flex items-center gap-1.5 pt-1.5">
-              <Badge variant="accent" className="text-[10px]">
-                {activeContext?.role || "STAFF"}
-              </Badge>
-              {activeContext?.storeName && (
-                <span className="text-[11px] text-secondary truncate">
-                  • {activeContext.storeName}
+        <div className="absolute right-0 mt-1 w-76 rounded-md border border-subtle bg-surface-elevated text-primary shadow-xl py-1.5 z-50 animate-in fade-in-0 zoom-in-95 duration-100">
+          {/* Identity Header Card — Crisp, Non-Wrapping Layout */}
+          <div className="px-3 py-2 border-b border-subtle bg-surface-muted/20">
+            {/* Row 1: Name and Role Badge */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <div className="h-4.5 w-4.5 rounded-xs bg-primary/10 border border-primary/25 text-primary flex items-center justify-center font-mono font-bold text-[9px] uppercase shrink-0">
+                  {getInitials(user?.fullName)}
+                </div>
+                <span className="font-semibold text-xs text-primary truncate" title={user?.fullName}>
+                  {user?.fullName || "Operator"}
                 </span>
-              )}
+              </div>
+              <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-surface border border-subtle text-secondary font-semibold shrink-0">
+                {activeContext?.role || "STAFF"}
+              </span>
             </div>
+
+            {/* Row 2: Monospace Email */}
+            <div className="text-[10px] text-muted font-mono truncate mt-1 pl-6" title={user?.email}>
+              {user?.email}
+            </div>
+
+            {/* Row 3: Active Store Location Chip */}
+            {activeContext?.storeName && (
+              <div className="mt-2 flex items-center justify-between px-2 py-1 rounded bg-surface border border-subtle text-[11px]">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Store className="h-3 w-3 text-primary shrink-0" />
+                  <span className="font-medium text-primary truncate">
+                    {activeContext.storeName}
+                  </span>
+                </div>
+                {activeContext.storeCode && (
+                  <span className="text-[9px] font-mono text-muted shrink-0 ml-1.5">
+                    {activeContext.storeCode}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Quick Actions List */}
-          <div className="p-1 space-y-0.5 text-xs">
+          {/* Section: Operational Workstation */}
+          <div className="px-2 pt-2 pb-1 space-y-0.5 text-xs">
+            <div className="px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-muted">
+              Workstation & Location
+            </div>
+
             {activeContext?.role !== "PLATFORM_ADMIN" && (
               <button
                 type="button"
@@ -174,9 +199,9 @@ export const UserMenu: React.FC<UserMenuProps> = ({ onOpenContextSwitcher }) => 
                   setIsOpen(false);
                   onOpenContextSwitcher();
                 }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md hover:bg-surface-muted text-secondary hover:text-primary transition-colors text-left"
+                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-surface-muted text-secondary hover:text-primary transition-colors text-left cursor-pointer"
               >
-                <Store className="h-4 w-4 text-primary shrink-0" />
+                <Store className="h-3.5 w-3.5 text-primary shrink-0" />
                 <span>Switch Pharmacy Location</span>
               </button>
             )}
@@ -185,9 +210,9 @@ export const UserMenu: React.FC<UserMenuProps> = ({ onOpenContextSwitcher }) => 
               <Link
                 to="/admin/onboarding"
                 onClick={() => setIsOpen(false)}
-                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md hover:bg-surface-muted text-secondary hover:text-primary transition-colors text-left"
+                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-surface-muted text-secondary hover:text-primary transition-colors text-left"
               >
-                <Shield className="h-4 w-4 text-primary shrink-0" />
+                <Shield className="h-3.5 w-3.5 text-primary shrink-0" />
                 <span>Platform Admin Console</span>
               </Link>
             )}
@@ -196,21 +221,40 @@ export const UserMenu: React.FC<UserMenuProps> = ({ onOpenContextSwitcher }) => 
               type="button"
               onClick={() => {
                 setIsOpen(false);
+                useWorkspaceStore.getState().setCustomizerOpen(true);
+              }}
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-surface-muted text-secondary hover:text-primary transition-colors text-left cursor-pointer"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5 text-primary shrink-0" />
+              <span>Customize ERP Workspace</span>
+            </button>
+          </div>
+
+          {/* Section: Account & Preferences */}
+          <div className="px-2 pt-1 pb-1 border-t border-subtle/60 space-y-0.5 text-xs">
+            <div className="px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-muted">
+              Preferences & Access
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
                 setPasswordDialogOpen(true);
               }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md hover:bg-surface-muted text-secondary hover:text-primary transition-colors text-left"
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-surface-muted text-secondary hover:text-primary transition-colors text-left cursor-pointer"
             >
-              <KeyRound className="h-4 w-4 text-accent shrink-0" />
-              <span>Update Account Password</span>
+              <KeyRound className="h-3.5 w-3.5 text-muted shrink-0" />
+              <span>Update Password</span>
             </button>
 
             <Link
               to="/settings"
               onClick={() => setIsOpen(false)}
-              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md hover:bg-surface-muted text-secondary hover:text-primary transition-colors text-left"
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-surface-muted text-secondary hover:text-primary transition-colors text-left"
             >
-              <Palette className="h-4 w-4 text-muted shrink-0" />
-              <span>Appearance & Settings</span>
+              <Palette className="h-3.5 w-3.5 text-muted shrink-0" />
+              <span>Appearance & Display</span>
             </Link>
 
             <button
@@ -219,36 +263,35 @@ export const UserMenu: React.FC<UserMenuProps> = ({ onOpenContextSwitcher }) => 
                 setIsOpen(false);
                 useShortcutStore.getState().setShortcutHelpOpen(true);
               }}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-md hover:bg-surface-muted text-secondary hover:text-primary transition-colors text-left"
+              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded hover:bg-surface-muted text-secondary hover:text-primary transition-colors text-left cursor-pointer"
             >
-              <div className="flex items-center gap-2.5">
-                <Keyboard className="h-4 w-4 text-primary shrink-0" />
+              <div className="flex items-center gap-2">
+                <Keyboard className="h-3.5 w-3.5 text-muted shrink-0" />
                 <span>Keyboard Shortcuts</span>
               </div>
               <ShortcutHint shortcut="?" compact />
             </button>
           </div>
 
-
-          {/* Session Termination Actions */}
-          <div className="pt-1.5 mt-1.5 border-t border-subtle p-1 space-y-0.5 text-xs">
+          {/* Section: Session Termination */}
+          <div className="px-2 pt-1 border-t border-subtle/80 space-y-0.5 text-xs">
             <button
               type="button"
               onClick={handleLogout}
-              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md hover:bg-danger-subtle text-danger transition-colors text-left"
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-danger-subtle text-danger transition-colors text-left cursor-pointer"
             >
-              <LogOut className="h-4 w-4 shrink-0" />
-              <span>Sign Out Current Session</span>
+              <LogOut className="h-3.5 w-3.5 shrink-0" />
+              <span>Sign Out Session</span>
             </button>
 
             <button
               type="button"
               onClick={handleLogoutAll}
               disabled={isLoggingOutAll}
-              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-md hover:bg-danger-subtle text-danger transition-colors text-left disabled:opacity-50"
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-danger-subtle text-danger/80 hover:text-danger text-[11px] transition-colors text-left disabled:opacity-50 cursor-pointer"
             >
-              <ShieldAlert className="h-4 w-4 shrink-0" />
-              <span>Revoke All Other Sessions</span>
+              <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
+              <span>{isLoggingOutAll ? "Revoking..." : "Revoke All Other Sessions"}</span>
             </button>
           </div>
         </div>

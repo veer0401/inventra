@@ -283,14 +283,14 @@ export const TransferDetailPage: React.FC = () => {
           )}
 
           {transfer.status === "APPROVED" && (
-            <Button size="sm" className="bg-primary text-primary-foreground gap-1.5" onClick={openShipModal}>
+            <Button variant="primary" size="sm" className="gap-1.5" onClick={openShipModal}>
               <Truck className="h-4 w-4" />
               <span>Ship & Dispatch Batches</span>
             </Button>
           )}
 
           {(transfer.status === "IN_TRANSIT" || transfer.status === "PARTIALLY_RECEIVED") && (
-            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5" onClick={openReceiveModal}>
+            <Button variant="success" size="sm" className="gap-1.5" onClick={openReceiveModal}>
               <PackageCheck className="h-4 w-4" />
               <span>Receive Inventory</span>
             </Button>

@@ -17,25 +17,25 @@
 
     --text-primary: #0F172A;
     --text-secondary: #475569;
-    --text-muted: #94A3B8;
+    --text-muted: #64748B;
     --text-inverse: #FFFFFF;
 
     --border-subtle: #E2E8F0;
     --border-strong: #CBD5E1;
-    --border-focus: #4F46E5;
+    --border-focus: #0D9488;
 
     --primary: #0F766E;
     --primary-hover: #115E59;
     --primary-active: #134E4A;
     --primary-fg: #FFFFFF;
-    --primary-subtle: rgba(15, 118, 110, 0.08);
-    --primary-border: rgba(15, 118, 110, 0.25);
+    --primary-subtle: #F0FDFA;
+    --primary-border: #CCFBF1;
 
     --accent: #4F46E5;
     --accent-hover: #4338CA;
     --accent-fg: #FFFFFF;
-    --accent-subtle: rgba(79, 70, 229, 0.08);
-    --accent-border: rgba(79, 70, 229, 0.25);
+    --accent-subtle: #EEF2FF;
+    --accent-border: #C7D2FE;
 
     --success: #059669;
     --success-subtle: #ECFDF5;
@@ -56,6 +56,13 @@
     --info-subtle: #F0F9FF;
     --info-fg: #075985;
     --info-border: #BAE6FD;
+
+    /* Designer Multi-layer Shadows */
+    --shadow-xs: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+    --shadow-card: 0 1px 3px 0 rgba(15, 23, 42, 0.05), 0 1px 2px -1px rgba(15, 23, 42, 0.03);
+    --shadow-card-hover: 0 8px 16px -2px rgba(15, 23, 42, 0.06), 0 3px 6px -2px rgba(15, 23, 42, 0.04);
+    --shadow-dropdown: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.03);
+    --shadow-modal: 0 25px 50px -12px rgba(15, 23, 42, 0.16);
 
     /* Theme-Integrated Scrollbars (Light Mode) */
     color-scheme: light;
@@ -160,16 +167,24 @@
 
   /* Density Modes */
   [data-density="compact"] {
-    --density-table-row: 32px;
+    --density-table-row: 28px;
     --density-control-h: 28px;
-    --density-gap: 8px;
-    --density-pad: 8px;
+    --density-gap: 6px;
+    --density-pad: 6px;
+  }
+
+  /* Default density — operational ERP baseline */
+  :root {
+    --density-table-row: 34px;
+    --density-control-h: 32px;
+    --density-gap: 10px;
+    --density-pad: 12px;
   }
 
   [data-density="comfortable"] {
-    --density-table-row: 44px;
+    --density-table-row: 42px;
     --density-control-h: 36px;
-    --density-gap: 16px;
+    --density-gap: 14px;
     --density-pad: 16px;
   }
 
@@ -223,5 +238,57 @@ button, a, input, select, textarea, [role="button"] {
   .scrollbar-gutter-stable {
     scrollbar-gutter: stable;
   }
+
+  /* ── ERP Page Header Pattern ──────────────────────────────────
+   * <div class="page-header">
+   *   <div>
+   *     <h1 class="page-title">Products</h1>
+   *     <p class="page-subtitle">optional description</p>
+   *   </div>
+   *   <div class="page-actions">... buttons ...</div>
+   * </div>
+   * ──────────────────────────────────────────────────────────── */
+  .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+    min-height: 2rem;
+  }
+
+  .page-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+  }
+
+  .page-subtitle {
+    font-size: 0.6875rem;
+    color: var(--text-muted);
+    margin-top: 0.125rem;
+    line-height: 1.4;
+  }
+
+  .page-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+
+  .section-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: 0.375rem;
+  }
 }
+
 

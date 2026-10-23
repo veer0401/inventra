@@ -3,7 +3,7 @@ import { cn } from "./utils";
 import { Spinner } from "./spinner";
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary" | "destructive" | "outline" | "ghost" | "accent";
+  variant?: "primary" | "secondary" | "destructive" | "outline" | "ghost" | "accent" | "success";
   size?: "sm" | "md" | "lg" | "icon";
   isLoading?: boolean;
   leftIcon?: React.ReactNode;
@@ -26,28 +26,30 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     ref
   ) => {
     const baseStyles =
-      "inline-flex items-center justify-center whitespace-nowrap font-medium transition-all duration-150 select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-focus active:scale-[0.99] disabled:pointer-events-none disabled:opacity-45 disabled:active:scale-100";
+      "inline-flex items-center justify-center whitespace-nowrap font-medium transition-colors duration-100 select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-teal-600/40 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-45 disabled:active:scale-100 cursor-pointer";
 
     const variantStyles = {
       primary:
-        "bg-primary text-primary-fg hover:bg-primary-hover active:bg-primary-active shadow-xs border border-primary-border",
+        "bg-primary hover:bg-primary-hover active:bg-primary-active text-primary-fg border border-primary/20 shadow-[0_1px_2px_0_rgba(15,23,42,0.08)]",
+      success:
+        "bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white border border-emerald-600/30 shadow-[0_1px_2px_0_rgba(15,23,42,0.06)]",
       accent:
-        "bg-accent text-accent-fg hover:bg-accent-hover active:bg-accent-hover shadow-xs border border-accent",
+        "bg-accent hover:bg-accent-hover text-accent-fg border border-accent/20 shadow-[0_1px_2px_0_rgba(15,23,42,0.06)]",
       secondary:
-        "bg-surface-muted text-primary hover:bg-surface active:bg-surface-muted border border-strong shadow-xs",
+        "bg-surface dark:bg-slate-900 text-primary hover:bg-surface-muted dark:hover:bg-slate-800/80 active:bg-surface-muted border border-subtle dark:border-slate-800 shadow-xs hover:border-strong",
       destructive:
-        "bg-danger text-white hover:bg-danger-hover active:bg-danger shadow-xs border border-danger",
+        "bg-danger hover:bg-rose-700 active:bg-rose-800 text-white border border-danger/20 shadow-[0_1px_2px_0_rgba(15,23,42,0.06)]",
       outline:
-        "border border-strong bg-surface text-primary hover:bg-surface-muted active:bg-surface-elevated shadow-xs",
+        "bg-transparent text-primary hover:bg-surface-muted dark:hover:bg-slate-800/60 border border-subtle dark:border-slate-700 hover:border-strong",
       ghost:
-        "text-primary hover:bg-surface-muted active:bg-surface-elevated border border-transparent",
+        "text-secondary hover:text-primary hover:bg-surface-muted dark:hover:bg-slate-800/70 border border-transparent",
     };
 
     const sizeStyles = {
-      sm: "min-h-[28px] h-7 px-2.5 text-xs rounded-md gap-1.5",
-      md: "min-h-[36px] h-9 px-3.5 py-1.5 text-xs rounded-md gap-2",
-      lg: "min-h-[44px] h-11 px-5 py-2.5 text-sm rounded-md gap-2.5 font-semibold",
-      icon: "h-9 w-9 p-0 rounded-md shrink-0",
+      sm: "h-7 px-2.5 text-xs rounded gap-1 font-medium",
+      md: "h-8 px-3 text-xs rounded gap-1.5 font-medium",
+      lg: "h-9 px-4 text-sm rounded gap-2 font-medium",
+      icon: "h-8 w-8 p-0 rounded shrink-0",
     };
 
     return (

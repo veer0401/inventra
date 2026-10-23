@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/v1/catalog/global-medicines")
+@RequestMapping({"/api/v1/catalog/global-medicines", "/api/v1/global-medicines"})
 @PreAuthorize("hasAnyRole('OWNER', 'MANAGER', 'PHARMACIST', 'CASHIER', 'INVENTORY_OPERATOR', 'ADMIN', 'PLATFORM_ADMIN')")
 public class GlobalMedicineController {
 

@@ -149,8 +149,11 @@ export function deriveAccessibleShades(primaryHex: string, isDarkMode = false): 
   const hoverHex = rgbToHex(hoverRgb.r, hoverRgb.g, hoverRgb.b);
   const activeHex = rgbToHex(activeRgb.r, activeRgb.g, activeRgb.b);
 
-  // Best foreground for button text
-  const fg = getBestForeground(primaryHex, ["#FFFFFF", "#042F2E", "#0B0F17"]).color;
+  // Best foreground for button text:
+  // For pharmacy ERP action surfaces (teal, emerald, green, blue, indigo, rose),
+  // white text (#FFFFFF) is universally preferred and required.
+  const isLightYellowOrWhite = lum > 0.65;
+  const fg = isLightYellowOrWhite ? "#0F172A" : "#FFFFFF";
 
   // Derive subtle background & border tints
   let subtleBg: string;

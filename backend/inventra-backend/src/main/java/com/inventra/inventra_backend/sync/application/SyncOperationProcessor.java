@@ -22,12 +22,26 @@ import com.inventra.inventra_backend.sync.api.dto.SyncOperationResult;
 import com.inventra.inventra_backend.sync.domain.model.SyncEventType;
 import com.inventra.inventra_backend.sync.domain.model.SyncOperation;
 import com.inventra.inventra_backend.sync.domain.model.SyncStatus;
+import com.inventra.inventra_backend.purchasing.api.dto.CreateGoodsReceiptRequest;
+import com.inventra.inventra_backend.purchasing.api.dto.CreatePurchaseOrderRequest;
+import com.inventra.inventra_backend.purchasing.api.dto.CreateSupplierRequest;
+import com.inventra.inventra_backend.purchasing.api.dto.GoodsReceiptResponse;
+import com.inventra.inventra_backend.purchasing.api.dto.PurchaseOrderResponse;
+import com.inventra.inventra_backend.purchasing.api.dto.SupplierResponse;
+import com.inventra.inventra_backend.purchasing.application.GoodsReceiptService;
+import com.inventra.inventra_backend.purchasing.application.PurchaseOrderService;
+import com.inventra.inventra_backend.purchasing.application.SupplierService;
+import com.inventra.inventra_backend.purchasing.domain.model.GoodsReceipt;
+import com.inventra.inventra_backend.purchasing.domain.repository.GoodsReceiptRepository;
+import com.inventra.inventra_backend.purchasing.domain.repository.PurchaseOrderRepository;
+import com.inventra.inventra_backend.purchasing.domain.repository.SupplierRepository;
 import com.inventra.inventra_backend.sync.domain.repository.SyncOperationRepository;
 import com.inventra.inventra_backend.sync.infrastructure.CanonicalJsonUtils;
 import com.inventra.inventra_backend.transfer.api.dto.CreateTransferRequest;
 import com.inventra.inventra_backend.transfer.api.dto.TransferResponse;
 import com.inventra.inventra_backend.transfer.application.TransferService;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -52,6 +66,12 @@ public class SyncOperationProcessor {
     private final TransferService transferService;
     private final ProductRepository productRepository;
     private final InventoryBatchRepository inventoryBatchRepository;
+    private final GoodsReceiptService goodsReceiptService;
+    private final GoodsReceiptRepository goodsReceiptRepository;
+    private final PurchaseOrderService purchaseOrderService;
+    private final PurchaseOrderRepository purchaseOrderRepository;
+    private final SupplierService supplierService;
+    private final SupplierRepository supplierRepository;
     private final ObjectMapper objectMapper;
     private final TransactionTemplate transactionTemplate;
 
@@ -64,6 +84,12 @@ public class SyncOperationProcessor {
         TransferService transferService,
         ProductRepository productRepository,
         InventoryBatchRepository inventoryBatchRepository,
+        GoodsReceiptService goodsReceiptService,
+        GoodsReceiptRepository goodsReceiptRepository,
+        PurchaseOrderService purchaseOrderService,
+        PurchaseOrderRepository purchaseOrderRepository,
+        SupplierService supplierService,
+        SupplierRepository supplierRepository,
         ObjectMapper objectMapper,
         PlatformTransactionManager transactionManager
     ) {
@@ -75,6 +101,12 @@ public class SyncOperationProcessor {
         this.transferService = transferService;
         this.productRepository = productRepository;
         this.inventoryBatchRepository = inventoryBatchRepository;
+        this.goodsReceiptService = goodsReceiptService;
+        this.goodsReceiptRepository = goodsReceiptRepository;
+        this.purchaseOrderService = purchaseOrderService;
+        this.purchaseOrderRepository = purchaseOrderRepository;
+        this.supplierService = supplierService;
+        this.supplierRepository = supplierRepository;
         this.objectMapper = objectMapper;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -143,6 +175,12 @@ public class SyncOperationProcessor {
                         return processSaleReturnCreated(businessId, storeId, userId, deviceId, opReq, computedChecksum);
                     } else if (opReq.eventType() == SyncEventType.TRANSFER_REQUEST_CREATED) {
                         return processTransferRequestCreated(businessId, storeId, userId, deviceId, opReq, computedChecksum);
+                    } else if (opReq.eventType() == SyncEventType.GOODS_RECEIPT_POSTED) {
+                        return processGoodsReceiptPosted(businessId, storeId, userId, deviceId, opReq, computedChecksum);
+                    } else if (opReq.eventType() == SyncEventType.PURCHASE_ORDER_CREATED) {
+                        return processPurchaseOrderCreated(businessId, storeId, userId, deviceId, opReq, computedChecksum);
+                    } else if (opReq.eventType() == SyncEventType.SUPPLIER_CREATED) {
+                        return processSupplierCreated(businessId, storeId, userId, deviceId, opReq, computedChecksum);
                     } else {
                         throw new BusinessRuleViolationException(
                             "UNSUPPORTED_EVENT_TYPE", "Event type " + opReq.eventType() + " is not supported"
@@ -367,6 +405,123 @@ public class SyncOperationProcessor {
         syncOperationRepository.save(syncOp);
 
         return SyncOperationResult.applied(eventId, seq, transferResponse.id(), "Transfer request created successfully");
+    }
+
+    private SyncOperationResult processGoodsReceiptPosted(
+        UUID businessId,
+        UUID storeId,
+        UUID userId,
+        UUID deviceId,
+        SyncOperationRequest opReq,
+        String checksum
+    ) throws Exception {
+        UUID eventId = opReq.eventId();
+        Long seq = opReq.deviceSequenceNumber();
+        String idempotencyKey = "GRN-" + eventId;
+
+        // Idempotency check on goods_receipts table
+        Optional<GoodsReceipt> existingGrOpt = goodsReceiptRepository.findByBusinessIdAndIdempotencyKey(businessId, idempotencyKey);
+        if (existingGrOpt.isPresent()) {
+            GoodsReceipt existingGr = existingGrOpt.get();
+            SyncOperation recoveredOp = new SyncOperation(
+                businessId, storeId, deviceId, userId, eventId, seq,
+                SyncEventType.GOODS_RECEIPT_POSTED, opReq.eventVersion(),
+                SyncStatus.APPLIED, existingGr.getId(), checksum,
+                null, "Recovered from existing goods receipt", opReq.occurredAt()
+            );
+            syncOperationRepository.save(recoveredOp);
+            return SyncOperationResult.duplicate(eventId, seq, existingGr.getId(), "Goods receipt recovered via idempotency key");
+        }
+
+        CreateGoodsReceiptRequest grReq = objectMapper.convertValue(opReq.payload(), CreateGoodsReceiptRequest.class);
+        UUID effectiveStoreId = (grReq.storeId() != null) ? grReq.storeId() : storeId;
+
+        CreateGoodsReceiptRequest mappedReq = new CreateGoodsReceiptRequest(
+            effectiveStoreId,
+            grReq.supplierId(),
+            grReq.purchaseOrderId(),
+            grReq.vendorDeliveryNote(),
+            grReq.receivedDate() != null ? grReq.receivedDate() : LocalDate.now(),
+            grReq.notes(),
+            idempotencyKey,
+            grReq.lines()
+        );
+
+        GoodsReceiptResponse created = goodsReceiptService.createGoodsReceipt(businessId, mappedReq);
+        GoodsReceiptResponse posted = goodsReceiptService.postGoodsReceipt(businessId, created.id(), userId, deviceId);
+
+        SyncOperation syncOp = new SyncOperation(
+            businessId, effectiveStoreId, deviceId, userId, eventId, seq,
+            SyncEventType.GOODS_RECEIPT_POSTED, opReq.eventVersion(),
+            SyncStatus.APPLIED, posted.id(), checksum,
+            null, "Goods receipt posted successfully", opReq.occurredAt()
+        );
+        syncOperationRepository.save(syncOp);
+
+        return SyncOperationResult.applied(eventId, seq, posted.id(), "Goods receipt posted successfully");
+    }
+
+    private SyncOperationResult processPurchaseOrderCreated(
+        UUID businessId,
+        UUID storeId,
+        UUID userId,
+        UUID deviceId,
+        SyncOperationRequest opReq,
+        String checksum
+    ) throws Exception {
+        UUID eventId = opReq.eventId();
+        Long seq = opReq.deviceSequenceNumber();
+
+        CreatePurchaseOrderRequest poReq = objectMapper.convertValue(opReq.payload(), CreatePurchaseOrderRequest.class);
+        UUID effectiveStoreId = (poReq.storeId() != null) ? poReq.storeId() : storeId;
+
+        CreatePurchaseOrderRequest mappedReq = new CreatePurchaseOrderRequest(
+            effectiveStoreId,
+            poReq.supplierId(),
+            poReq.orderDate() != null ? poReq.orderDate() : LocalDate.now(),
+            poReq.expectedDeliveryDate(),
+            poReq.discountAmount(),
+            poReq.notes(),
+            poReq.lines()
+        );
+
+        PurchaseOrderResponse po = purchaseOrderService.createPurchaseOrder(businessId, mappedReq);
+        PurchaseOrderResponse confirmed = purchaseOrderService.confirmPurchaseOrder(businessId, po.id(), userId);
+
+        SyncOperation syncOp = new SyncOperation(
+            businessId, effectiveStoreId, deviceId, userId, eventId, seq,
+            SyncEventType.PURCHASE_ORDER_CREATED, opReq.eventVersion(),
+            SyncStatus.APPLIED, confirmed.id(), checksum,
+            null, "Purchase order created successfully", opReq.occurredAt()
+        );
+        syncOperationRepository.save(syncOp);
+
+        return SyncOperationResult.applied(eventId, seq, confirmed.id(), "Purchase order created successfully");
+    }
+
+    private SyncOperationResult processSupplierCreated(
+        UUID businessId,
+        UUID storeId,
+        UUID userId,
+        UUID deviceId,
+        SyncOperationRequest opReq,
+        String checksum
+    ) throws Exception {
+        UUID eventId = opReq.eventId();
+        Long seq = opReq.deviceSequenceNumber();
+
+        CreateSupplierRequest supReq = objectMapper.convertValue(opReq.payload(), CreateSupplierRequest.class);
+        SupplierResponse sup = supplierService.createSupplier(businessId, supReq);
+
+        SyncOperation syncOp = new SyncOperation(
+            businessId, storeId, deviceId, userId, eventId, seq,
+            SyncEventType.SUPPLIER_CREATED, opReq.eventVersion(),
+            SyncStatus.APPLIED, sup.id(), checksum,
+            null, "Supplier created successfully", opReq.occurredAt()
+        );
+        syncOperationRepository.save(syncOp);
+
+        return SyncOperationResult.applied(eventId, seq, sup.id(), "Supplier created successfully");
     }
 
     private SyncOperationResult recordAndReturnRejected(

@@ -88,14 +88,14 @@ export const FeaturesPage: React.FC = () => {
     <div className="space-y-24 py-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* Page Header */}
       <section className="text-center max-w-3xl mx-auto space-y-6 pt-8">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-400 text-xs font-semibold uppercase tracking-wider">
-          <Layers className="w-3.5 h-3.5" />
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-50 border border-teal-200/90 text-teal-800 text-xs font-semibold tracking-wide shadow-xs">
+          <Layers className="w-3.5 h-3.5 text-teal-600" />
           <span>Full Architecture Spotlight</span>
         </div>
-        <h1 className="text-4xl sm:text-5xl font-extrabold text-white tracking-tight">
+        <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-900 tracking-tight">
           {cmsData?.title || "Everything You Need to Run a Modern Pharmacy"}
         </h1>
-        <p className="text-base sm:text-lg text-slate-300 leading-relaxed">
+        <p className="text-base sm:text-lg text-slate-600 leading-relaxed">
           {cmsData?.subtitle || "From independent single-counter chemists to multi-branch hospital dispensaries, explore the features that power high-concurrency Indian pharmacies."}
         </p>
       </section>
@@ -109,19 +109,19 @@ export const FeaturesPage: React.FC = () => {
           return (
             <div
               key={idx}
-              className="rounded-3xl bg-slate-900/70 border border-slate-800 p-8 sm:p-10 space-y-6 backdrop-blur-xl hover:border-teal-500/40 transition-all flex flex-col justify-between"
+              className="rounded-2xl bg-white border border-slate-200/90 p-8 sm:p-10 space-y-6 shadow-card hover:shadow-card-hover hover:border-teal-200 transition-all flex flex-col justify-between"
             >
               <div className="space-y-4">
-                <div className="w-12 h-12 rounded-2xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400">
+                <div className="w-12 h-12 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-700">
                   <Icon className="w-6 h-6" />
                 </div>
-                <h3 className="text-xl sm:text-2xl font-bold text-white">{mod.title}</h3>
-                <p className="text-sm text-slate-400 leading-relaxed">{mod.desc}</p>
+                <h3 className="text-xl sm:text-2xl font-bold text-slate-900">{mod.title}</h3>
+                <p className="text-sm text-slate-600 leading-relaxed">{mod.desc}</p>
 
-                <div className="pt-4 border-t border-slate-800/80 space-y-2.5">
+                <div className="pt-4 border-t border-slate-100 space-y-2.5">
                   {mod.bullets.map((b: string, bIdx: number) => (
-                    <div key={bIdx} className="flex items-start gap-2.5 text-xs sm:text-sm text-slate-300">
-                      <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
+                    <div key={bIdx} className="flex items-start gap-2.5 text-xs sm:text-sm text-slate-700">
+                      <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
                       <span>{b}</span>
                     </div>
                   ))}
@@ -131,7 +131,7 @@ export const FeaturesPage: React.FC = () => {
               <div className="pt-4">
                 <Link
                   to="/apply"
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-teal-400 hover:text-teal-300"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal-700 hover:text-teal-900"
                 >
                   <span>Experience this in demo</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -143,15 +143,15 @@ export const FeaturesPage: React.FC = () => {
       </section>
 
       {/* Bottom CTA */}
-      <section className="text-center rounded-3xl bg-gradient-to-r from-teal-950/80 via-slate-900 to-emerald-950/80 border border-teal-500/30 p-12 space-y-6">
+      <section className="text-center rounded-3xl bg-gradient-to-r from-teal-900 via-teal-800 to-emerald-900 border border-teal-700/80 p-12 space-y-6 text-white shadow-lg">
         <h2 className="text-2xl sm:text-3xl font-bold text-white">Compare Plans & Pricing</h2>
-        <p className="text-sm text-slate-300 max-w-lg mx-auto">
+        <p className="text-sm text-teal-100/90 max-w-lg mx-auto">
           Explore transparent pricing tiers with workstation quotas and promotional launch coupons.
         </p>
         <div>
           <Link
             to="/plans"
-            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-teal-400 text-slate-950 font-bold text-sm hover:brightness-110 shadow-lg shadow-teal-500/20 transition-all"
+            className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-white hover:bg-slate-100 text-teal-950 font-bold text-sm shadow-md hover:shadow-lg transition-all"
           >
             <span>View All Plans</span>
             <ArrowRight className="w-4 h-4" />

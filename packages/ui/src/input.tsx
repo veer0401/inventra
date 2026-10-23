@@ -12,7 +12,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="relative flex items-center w-full">
         {leftIcon && (
-          <div className="absolute left-3 flex items-center pointer-events-none text-muted">
+          <div className="absolute left-2.5 flex items-center pointer-events-none text-muted dark:text-slate-500">
             {leftIcon}
           </div>
         )}
@@ -21,18 +21,18 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           ref={ref}
           disabled={disabled}
           className={cn(
-            "flex h-9 w-full rounded-md border bg-surface px-3 py-1.5 text-xs text-primary shadow-xs transition-colors file:border-0 file:bg-transparent file:text-xs file:font-medium placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-muted",
-            leftIcon ? "pl-9" : "",
-            rightIcon ? "pr-9" : "",
+            "flex h-8 w-full rounded-md border bg-surface dark:bg-slate-900/70 px-3 py-1 text-xs text-primary dark:text-slate-100 shadow-xs transition-colors duration-100 file:border-0 file:bg-transparent file:text-xs file:font-medium placeholder:text-muted dark:placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:bg-surface-muted dark:disabled:bg-slate-800/50 disabled:text-muted",
+            leftIcon ? "pl-8" : "",
+            rightIcon ? "pr-8" : "",
             error
-              ? "border-danger focus-visible:ring-danger text-danger focus-visible:border-danger"
-              : "border-strong focus-visible:border-focus focus-visible:ring-focus",
+              ? "border-danger/70 dark:border-rose-800 focus-visible:border-danger focus-visible:ring-danger/15"
+              : "border-subtle dark:border-slate-800 hover:border-strong dark:hover:border-slate-700 focus-visible:border-focus focus-visible:ring-focus/10 dark:focus-visible:ring-focus/20",
             className
           )}
           {...props}
         />
         {rightIcon && (
-          <div className="absolute right-3 flex items-center text-muted">
+          <div className="absolute right-2.5 flex items-center text-muted dark:text-slate-500">
             {rightIcon}
           </div>
         )}
