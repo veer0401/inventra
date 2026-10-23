@@ -11,20 +11,27 @@
 	<groupId>com.inventra</groupId>
 	<artifactId>inventra-backend</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name/>
-	<description/>
-	<url/>
+	<name>Inventra Backend</name>
+	<description>Multi-tenant pharmacy ERP backend: identity, catalog, batch-level inventory, purchasing, POS sales, inter-store transfers, offline sync, reporting and platform administration.</description>
+	<url>https://github.com/veer0401/inventra</url>
 	<licenses>
-		<license/>
+		<license>
+			<name>Proprietary</name>
+			<comments>All rights reserved.</comments>
+		</license>
 	</licenses>
 	<developers>
-		<developer/>
+		<developer>
+			<id>veer0401</id>
+			<name>Veer Patwa</name>
+			<url>https://github.com/veer0401</url>
+		</developer>
 	</developers>
 	<scm>
-		<connection/>
-		<developerConnection/>
-		<tag/>
-		<url/>
+		<connection>scm:git:https://github.com/veer0401/inventra.git</connection>
+		<developerConnection>scm:git:https://github.com/veer0401/inventra.git</developerConnection>
+		<tag>HEAD</tag>
+		<url>https://github.com/veer0401/inventra</url>
 	</scm>
 	<properties>
 		<java.version>17</java.version>
