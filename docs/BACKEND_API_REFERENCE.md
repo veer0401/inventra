@@ -646,7 +646,7 @@ Provides keyboard shortcut configurations for high-speed POS billing terminals (
 
 ### 9.2 Upgrade / Change Plan Preview
 - **Method & Route**: `GET /api/v1/subscription/upgrade-preview?targetTier=GROWTH&targetBillingCycle=ANNUAL`
-- **Use Case**: Computes real prorated credit for remaining days on existing plan, applies active discount coupon if provided, and previews the net invoice amount before Razorpay checkout.
+- **Use Case**: Computes real prorated credit for remaining days on existing plan, applies active discount coupon if provided, and previews the net invoice amount for the target plan.
 - **Response Payload (`200 OK`)**:
   ```json
   {
@@ -667,60 +667,25 @@ Provides keyboard shortcut configurations for high-speed POS billing terminals (
 
 ---
 
-### 9.3 Initiate Subscription Payment
-- **Method & Route**: `POST /api/v1/subscription/payment/initiate`
-- **Access**: `ROLE_OWNER`, `ROLE_MANAGER`, `ROLE_PLATFORM_ADMIN`
-- **Use Case**: Creates a Razorpay Order ID and records a pending `license_invoices` record in the database.
+### 9.3 Recording a Subscription Payment (admin)
+Online payment endpoints (`/payment/initiate`, `/payment/verify`) were removed together with the Razorpay integration (migration `V20`). Subscription payments are now recorded by a platform administrator.
+
+- **Method & Route**: `POST /api/v1/admin/subscription/businesses/{businessId}/payment`
+- **Access**: platform administrators
+- **Use Case**: Records a confirmed payment, renews the subscription period for the business, and issues a tax invoice.
 - **Request Payload**:
   ```json
   {
-    "targetTier": "GROWTH",
-    "targetBillingCycle": "ANNUAL",
-    "couponCode": "FESTIVE10"
-  }
-  ```
-- **Response Payload (`200 OK`)**:
-  ```json
-  {
-    "success": true,
-    "data": {
-      "orderId": "order_Rzp12345678",
-      "amount": 2653938,
-      "currency": "INR",
-      "keyId": "rzp_test_EXAMPLE_KEY_ID"
-    },
-    "timestamp": "2026-10-03T02:15:00.000Z"
+    "paymentReference": "UTR-123456789"
   }
   ```
 - **Database Operations**:
-  - `INSERT INTO license_invoices (id, business_id, invoice_number, tier, billing_cycle, subtotal, tax_amount, total_amount, razorpay_order_id, status, created_at)`
+  - Updates `business_subscriptions` (period start and end, payment method set to `Manual Payment (Ref: ...)`).
+  - Inserts a row into `business_subscription_invoices`.
 
 ---
 
-### 9.4 Verify Payment & Activate Tier
-- **Method & Route**: `POST /api/v1/subscription/payment/verify`
-- **Access**: `ROLE_OWNER`, `ROLE_MANAGER`, `ROLE_PLATFORM_ADMIN`
-- **Use Case**: Receives Razorpay payment signature from client SDK, computes HMAC-SHA256 signature using the server webhook secret, and atomically transitions subscription to active.
-- **Request Payload**:
-  ```json
-  {
-    "razorpayOrderId": "order_Rzp12345678",
-    "razorpayPaymentId": "pay_RzpPayment998877",
-    "razorpaySignature": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "targetTier": "GROWTH",
-    "targetBillingCycle": "ANNUAL",
-    "couponCode": "FESTIVE10"
-  }
-  ```
-- **Database Operations (Atomic Transaction)**:
-  1. Validates signature match.
-  2. `UPDATE license_invoices SET razorpay_payment_id = :paymentId, status = 'PAID', paid_at = NOW() WHERE razorpay_order_id = :orderId`
-  3. `UPDATE subscriptions SET plan_tier = :targetTier, billing_cycle = :cycle, status = 'ACTIVE', valid_until = NOW() + INTERVAL '1 YEAR' WHERE business_id = :businessId`
-  4. If coupon used: `UPDATE coupons SET used_count = used_count + 1 WHERE code = :code`
-
----
-
-### 9.5 Download Tax Invoice PDF
+### 9.4 Download Tax Invoice PDF
 - **Method & Route**: `GET /api/v1/subscription/invoices/{invoiceId}/pdf`
 - **Response**: Binary PDF Stream (`Content-Type: application/pdf; Content-Disposition: attachment; filename="Inventra-Invoice-...pdf"`)
 - **Database Operations**:
@@ -1801,11 +1766,12 @@ The Inventra PostgreSQL database is constructed through 19 structured, forward-o
 | `V12__user_invitations.sql` | Staff Invitations | `user_invitations` |
 | `V13__notifications.sql` | In-App Alerting | `notifications` |
 | `V14__subscription_persistence.sql` | Subscription Tiers | `subscriptions`, `license_invoices`, `coupons` |
-| `V15__subscription_invoice_razorpay_ids.sql` | Payment Gateways | `license_invoices.razorpay_order_id`, `razorpay_payment_id` |
+| `V15__subscription_invoice_razorpay_ids.sql` | Payment gateway references | Added Razorpay ID columns to invoices (removed again in V20) |
 | `V16__dynamic_cms_and_prorated_invoices.sql` | CMS & Pricing | `cms_pages`, `pricing_config` |
 | `V17__careers_and_coupon_cap.sql` | Careers & Promotions | `career_jobs`, `job_applications`, `coupons.max_discount_amount` |
 | `V18__global_medicine_database.sql` | Master Formulations | `global_medicines`, `global_medicine_suggestions` |
 | `V19__seed_legal_compliance_cms_pages.sql` | Compliance Seed | Seed data for privacy policy, terms of service, and refund guidelines |
+| `V20__remove_razorpay_integration.sql` | Gateway removal | Drops the Razorpay columns from invoices and relabels gateway-stamped records |
 
 ---
 

@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.inventra.inventra_backend.common.domain.exception.BusinessRuleViolationException;
 import com.inventra.inventra_backend.common.domain.exception.ResourceNotFoundException;
-import com.inventra.inventra_backend.common.mail.application.EmailService;
 import com.inventra.inventra_backend.tenant.domain.model.Business;
 import com.inventra.inventra_backend.tenant.domain.model.DeviceStatus;
 import com.inventra.inventra_backend.tenant.domain.repository.BusinessRepository;
@@ -14,41 +13,23 @@ import com.inventra.inventra_backend.tenant.subscription.api.dto.AdminBusinessSu
 import com.inventra.inventra_backend.tenant.subscription.api.dto.AdminStoreDetailsResponse;
 import com.inventra.inventra_backend.tenant.subscription.api.dto.ChangePlanRequest;
 import com.inventra.inventra_backend.tenant.subscription.api.dto.LicenseInvoiceResponse;
-import com.inventra.inventra_backend.tenant.subscription.api.dto.PaymentInitiateResponse;
 import com.inventra.inventra_backend.tenant.subscription.api.dto.PricingConfigResponse;
 import com.inventra.inventra_backend.tenant.subscription.api.dto.SubscriptionDetailsResponse;
 import com.inventra.inventra_backend.tenant.subscription.api.dto.UpdatePricingRequest;
 import com.inventra.inventra_backend.tenant.subscription.api.dto.UpgradePreviewResponse;
-import com.inventra.inventra_backend.tenant.subscription.api.dto.UpgradeSubscriptionRequest;
-import com.inventra.inventra_backend.tenant.subscription.api.dto.VerifyPaymentRequest;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.net.URI;
-import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -61,17 +42,9 @@ public class SubscriptionService {
     private final DeviceRepository deviceRepository;
     private final StoreRepository storeRepository;
     private final ObjectMapper objectMapper;
-    private final HttpClient httpClient;
     private final JdbcTemplate jdbcTemplate;
-    private final EmailService emailService;
     private final PdfInvoiceService pdfInvoiceService;
     private final CouponService couponService;
-
-    @Value("${razorpay.key-id:}")
-    private String razorpayKeyId;
-
-    @Value("${razorpay.key-secret:}")
-    private String razorpayKeySecret;
 
     // In-memory cache per business for active subscription configuration
     private final Map<UUID, SubscriptionConfig> businessConfigs = new ConcurrentHashMap<>();
@@ -91,7 +64,6 @@ public class SubscriptionService {
         StoreRepository storeRepository,
         ObjectMapper objectMapper,
         JdbcTemplate jdbcTemplate,
-        EmailService emailService,
         PdfInvoiceService pdfInvoiceService,
         CouponService couponService
     ) {
@@ -100,12 +72,8 @@ public class SubscriptionService {
         this.storeRepository = storeRepository;
         this.objectMapper = objectMapper;
         this.jdbcTemplate = jdbcTemplate;
-        this.emailService = emailService;
         this.pdfInvoiceService = pdfInvoiceService;
         this.couponService = couponService;
-        this.httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(10))
-            .build();
     }
 
     private SubscriptionConfig getOrLoadConfig(UUID businessId) {
@@ -172,9 +140,9 @@ public class SubscriptionService {
                 INSERT INTO business_subscription_invoices (
                     id, business_id, invoice_number, invoice_date, description, plan_tier,
                     original_amount, discount_amount, coupon_code, coupon_discount,
-                    subtotal, cgst_amount, sgst_amount, total_amount, payment_method, status, hsn_sac, razorpay_payment_id, razorpay_order_id
+                    subtotal, cgst_amount, sgst_amount, total_amount, payment_method, status, hsn_sac
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (id) DO UPDATE SET
                     original_amount = EXCLUDED.original_amount,
                     discount_amount = EXCLUDED.discount_amount,
@@ -184,8 +152,6 @@ public class SubscriptionService {
                     cgst_amount = EXCLUDED.cgst_amount,
                     sgst_amount = EXCLUDED.sgst_amount,
                     total_amount = EXCLUDED.total_amount,
-                    razorpay_payment_id = EXCLUDED.razorpay_payment_id,
-                    razorpay_order_id = EXCLUDED.razorpay_order_id,
                     status = EXCLUDED.status
                 """,
                 UUID.fromString(inv.id()),
@@ -204,9 +170,7 @@ public class SubscriptionService {
                 inv.totalAmount(),
                 inv.paymentMethod(),
                 inv.status(),
-                inv.hsnSac(),
-                inv.razorpayPaymentId(),
-                inv.razorpayOrderId()
+                inv.hsnSac()
             );
         } catch (Exception e) {
             log.error("Failed to persist invoice {} for business {}: {}", inv.invoiceNumber(), businessId, e.getMessage(), e);
@@ -421,7 +385,7 @@ public class SubscriptionService {
                        COALESCE(discount_amount, 0.00) AS discount_amount,
                        coupon_code,
                        COALESCE(coupon_discount, 0.00) AS coupon_discount,
-                       subtotal, cgst_amount, sgst_amount, total_amount, payment_method, status, hsn_sac, razorpay_payment_id, razorpay_order_id
+                       subtotal, cgst_amount, sgst_amount, total_amount, payment_method, status, hsn_sac
                 FROM business_subscription_invoices
                 WHERE business_id = ?
                 ORDER BY invoice_date DESC
@@ -443,9 +407,7 @@ public class SubscriptionService {
                     rs.getString("payment_method"),
                     rs.getString("status"),
                     rs.getString("hsn_sac"),
-                    null,
-                    rs.getString("razorpay_payment_id"),
-                    rs.getString("razorpay_order_id")
+                    null
                 ),
                 businessId
             );
@@ -541,336 +503,6 @@ public class SubscriptionService {
             sgst,
             totalPayable
         );
-    }
-
-    public PaymentInitiateResponse initiatePayment(UUID businessId) {
-        return initiatePayment(businessId, null);
-    }
-
-    public PaymentInitiateResponse initiatePayment(UUID businessId, UpgradeSubscriptionRequest request) {
-        SubscriptionDetailsResponse sub = getSubscription(businessId);
-        boolean isUpgrade = request != null && request.targetTier() != null && !request.targetTier().isBlank();
-        String targetTier = isUpgrade ? request.targetTier().toUpperCase() : sub.tier().toUpperCase();
-        String targetCycle = (request != null && request.targetBillingCycle() != null && !request.targetBillingCycle().isBlank())
-            ? request.targetBillingCycle().toUpperCase()
-            : sub.billingCycle().toUpperCase();
-
-        BigDecimal basePrice;
-        BigDecimal unusedCredit = BigDecimal.ZERO;
-        String planDescription;
-        Map<String, String> notes = new HashMap<>();
-        notes.put("businessId", businessId.toString());
-
-        if (isUpgrade) {
-            UpgradePreviewResponse preview = calculateUpgradePreview(businessId, targetTier, targetCycle);
-            basePrice = preview.targetPrice();
-            unusedCredit = preview.unusedCredit();
-            planDescription = "Inventra " + preview.targetTier() + " (" + preview.targetCycle() + ") Upgrade";
-            notes.put("isUpgrade", "true");
-            notes.put("targetTier", preview.targetTier());
-            notes.put("targetCycle", preview.targetCycle());
-            notes.put("unusedCredit", unusedCredit.toString());
-            notes.put("originalAmount", basePrice.toString());
-        } else {
-            TierDefaults defaults = getTierDefaults(targetTier);
-            int discountPct = getEffectiveAnnualDiscountPct(targetTier);
-            BigDecimal discountMultiplier = BigDecimal.ONE.subtract(
-                new BigDecimal(discountPct).divide(new BigDecimal("100"), 4, RoundingMode.HALF_UP)
-            );
-            basePrice = "ANNUALLY".equalsIgnoreCase(targetCycle)
-                ? defaults.monthlyRate().multiply(new BigDecimal("12")).multiply(discountMultiplier).setScale(2, RoundingMode.HALF_UP)
-                : defaults.monthlyRate();
-            planDescription = "Inventra " + defaults.planName() + " (" + targetCycle + ")";
-            notes.put("isUpgrade", "false");
-            notes.put("planTier", targetTier);
-            notes.put("cycle", targetCycle);
-            notes.put("originalAmount", basePrice.toString());
-        }
-
-        // Net before coupon
-        BigDecimal netBeforeCoupon = basePrice.subtract(unusedCredit);
-        if (netBeforeCoupon.compareTo(BigDecimal.ZERO) < 0) {
-            netBeforeCoupon = BigDecimal.ZERO;
-        }
-
-        // Check if coupon code provided
-        String couponCode = (request != null && request.couponCode() != null && !request.couponCode().isBlank())
-            ? request.couponCode().trim().toUpperCase()
-            : null;
-        BigDecimal couponDiscount = BigDecimal.ZERO;
-
-        if (couponCode != null) {
-            var validation = couponService.validateCoupon(
-                businessId,
-                new com.inventra.inventra_backend.tenant.subscription.api.dto.ValidateCouponRequest(
-                    couponCode,
-                    targetTier,
-                    targetCycle,
-                    netBeforeCoupon
-                )
-            );
-            if (validation.valid()) {
-                couponDiscount = validation.discountAmount();
-                notes.put("couponCode", couponCode);
-                notes.put("couponDiscount", couponDiscount.toString());
-            } else {
-                throw new BusinessRuleViolationException("INVALID_COUPON", validation.message());
-            }
-        }
-
-        BigDecimal netSubtotal = netBeforeCoupon.subtract(couponDiscount);
-        if (netSubtotal.compareTo(BigDecimal.ZERO) < 0) {
-            netSubtotal = BigDecimal.ZERO;
-        }
-        notes.put("subtotal", netSubtotal.toString());
-
-        BigDecimal gstRate = new BigDecimal("0.09");
-        BigDecimal cgst = netSubtotal.multiply(gstRate).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal sgst = netSubtotal.multiply(gstRate).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal payableTotal = netSubtotal.add(cgst).add(sgst);
-        notes.put("payableTotal", payableTotal.toString());
-
-        long amountInPaise = payableTotal.multiply(new BigDecimal("100")).setScale(0, RoundingMode.HALF_UP).longValue();
-        if (amountInPaise <= 0) {
-            amountInPaise = 100; // Razorpay requires min 1 INR for order creation
-        }
-
-        String orderId;
-        if (razorpayKeyId != null && !razorpayKeyId.isBlank() && razorpayKeySecret != null && !razorpayKeySecret.isBlank()) {
-            try {
-                String auth = Base64.getEncoder().encodeToString(
-                    (razorpayKeyId + ":" + razorpayKeySecret).getBytes(StandardCharsets.UTF_8)
-                );
-                Map<String, Object> body = Map.of(
-                    "amount", amountInPaise,
-                    "currency", "INR",
-                    "receipt", "rcpt_" + (System.currentTimeMillis() / 1000),
-                    "notes", notes
-                );
-
-                HttpRequest req = HttpRequest.newBuilder()
-                    .uri(URI.create("https://api.razorpay.com/v1/orders"))
-                    .header("Authorization", "Basic " + auth)
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body)))
-                    .timeout(Duration.ofSeconds(10))
-                    .build();
-
-                HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
-                if (resp.statusCode() == 200 || resp.statusCode() == 201) {
-                    JsonNode json = objectMapper.readTree(resp.body());
-                    orderId = json.get("id").asText();
-                    log.info("Created real Razorpay order {} for business {}", orderId, businessId);
-                } else {
-                    log.error("Razorpay order API error (HTTP {}): {}", resp.statusCode(), resp.body());
-                    throw new BusinessRuleViolationException("RAZORPAY_ORDER_FAILED", "Razorpay order creation failed: " + resp.body());
-                }
-            } catch (BusinessRuleViolationException e) {
-                throw e;
-            } catch (Exception e) {
-                log.error("Failed to connect to Razorpay API", e);
-                throw new BusinessRuleViolationException("RAZORPAY_CONNECTION_FAILED", "Could not initiate payment with Razorpay: " + e.getMessage());
-            }
-        } else {
-            throw new BusinessRuleViolationException("RAZORPAY_NOT_CONFIGURED", "Razorpay key and secret are not configured on the backend.");
-        }
-
-        String upiQrString = "upi://pay?pa=inventra@icici&pn=Inventra%20Technologies&am="
-            + payableTotal.setScale(2, RoundingMode.HALF_UP)
-            + "&cu=INR&tn=" + URLEncoder.encode("Inventra Subscription " + orderId, StandardCharsets.UTF_8);
-
-        return new PaymentInitiateResponse(
-            orderId,
-            businessId.toString(),
-            payableTotal,
-            "INR",
-            razorpayKeyId,
-            planDescription,
-            upiQrString,
-            unusedCredit,
-            couponCode,
-            couponDiscount
-        );
-    }
-
-    public SubscriptionDetailsResponse verifyPayment(UUID businessId, VerifyPaymentRequest request) {
-        if (razorpayKeySecret == null || razorpayKeySecret.isBlank()) {
-            throw new BusinessRuleViolationException("RAZORPAY_SECRET_MISSING", "Razorpay key secret is not configured.");
-        }
-
-        try {
-            String data = request.razorpayOrderId() + "|" + request.razorpayPaymentId();
-            Mac sha256Hmac = Mac.getInstance("HmacSHA256");
-            SecretKeySpec secretKey = new SecretKeySpec(razorpayKeySecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
-            sha256Hmac.init(secretKey);
-            byte[] hmacBytes = sha256Hmac.doFinal(data.getBytes(StandardCharsets.UTF_8));
-            StringBuilder sb = new StringBuilder();
-            for (byte b : hmacBytes) {
-                sb.append(String.format("%02x", b));
-            }
-            String generatedSignature = sb.toString();
-
-            if (!generatedSignature.equalsIgnoreCase(request.razorpaySignature())) {
-                log.warn("Signature mismatch: expected={}, received={}", generatedSignature, request.razorpaySignature());
-                throw new BusinessRuleViolationException("INVALID_SIGNATURE", "Invalid payment signature from Razorpay.");
-            }
-        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
-            log.error("Crypto error during Razorpay signature verification", e);
-            throw new BusinessRuleViolationException("SIGNATURE_VERIFICATION_ERROR", "Signature verification error: " + e.getMessage());
-        }
-
-        // Check if Razorpay order notes contained upgrade and coupon details
-        boolean isUpgrade = false;
-        BigDecimal unusedCredit = BigDecimal.ZERO;
-        BigDecimal originalAmount = null;
-        BigDecimal discountAmount = BigDecimal.ZERO;
-        String couponCode = null;
-        BigDecimal couponDiscount = BigDecimal.ZERO;
-        BigDecimal subtotal = null;
-        SubscriptionConfig config = getOrLoadConfig(businessId);
-
-        try {
-            if (razorpayKeyId != null && !razorpayKeyId.isBlank()) {
-                String auth = Base64.getEncoder().encodeToString(
-                    (razorpayKeyId + ":" + razorpayKeySecret).getBytes(StandardCharsets.UTF_8)
-                );
-                HttpRequest orderReq = HttpRequest.newBuilder()
-                    .uri(URI.create("https://api.razorpay.com/v1/orders/" + request.razorpayOrderId()))
-                    .header("Authorization", "Basic " + auth)
-                    .GET()
-                    .timeout(Duration.ofSeconds(10))
-                    .build();
-
-                HttpResponse<String> orderResp = httpClient.send(orderReq, HttpResponse.BodyHandlers.ofString());
-                if (orderResp.statusCode() == 200) {
-                    JsonNode orderJson = objectMapper.readTree(orderResp.body());
-                    JsonNode notes = orderJson.get("notes");
-                    if (notes != null) {
-                        if (notes.has("targetTier")) {
-                            config.tier = notes.get("targetTier").asText().toUpperCase();
-                        }
-                        if (notes.has("targetCycle")) {
-                            config.billingCycle = notes.get("targetCycle").asText().toUpperCase();
-                        }
-                        if (notes.has("isUpgrade") && "true".equalsIgnoreCase(notes.get("isUpgrade").asText())) {
-                            isUpgrade = true;
-                        }
-                        if (notes.has("unusedCredit")) {
-                            unusedCredit = new BigDecimal(notes.get("unusedCredit").asText());
-                        }
-                        if (notes.has("originalAmount")) {
-                            originalAmount = new BigDecimal(notes.get("originalAmount").asText());
-                        }
-                        if (notes.has("couponCode")) {
-                            couponCode = notes.get("couponCode").asText().trim().toUpperCase();
-                        }
-                        if (notes.has("couponDiscount")) {
-                            couponDiscount = new BigDecimal(notes.get("couponDiscount").asText());
-                        }
-                        if (notes.has("subtotal")) {
-                            subtotal = new BigDecimal(notes.get("subtotal").asText());
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            log.warn("Could not retrieve Razorpay order notes for {}: {}", request.razorpayOrderId(), e.getMessage());
-        }
-
-        if (couponCode != null && !couponCode.isBlank()) {
-            try {
-                couponService.incrementUses(couponCode);
-            } catch (Exception e) {
-                log.warn("Could not increment coupon uses for {}: {}", couponCode, e.getMessage());
-            }
-        }
-
-        config.periodStart = Instant.now();
-        config.periodEnd = "ANNUALLY".equalsIgnoreCase(config.billingCycle)
-            ? Instant.now().plus(365, ChronoUnit.DAYS)
-            : Instant.now().plus(30, ChronoUnit.DAYS);
-        config.paymentMethod = "Razorpay";
-        config.autoRenew = true;
-
-        persistSubscription(businessId, config, "ACTIVE");
-
-        SubscriptionDetailsResponse sub = getSubscription(businessId);
-        if (originalAmount == null) {
-            originalAmount = sub.amount();
-        }
-        discountAmount = unusedCredit;
-        if (subtotal == null) {
-            subtotal = originalAmount.subtract(discountAmount).subtract(couponDiscount);
-            if (subtotal.compareTo(BigDecimal.ZERO) < 0) subtotal = BigDecimal.ZERO;
-        }
-
-        String invoiceNumber = "INV-" + Instant.now().getEpochSecond();
-        LicenseInvoiceResponse inv = createInvoice(
-            invoiceNumber,
-            Instant.now(),
-            sub.planName() + " - " + config.billingCycle + " Subscription" + (isUpgrade ? " (Upgraded)" : ""),
-            config.tier,
-            originalAmount,
-            discountAmount,
-            couponCode,
-            couponDiscount,
-            subtotal,
-            "Razorpay",
-            request.razorpayPaymentId(),
-            request.razorpayOrderId()
-        );
-
-        persistInvoice(businessId, inv);
-        businessInvoices.computeIfAbsent(businessId, k -> new CopyOnWriteArrayList<>()).add(0, inv);
-
-        // Send payment confirmation email with transaction details
-        try {
-            String ownerEmail = null;
-            String ownerName = null;
-            List<Map<String, Object>> userRows = jdbcTemplate.queryForList("""
-                SELECT u.email, u.full_name
-                FROM business_memberships bm
-                JOIN users u ON bm.user_id = u.id
-                WHERE bm.business_id = ?
-                ORDER BY CASE WHEN bm.role = 'OWNER' THEN 1 ELSE 2 END, bm.created_at ASC
-                LIMIT 1
-                """, businessId);
-
-            if (!userRows.isEmpty()) {
-                ownerEmail = (String) userRows.get(0).get("email");
-                ownerName = (String) userRows.get(0).get("full_name");
-            }
-
-            if (ownerEmail != null && !ownerEmail.isBlank()) {
-                String formattedDate = DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm 'IST'")
-                    .withZone(ZoneId.of("Asia/Kolkata")).format(inv.invoiceDate());
-                emailService.sendSubscriptionReceipt(
-                    ownerEmail,
-                    sub.legalName(),
-                    ownerName,
-                    inv.invoiceNumber(),
-                    sub.planName(),
-                    config.billingCycle,
-                    inv.subtotal(),
-                    inv.cgstAmount(),
-                    inv.sgstAmount(),
-                    inv.totalAmount(),
-                    request.razorpayPaymentId(),
-                    request.razorpayOrderId(),
-                    formattedDate,
-                    isUpgrade,
-                    unusedCredit,
-                    couponCode,
-                    couponDiscount
-                );
-                log.info("Subscription receipt email dispatched to {}", ownerEmail);
-            }
-        } catch (Exception e) {
-            log.error("Failed to send subscription receipt email for business {}: {}", businessId, e.getMessage(), e);
-        }
-
-        log.info("Payment verified and recorded for business {}: ref={}", businessId, request.razorpayPaymentId());
-        return getSubscription(businessId);
     }
 
     // ─── Admin-Facing Methods ─────────────────────────────────────────────────
@@ -1194,9 +826,7 @@ public class SubscriptionService {
             defaults.planName() + " - " + config.billingCycle + " Subscription",
             config.tier,
             amount,
-            config.paymentMethod,
-            "manual_" + paymentReference,
-            "order_manual_" + invoiceNumber
+            config.paymentMethod
         );
 
         persistInvoice(businessId, inv);
@@ -1254,9 +884,7 @@ public class SubscriptionService {
         String couponCode,
         BigDecimal couponDiscount,
         BigDecimal subtotal,
-        String paymentMethod,
-        String razorpayPaymentId,
-        String razorpayOrderId
+        String paymentMethod
     ) {
         BigDecimal gstRate = new BigDecimal("0.09");
         BigDecimal cgst = subtotal.multiply(gstRate).setScale(2, RoundingMode.HALF_UP);
@@ -1280,9 +908,7 @@ public class SubscriptionService {
             paymentMethod != null ? paymentMethod : "Online Payment",
             "PAID",
             "997331",
-            null,
-            razorpayPaymentId,
-            razorpayOrderId
+            null
         );
     }
 
@@ -1292,9 +918,7 @@ public class SubscriptionService {
         String description,
         String planTier,
         BigDecimal subtotal,
-        String paymentMethod,
-        String razorpayPaymentId,
-        String razorpayOrderId
+        String paymentMethod
     ) {
         return createInvoice(
             invoiceNumber,
@@ -1306,9 +930,7 @@ public class SubscriptionService {
             null,
             BigDecimal.ZERO,
             subtotal,
-            paymentMethod,
-            razorpayPaymentId,
-            razorpayOrderId
+            paymentMethod
         );
     }
 }

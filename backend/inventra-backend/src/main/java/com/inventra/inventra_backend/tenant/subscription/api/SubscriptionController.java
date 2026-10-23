@@ -8,7 +8,6 @@ import com.inventra.inventra_backend.tenant.domain.repository.BusinessMembership
 import com.inventra.inventra_backend.tenant.domain.repository.BusinessRepository;
 import com.inventra.inventra_backend.tenant.subscription.api.dto.ChangePlanRequest;
 import com.inventra.inventra_backend.tenant.subscription.api.dto.LicenseInvoiceResponse;
-import com.inventra.inventra_backend.tenant.subscription.api.dto.PaymentInitiateResponse;
 import com.inventra.inventra_backend.tenant.subscription.api.dto.SubscriptionDetailsResponse;
 import com.inventra.inventra_backend.tenant.subscription.api.dto.ToggleAutopayRequest;
 import com.inventra.inventra_backend.tenant.subscription.application.SubscriptionService;
@@ -95,26 +94,6 @@ public class SubscriptionController {
     ) {
         UUID businessId = resolveBusinessId(authentication);
         return ApiResponse.ok(subscriptionService.calculateUpgradePreview(businessId, targetTier, targetBillingCycle));
-    }
-
-    @PostMapping("/payment/initiate")
-    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER', 'ADMIN', 'PLATFORM_ADMIN')")
-    public ApiResponse<PaymentInitiateResponse> initiatePayment(
-        @RequestBody(required = false) com.inventra.inventra_backend.tenant.subscription.api.dto.UpgradeSubscriptionRequest request,
-        Authentication authentication
-    ) {
-        UUID businessId = resolveBusinessId(authentication);
-        return ApiResponse.ok(subscriptionService.initiatePayment(businessId, request));
-    }
-
-    @PostMapping("/payment/verify")
-    @PreAuthorize("hasAnyRole('OWNER', 'MANAGER', 'ADMIN', 'PLATFORM_ADMIN')")
-    public ApiResponse<SubscriptionDetailsResponse> verifyPayment(
-        @Valid @RequestBody com.inventra.inventra_backend.tenant.subscription.api.dto.VerifyPaymentRequest request,
-        Authentication authentication
-    ) {
-        UUID businessId = resolveBusinessId(authentication);
-        return ApiResponse.ok(subscriptionService.verifyPayment(businessId, request));
     }
 
     @GetMapping("/invoices/{invoiceId}/pdf")

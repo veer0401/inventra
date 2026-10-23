@@ -18,7 +18,6 @@ flowchart LR
     API[Spring Boot REST API<br/>/api/v1/...]
     DB[(PostgreSQL 17<br/>Flyway V1–V19)]
     MAIL[SMTP / Thymeleaf mail]
-    PAY[Razorpay<br/>subscriptions]
   end
   WEB -- HTTPS + JWT --> API
   DESK -- HTTPS + JWT + device identity --> API
@@ -26,7 +25,6 @@ flowchart LR
   NAT -- InventraApiClient --> API
   API --> DB
   API --> MAIL
-  API --> PAY
 ```
 
 ---

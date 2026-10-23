@@ -547,8 +547,6 @@ erDiagram
         decimal subtotal
         decimal tax_amount
         decimal total_amount
-        varchar razorpay_order_id UK
-        varchar razorpay_payment_id
         varchar status
         timestamp paid_at
         timestamp created_at
@@ -916,7 +914,7 @@ flowchart TD
     
     J --> K["Compute GST @ 18% (CGST 9% + SGST 9% or IGST 18%)"]
     K --> L["Final Payable Amount = Net Pre-Tax + GST"]
-    L --> M["Generate Razorpay Order Payload"]
+    L --> M["Admin records the payment and issues the tax invoice"]
 ```
 
 ---
@@ -1053,7 +1051,8 @@ While Inventra currently features a complete, battle-tested core across billing,
 | **Compliance** | Schedule H/H1/X Statutory Drug Registers | ✅ **Complete in Production** | Core / V5 |
 | **Offline Sync** | Desktop SQLite Queuing & Idempotent Replay | ✅ **Complete in Production** | Core / V7 |
 | **Data Ingestion** | CSV Bulk Upload with Error Review & Inline Fix | ✅ **Complete in Production** | Core / V11 |
-| **Billing & Plans** | Razorpay Gateway, Proration & Coupons | ✅ **Complete in Production** | Core / V14–V17 |
+| **Billing & Plans** | Proration, Coupons & Manual Payment Recording | ✅ **Implemented** | Core / V14–V17, V20 |
+| **Billing & Plans** | Online Payment Gateway for Subscriptions | 🔮 **Planned Future Scope** | Not started |
 | **AI / Ingestion** | Vision OCR Distributor Bill & Challan Scanner | 🔮 **Planned Future Scope** | Phase F10 |
 | **Patient Comms** | WhatsApp Business Digital Bills & Refill Bot | 🔮 **Planned Future Scope** | Phase F11 |
 | **Healthcare** | ABDM ABHA ID & National e-Prescription | 🔮 **Planned Future Scope** | Phase F13 |

@@ -177,15 +177,13 @@ public class ThymeleafEmailService implements EmailService {
             java.math.BigDecimal cgstAmount,
             java.math.BigDecimal sgstAmount,
             java.math.BigDecimal totalAmount,
-            String razorpayPaymentId,
-            String razorpayOrderId,
             String invoiceDateFormatted,
             boolean isUpgrade,
             java.math.BigDecimal unusedCredit
     ) {
         sendSubscriptionReceipt(
             toEmail, businessName, ownerName, invoiceNumber, planName, billingCycle,
-            subtotal, cgstAmount, sgstAmount, totalAmount, razorpayPaymentId, razorpayOrderId,
+            subtotal, cgstAmount, sgstAmount, totalAmount,
             invoiceDateFormatted, isUpgrade, unusedCredit, null, java.math.BigDecimal.ZERO
         );
     }
@@ -202,8 +200,6 @@ public class ThymeleafEmailService implements EmailService {
             java.math.BigDecimal cgstAmount,
             java.math.BigDecimal sgstAmount,
             java.math.BigDecimal totalAmount,
-            String razorpayPaymentId,
-            String razorpayOrderId,
             String invoiceDateFormatted,
             boolean isUpgrade,
             java.math.BigDecimal unusedCredit,
@@ -221,8 +217,6 @@ public class ThymeleafEmailService implements EmailService {
         variables.put("cgstAmount", cgstAmount != null ? cgstAmount : java.math.BigDecimal.ZERO);
         variables.put("sgstAmount", sgstAmount != null ? sgstAmount : java.math.BigDecimal.ZERO);
         variables.put("totalAmount", totalAmount != null ? totalAmount : java.math.BigDecimal.ZERO);
-        variables.put("razorpayPaymentId", razorpayPaymentId != null ? razorpayPaymentId : "N/A");
-        variables.put("razorpayOrderId", razorpayOrderId != null ? razorpayOrderId : "N/A");
         variables.put("invoiceDateFormatted", invoiceDateFormatted);
         variables.put("isUpgrade", isUpgrade);
         variables.put("unusedCredit", unusedCredit != null ? unusedCredit : java.math.BigDecimal.ZERO);

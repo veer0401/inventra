@@ -32,8 +32,6 @@ public interface EmailService {
         java.math.BigDecimal cgstAmount,
         java.math.BigDecimal sgstAmount,
         java.math.BigDecimal totalAmount,
-        String razorpayPaymentId,
-        String razorpayOrderId,
         String invoiceDateFormatted,
         boolean isUpgrade,
         java.math.BigDecimal unusedCredit
@@ -50,8 +48,6 @@ public interface EmailService {
         java.math.BigDecimal cgstAmount,
         java.math.BigDecimal sgstAmount,
         java.math.BigDecimal totalAmount,
-        String razorpayPaymentId,
-        String razorpayOrderId,
         String invoiceDateFormatted,
         boolean isUpgrade,
         java.math.BigDecimal unusedCredit,
@@ -60,7 +56,7 @@ public interface EmailService {
     ) {
         sendSubscriptionReceipt(
             toEmail, businessName, ownerName, invoiceNumber, planName, billingCycle,
-            subtotal, cgstAmount, sgstAmount, totalAmount, razorpayPaymentId, razorpayOrderId,
+            subtotal, cgstAmount, sgstAmount, totalAmount,
             invoiceDateFormatted, isUpgrade, unusedCredit
         );
     }

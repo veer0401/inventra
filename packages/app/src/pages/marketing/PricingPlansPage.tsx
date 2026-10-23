@@ -299,7 +299,7 @@ export const PricingPlansPage: React.FC = () => {
               <Zap className="w-4 h-4 text-teal-700" /> Which payment methods are accepted?
             </h4>
             <p className="text-slate-600 leading-relaxed text-xs">
-              Instant counter payment via Razorpay dynamic UPI QR code (GPay, PhonePe, Paytm), all major credit & debit cards (Visa, Mastercard, RuPay), and corporate net banking.
+              Online checkout is not available at the moment. Contact our team to subscribe or renew; your payment is recorded by an administrator and a GST tax invoice is issued for every payment.
             </p>
           </div>
 

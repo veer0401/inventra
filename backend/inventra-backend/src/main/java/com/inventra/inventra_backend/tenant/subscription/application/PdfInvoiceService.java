@@ -100,27 +100,22 @@ public class PdfInvoiceService {
             // Spacer
             addSpacer(document, 12);
 
-            // 2. Razorpay Verification Box (Prominent Payment Details)
-            PdfPTable rzpTable = new PdfPTable(3);
-            rzpTable.setWidthPercentage(100);
-            rzpTable.setWidths(new float[]{35, 35, 30});
+            // 2. Payment details box
+            PdfPTable payTable = new PdfPTable(2);
+            payTable.setWidthPercentage(100);
+            payTable.setWidths(new float[]{60, 40});
 
-            String paymentId = invoice.razorpayPaymentId() != null && !invoice.razorpayPaymentId().isBlank()
-                ? invoice.razorpayPaymentId()
-                : (invoice.paymentMethod() != null ? invoice.paymentMethod() : "pay_verified");
-            String orderId = invoice.razorpayOrderId() != null && !invoice.razorpayOrderId().isBlank()
-                ? invoice.razorpayOrderId()
-                : "order_inventra_" + invoice.invoiceNumber();
+            String paymentMethod = invoice.paymentMethod() != null && !invoice.paymentMethod().isBlank()
+                ? invoice.paymentMethod()
+                : "Manual Payment";
 
-            PdfPCell rzpCell1 = createBorderedCell("RAZORPAY PAYMENT ID", paymentId, true);
-            PdfPCell rzpCell2 = createBorderedCell("RAZORPAY ORDER ID", orderId, true);
-            PdfPCell rzpCell3 = createBorderedCell("PAYMENT STATUS", "PAID IN FULL (VERIFIED)", false);
-            rzpCell3.setBackgroundColor(SUCCESS_BG);
+            PdfPCell payCell1 = createBorderedCell("PAYMENT METHOD", paymentMethod, true);
+            PdfPCell payCell2 = createBorderedCell("PAYMENT STATUS", "PAID IN FULL (VERIFIED)", false);
+            payCell2.setBackgroundColor(SUCCESS_BG);
 
-            rzpTable.addCell(rzpCell1);
-            rzpTable.addCell(rzpCell2);
-            rzpTable.addCell(rzpCell3);
-            document.add(rzpTable);
+            payTable.addCell(payCell1);
+            payTable.addCell(payCell2);
+            document.add(payTable);
 
             addSpacer(document, 14);
 
@@ -255,7 +250,7 @@ public class PdfInvoiceService {
             footerCell.setBackgroundColor(BG_LIGHT);
             footerCell.setPadding(10);
 
-            Paragraph stampPara = new Paragraph("✔ VERIFIED DIGITAL TAX INVOICE · PAYMENT COMPLETED VIA RAZORPAY", FONT_BADGE);
+            Paragraph stampPara = new Paragraph("✔ VERIFIED DIGITAL TAX INVOICE · PAYMENT RECORDED", FONT_BADGE);
             Paragraph notePara = new Paragraph("This is an electronically generated tax invoice under Rule 48 of the CGST Rules, 2017. No physical signature is required.", FONT_MUTED);
             Paragraph contactPara = new Paragraph("Inventra Technologies India Pvt Ltd · CIN: U72900MH2025PTC123456 · support@inventra.io", FONT_MUTED);
 

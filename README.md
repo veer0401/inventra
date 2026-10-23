@@ -36,7 +36,7 @@ This README separates what exists in the code today from what is still being bui
 | Multi-tenancy, auth, devices | ✅ | Business and store scoping, JWT with refresh rotation, device registration |
 | Catalog, inventory, purchasing, sales, transfers | ✅ | Batch-level stock with expiry, automatic FEFO batch allocation at sale |
 | Reporting | ✅ | Sales, valuation, product velocity, expiry risk, Schedule H register |
-| Platform admin (subscriptions, coupons, CMS, onboarding) | ✅ | Razorpay-linked subscription records, PDF invoices, dynamic CMS pages |
+| Platform admin (subscriptions, coupons, CMS, onboarding) | ✅ | Subscription records with manual payment recording, PDF invoices, dynamic CMS pages |
 | Web app (React 19 + Vite) | ✅ | Shared app in `packages/app` |
 | Sync API (upload / download change feed) | ✅ | Server side is in place and tested |
 | Offline client storage and sync client | 🚧 | Packages and tests exist; end-to-end offline billing is not finished |
@@ -166,7 +166,7 @@ flowchart TD
 - **Import framework**: CSV import jobs with idempotency keys. Handlers exist for product catalog and suppliers.
 - **Notifications and email**: in-app notifications and Thymeleaf email templates (for example batch-expiry alerts).
 - **Intelligence**: a deterministic intent engine that interprets typed commands into app destinations.
-- **Platform administration**: subscription plans, prorated invoices, PDF invoice generation, Razorpay reference fields, coupons, a dynamic CMS for public pages, and a careers board.
+- **Platform administration**: subscription plans, prorated invoices, PDF invoice generation, manual payment recording, coupons, a dynamic CMS for public pages, and a careers board.
 - **Sync API**: `POST /api/v1/sync/upload` and `GET /api/v1/sync/download`, an operation recorder and processor, a change feed, and per-device sync state.
 
 ### Frontend (`packages/*`, `apps/web`)
@@ -179,7 +179,7 @@ flowchart TD
 
 ### Tests
 
-- **Backend**: 81 test classes with 263 test methods across catalog, identity, inventory, purchasing, sales, sync, tenant, transfer and more.
+- **Backend**: 81 test classes and 266 tests across catalog, identity, inventory, purchasing, sales, sync, tenant, transfer and more.
 - **Frontend**: 77 test files (Vitest).
 - **Native desktop**: automated tests for GST rules, SQLite, the offline queue and connectivity in `apps/desktop-native/tests`.
 
@@ -206,6 +206,7 @@ Not implemented yet. These are plans, not features:
 - **Richer sync conflict handling** beyond idempotent replay (for example vector clocks or field-level merges).
 - **Purchase order dispatch** to suppliers by email or EDI.
 - **Dynamic UPI QR** generation at the POS counter.
+- **Online payment gateway** for subscriptions. Payments are recorded by an administrator today.
 - **Universal ingestion** for more import types, including PDF and OCR of supplier invoices.
 - **Expanded audit trail** for dispensing, stock write-offs and price changes, with tamper evidence.
 - **Quarantine workflow** for damaged or recalled stock.

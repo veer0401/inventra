@@ -20,9 +20,7 @@ public record LicenseInvoiceResponse(
     String paymentMethod,
     String status,
     String hsnSac,
-    String invoicePdfUrl,
-    String razorpayPaymentId,
-    String razorpayOrderId
+    String invoicePdfUrl
 ) {
     public LicenseInvoiceResponse(
         String id,
@@ -37,9 +35,7 @@ public record LicenseInvoiceResponse(
         String paymentMethod,
         String status,
         String hsnSac,
-        String invoicePdfUrl,
-        String razorpayPaymentId,
-        String razorpayOrderId
+        String invoicePdfUrl
     ) {
         this(
             id,
@@ -58,9 +54,7 @@ public record LicenseInvoiceResponse(
             paymentMethod,
             status,
             hsnSac,
-            invoicePdfUrl,
-            razorpayPaymentId,
-            razorpayOrderId
+            invoicePdfUrl
         );
     }
 }

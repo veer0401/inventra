@@ -12,7 +12,7 @@
 1. [High-Level System & Security Boundary Flow](#1-high-level-system--security-boundary-flow)
 2. [Tenant Onboarding & Activation State Machine](#2-tenant-onboarding--activation-state-machine)
 3. [Authentication, JWT Rotation & Session Lifecycle](#3-authentication-jwt-rotation--session-lifecycle)
-4. [Subscription, Tier Upgrade & Razorpay Payment Flow](#4-subscription-tier-upgrade--razorpay-payment-flow)
+4. [Subscription, Tier Upgrade & Manual Payment Flow](#4-subscription-tier-upgrade--manual-payment-flow)
 5. [Crowdsourced Global Medicine Curation & 1-Click Import Flow](#5-crowdsourced-global-medicine-curation--1-click-import-flow)
 6. [Procurement Lifecycle: Purchase Order (PO) to Goods Receipt (GRN)](#6-procurement-lifecycle-purchase-order-po-to-goods-receipt-grn)
 7. [Comprehensive Inventory & Batch State Transition Machine](#7-comprehensive-inventory--batch-state-transition-machine)
@@ -133,43 +133,32 @@ sequenceDiagram
 
 ---
 
-## 4. Subscription, Tier Upgrade & Razorpay Payment Flow
+## 4. Subscription, Tier Upgrade & Manual Payment Flow
+
+Online checkout is not available. The owner previews the upgrade price, pays through the agreed channel, and a platform administrator records the payment.
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor Owner as "Pharmacy Owner"
+    actor Admin as "Platform Administrator"
     participant SubCtrl as "SubscriptionController"
+    participant AdminCtrl as "AdminSubscriptionController"
     participant SubSvc as "SubscriptionService"
-    participant Razorpay as "Razorpay Payment Gateway"
     participant DB as "PostgreSQL (Subscriptions & Invoices)"
 
-    Owner->>SubCtrl: "GET /api/v1/subscription/upgrade-preview?targetTier=GROWTH&coupon=SAVE10"
-    SubCtrl->>SubSvc: "Calculate proration credit & apply coupon"
-    SubSvc-->>Owner: "Preview: Base Price, Proration Discount, Tax, Final Amount"
+    Owner->>SubCtrl: "GET /api/v1/subscription/upgrade-preview?targetTier=GROWTH"
+    SubCtrl->>SubSvc: "Calculate proration credit"
+    SubSvc-->>Owner: "Preview: Base Price, Proration Credit, Tax, Final Amount"
 
-    Owner->>SubCtrl: "POST /api/v1/subscription/payment/initiate"
-    SubCtrl->>SubSvc: "initiatePayment(businessId, request)"
-    SubSvc->>Razorpay: "Create Razorpay Order (amount, currency: INR)"
-    Razorpay-->>SubSvc: "Return razorpay_order_id"
-    SubSvc->>DB: "INSERT INTO license_invoices (status: PENDING, order_id)"
-    SubSvc-->>Owner: "Return orderId, keyId, amount"
+    Owner->>Admin: "Pays and shares the payment reference"
 
-    Owner->>Razorpay: "Client-side Checkout Modal (UPI / Card / Netbanking)"
-    Razorpay-->>Owner: "Payment Successful (payment_id, signature)"
-
-    Owner->>SubCtrl: "POST /api/v1/subscription/payment/verify"
-    SubCtrl->>SubSvc: "verifyPayment(orderId, paymentId, signature)"
-    SubSvc->>SubSvc: "Verify HMAC-SHA256 signature with Webhook Secret"
-    
-    alt "Invalid Signature"
-        SubSvc-->>Owner: "HTTP 422 Payment Verification Failed"
-    else "Valid Signature"
-        SubSvc->>DB: "UPDATE license_invoices SET status = 'PAID', paid_at = NOW()"
-        SubSvc->>DB: "UPDATE subscriptions SET tier = 'GROWTH', valid_until = NOW() + 1 YEAR"
-        SubSvc->>DB: "UPDATE coupons SET used_count = used_count + 1"
-        SubSvc-->>Owner: "HTTP 200 OK (Subscription Activated)"
-    end
+    Admin->>AdminCtrl: "POST /api/v1/admin/subscription/businesses/{id}/payment"
+    AdminCtrl->>SubSvc: "recordPaymentForBusiness(businessId, paymentReference)"
+    SubSvc->>DB: "UPDATE business_subscriptions (new period, payment method)"
+    SubSvc->>DB: "INSERT INTO business_subscription_invoices (status: PAID)"
+    SubSvc-->>Admin: "HTTP 200 OK (Subscription renewed)"
+    Owner->>SubCtrl: "GET /api/v1/subscription/invoices/{id}/pdf"
 ```
 
 ---

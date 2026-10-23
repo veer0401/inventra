@@ -580,8 +580,8 @@ export const AdminStoreDetailPage: React.FC = () => {
               <FileText className="h-10 w-10 mx-auto text-muted/40 mb-2" />
               <p className="text-sm font-semibold text-primary">No Invoices Recorded</p>
               <p className="text-xs text-muted max-w-sm mx-auto">
-                There are no paid license invoices recorded for this store yet. When an online Razorpay payment or admin
-                manual payment is registered, official tax invoices will appear here.
+                There are no paid license invoices recorded for this store yet. When an admin manual payment
+                is registered, official tax invoices will appear here.
               </p>
             </div>
           ) : (
@@ -640,11 +640,6 @@ export const AdminStoreDetailPage: React.FC = () => {
                         </td>
                         <td className="py-3 px-4 text-secondary text-[11px]">
                           <div>{inv.paymentMethod}</div>
-                          {inv.razorpayPaymentId && (
-                            <div className="text-[10px] text-teal-600 font-mono font-semibold truncate max-w-[140px]" title={inv.razorpayPaymentId}>
-                              {inv.razorpayPaymentId}
-                            </div>
-                          )}
                         </td>
                         <td className="py-3 px-4 text-center">
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-success-subtle text-success border border-success-border">

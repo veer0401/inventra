@@ -32,11 +32,7 @@ import {
   Zap,
   AlertTriangle,
   X,
-  ArrowUpRight,
-  QrCode,
-  Tag,
 } from "lucide-react";
-import QRCode from "qrcode";
 import {
   subscriptionApi,
   type SubscriptionDetails,
@@ -46,181 +42,28 @@ import {
   type TierPricing,
   type UpgradePreview,
 } from "../../services/subscriptionApi";
-import { cmsApi, type CouponValidationResult } from "../../services/cmsApi";
 import { formatCurrency, formatDate } from "../../utils/formatters";
-import { useAuthStore } from "../../stores/authStore";
-
-// ─── Types ─────────────────────────────────────────────────────────────────
-declare global {
-  interface Window {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    Razorpay: new (options: Record<string, unknown>) => { open(): void; on(event: string, cb: (resp: unknown) => void): void };
-  }
-}
 
 const PAGE_SIZE = 5;
 
-// ─── Razorpay Loader ───────────────────────────────────────────────────────
-function loadRazorpayScript(): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (document.getElementById("razorpay-script")) { resolve(true); return; }
-    const script = document.createElement("script");
-    script.id = "razorpay-script";
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-}
-
-// ─── Pay Now Modal (Razorpay) ─────────────────────────────────────────────
+// ─── Renewal Summary Modal ────────────────────────────────────────────────
+// Online payment is not available; the modal shows the amount due and how to pay.
 interface PayNowModalProps {
   open: boolean;
   onClose: () => void;
   subscription: SubscriptionDetails | null;
-  onSuccess: () => void;
 }
 
-const PayNowModal: React.FC<PayNowModalProps> = ({ open, onClose, subscription, onSuccess }) => {
-  const toast = useToast();
-  const user = useAuthStore((s) => s.user);
-  const [isInitiating, setIsInitiating] = useState(false);
-  const [step, setStep] = useState<"confirm" | "success">("confirm");
-  const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
-
-  // Coupon state
-  const [couponCodeInput, setCouponCodeInput] = useState("");
-  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
-  const [appliedCoupon, setAppliedCoupon] = useState<CouponValidationResult | null>(null);
-  const [couponError, setCouponError] = useState<string | null>(null);
-
+const PayNowModal: React.FC<PayNowModalProps> = ({ open, onClose, subscription }) => {
   const basePrice = subscription?.amount || 0;
-  const couponDiscount = appliedCoupon?.discountAmount || 0;
-  const netSubtotal = Math.max(0, basePrice - couponDiscount);
-  const gstAmount = netSubtotal * 0.18;
-  const totalAmount = netSubtotal + gstAmount;
-
-  useEffect(() => {
-    if (open && subscription) {
-      const upiString = `upi://pay?pa=inventra@icici&pn=Inventra%20Technologies&am=${totalAmount.toFixed(2)}&cu=INR&tn=${encodeURIComponent("Inventra " + (subscription.planName || "Subscription"))}`;
-      QRCode.toDataURL(upiString, { width: 180, margin: 1, color: { dark: "#0f172a", light: "#ffffff" } })
-        .then(setQrCodeUrl)
-        .catch(() => {});
-    }
-  }, [open, subscription, totalAmount]);
-
-  const handleApplyCoupon = async () => {
-    if (!couponCodeInput.trim() || !subscription) return;
-    setIsValidatingCoupon(true);
-    setCouponError(null);
-    try {
-      const res = await cmsApi.validateCoupon({
-        code: couponCodeInput.trim().toUpperCase(),
-        tier: subscription.tier,
-        billingCycle: subscription.billingCycle,
-        subtotal: basePrice,
-      });
-      if (res.valid) {
-        setAppliedCoupon(res);
-        toast.success(`Coupon ${res.code} applied! ₹${res.discountAmount.toFixed(2)} discount`);
-      } else {
-        setAppliedCoupon(null);
-        setCouponError(res.message || "Coupon is not valid for this purchase.");
-      }
-    } catch (err: any) {
-      setAppliedCoupon(null);
-      setCouponError(err.response?.data?.message || "Failed to validate coupon.");
-    } finally {
-      setIsValidatingCoupon(false);
-    }
-  };
-
-  const handleRemoveCoupon = () => {
-    setAppliedCoupon(null);
-    setCouponCodeInput("");
-    setCouponError(null);
-  };
-
-  const handlePay = async () => {
-    setIsInitiating(true);
-    try {
-      const loaded = await loadRazorpayScript();
-      if (!loaded || !window.Razorpay) {
-        toast.error("Payment gateway could not be loaded. Please check your connection.");
-        setIsInitiating(false);
-        return;
-      }
-
-      const order = await subscriptionApi.initiatePayment({
-        couponCode: appliedCoupon?.code,
-      });
-      const razorpayKey = order.gatewayKey || (typeof import.meta !== "undefined" && (import.meta.env as any)?.VITE_RAZORPAY_KEY_ID) || "";
-
-      const rzp = new window.Razorpay({
-        key: razorpayKey,
-        amount: Math.round(totalAmount * 100), // paise
-        currency: order.currency,
-        name: "Inventra",
-        description: order.description,
-        order_id: order.orderId,
-        prefill: {
-          name: user?.fullName || subscription?.legalName || "",
-          email: user?.email || "",
-        },
-        theme: { color: "#0F766E" },
-        handler: async (response: {
-          razorpay_payment_id: string;
-          razorpay_order_id: string;
-          razorpay_signature: string;
-        }) => {
-          try {
-            await subscriptionApi.verifyPayment({
-              razorpayPaymentId: response.razorpay_payment_id,
-              razorpayOrderId: response.razorpay_order_id,
-              razorpaySignature: response.razorpay_signature,
-            });
-            setStep("success");
-            onSuccess();
-            toast.success("Payment verified! Confirmation email sent and invoice generated.");
-          } catch (err: unknown) {
-            toast.error(err instanceof Error ? err.message : "Payment verification failed. Please contact support.");
-          } finally {
-            setIsInitiating(false);
-          }
-        },
-        modal: {
-          ondismiss: () => {
-            setIsInitiating(false);
-          },
-        },
-      });
-
-      rzp.on("payment.failed", () => {
-        toast.error("Payment failed. Please try again or contact support.");
-        setIsInitiating(false);
-      });
-
-      rzp.open();
-      setIsInitiating(false);
-    } catch {
-      toast.error("Failed to initiate payment. Please try again.");
-      setIsInitiating(false);
-    }
-  };
-
-  const handleClose = () => {
-    setStep("confirm");
-    setAppliedCoupon(null);
-    setCouponCodeInput("");
-    setCouponError(null);
-    onClose();
-  };
+  const gstAmount = basePrice * 0.18;
+  const totalAmount = basePrice + gstAmount;
 
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={handleClose} />
+      <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 w-full max-w-lg bg-surface border border-subtle rounded-2xl shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-subtle bg-surface-muted">
@@ -229,223 +72,76 @@ const PayNowModal: React.FC<PayNowModalProps> = ({ open, onClose, subscription, 
               <Zap className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-primary">Pay Subscription</h3>
-              <p className="text-xs text-muted flex items-center gap-1">
-                Scan UPI QR or Pay via Razorpay Gateway
-              </p>
+              <h3 className="text-sm font-bold text-primary">Renew Subscription</h3>
+              <p className="text-xs text-muted">Review the amount due for your current plan</p>
             </div>
           </div>
-          <button type="button" onClick={handleClose} className="p-1.5 rounded-lg text-muted hover:text-primary hover:bg-surface transition-colors">
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg text-muted hover:text-primary hover:bg-surface transition-colors">
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="p-5">
-          {step === "confirm" && (
-            <div className="space-y-4">
-              {/* Order summary */}
-              <div className="rounded-xl border border-subtle bg-surface-muted overflow-hidden">
-                <div className="px-4 py-2.5 border-b border-subtle bg-surface flex justify-between items-center">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted">Payment Summary</span>
-                  <span className="text-xs font-semibold text-primary">{subscription?.planName}</span>
-                </div>
-                <div className="divide-y divide-subtle">
-                  <div className="flex justify-between px-4 py-2 text-xs text-secondary">
-                    <span>Billing Cycle</span>
-                    <span className="font-medium text-primary capitalize">{subscription?.billingCycle?.toLowerCase() ?? "—"}</span>
-                  </div>
-                  <div className="flex justify-between px-4 py-2 text-xs text-secondary">
-                    <span>Base Plan Price</span>
-                    <span className="font-mono">{formatCurrency(basePrice)}</span>
-                  </div>
-                  {appliedCoupon && (
-                    <div className="flex justify-between px-4 py-2 text-xs text-emerald-600 bg-emerald-500/5 font-medium">
-                      <span className="flex items-center gap-1">
-                        <Tag className="h-3 w-3" />
-                        <span>Promo Code ({appliedCoupon.code})</span>
-                      </span>
-                      <span className="font-mono">-{formatCurrency(couponDiscount)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between px-4 py-2 text-xs text-secondary">
-                    <span>Net Taxable Subtotal</span>
-                    <span className="font-mono font-bold text-primary">{formatCurrency(netSubtotal)}</span>
-                  </div>
-                  <div className="flex justify-between px-4 py-2 text-xs text-secondary">
-                    <span>GST (18%)</span>
-                    <span className="font-mono">{formatCurrency(gstAmount)}</span>
-                  </div>
-                  <div className="flex justify-between px-4 py-3 text-sm font-bold text-primary bg-primary-subtle">
-                    <span>Total Payable</span>
-                    <span className="font-mono text-primary text-base">{formatCurrency(totalAmount)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Promo Code Input Box */}
-              <div className="p-3 rounded-xl border border-subtle bg-surface-muted space-y-2">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-muted flex items-center gap-1">
-                  <Tag className="h-3 w-3 text-teal-600" />
-                  <span>Have a Promo or Gift Code?</span>
-                </div>
-                {appliedCoupon ? (
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                      <span className="font-mono font-bold text-emerald-700">{appliedCoupon.code}</span>
-                      <span className="text-emerald-600">(-{formatCurrency(appliedCoupon.discountAmount)})</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleRemoveCoupon}
-                      className="text-[11px] font-semibold text-danger hover:underline"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        placeholder="e.g. INVENTRAFIRST"
-                        value={couponCodeInput}
-                        onChange={(e) => setCouponCodeInput(e.target.value.toUpperCase())}
-                        className="flex-1 px-3 py-1.5 text-xs font-mono font-bold uppercase rounded-lg border border-subtle bg-surface text-primary focus:border-teal-500 focus:outline-none"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={isValidatingCoupon || !couponCodeInput.trim()}
-                        onClick={handleApplyCoupon}
-                        className="text-xs h-8"
-                      >
-                        {isValidatingCoupon ? "Checking…" : "Apply"}
-                      </Button>
-                    </div>
-                    {couponError && (
-                      <p className="text-[11px] text-danger flex items-center gap-1 mt-1">
-                        <AlertTriangle className="h-3 w-3 shrink-0" />
-                        <span>{couponError}</span>
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* UPI QR Code Block */}
-              {qrCodeUrl && (
-                <div className="p-4 rounded-xl border border-teal-500/30 bg-teal-500/5 text-center space-y-2">
-                  <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-teal-700">
-                    <QrCode className="h-4 w-4" />
-                    <span>Scan with Any UPI App</span>
-                  </div>
-                  <div className="flex justify-center">
-                    <div className="p-2 bg-white rounded-xl shadow-xs border border-teal-200">
-                      <img src={qrCodeUrl} alt="UPI Payment QR Code" className="h-36 w-36" />
-                    </div>
-                  </div>
-                  <p className="text-[11px] text-muted">
-                    Supports <strong>Google Pay</strong> · <strong>PhonePe</strong> · <strong>Paytm</strong> · <strong>BHIM</strong> · <strong>Cred</strong>
-                  </p>
-                </div>
-              )}
-
-              {/* Action Button */}
-              <Button
-                variant="primary"
-                onClick={handlePay}
-                disabled={isInitiating}
-                className="w-full gap-2 shadow-sm shadow-primary/20 py-2.5"
-              >
-                {isInitiating ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                    Connecting to Gateway…
-                  </>
-                ) : (
-                  <>
-                    <ArrowUpRight className="h-4 w-4" />
-                    Pay {formatCurrency(totalAmount)} via Razorpay
-                  </>
-                )}
-              </Button>
-
-              <p className="text-center text-[10px] text-muted">
-                Online payment with instant tax receipt and email confirmation.
-              </p>
+        <div className="p-5 space-y-4">
+          {/* Amount summary */}
+          <div className="rounded-xl border border-subtle bg-surface-muted overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-subtle bg-surface flex justify-between items-center">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted">Amount Due</span>
+              <span className="text-xs font-semibold text-primary">{subscription?.planName}</span>
             </div>
-          )}
-
-          {step === "success" && (
-            <div className="py-8 text-center space-y-4">
-              <div className="h-14 w-14 mx-auto rounded-full bg-success-subtle border border-success-border flex items-center justify-center">
-                <CheckCircle2 className="h-8 w-8 text-success" />
+            <div className="divide-y divide-subtle">
+              <div className="flex justify-between px-4 py-2 text-xs text-secondary">
+                <span>Billing Cycle</span>
+                <span className="font-medium text-primary capitalize">{subscription?.billingCycle?.toLowerCase() ?? "—"}</span>
               </div>
-              <div>
-                <p className="text-base font-bold text-primary">Payment Successful!</p>
-                <p className="text-xs text-muted mt-1">Your license is active and your invoice receipt has been dispatched to your email.</p>
+              <div className="flex justify-between px-4 py-2 text-xs text-secondary">
+                <span>Base Plan Price</span>
+                <span className="font-mono">{formatCurrency(basePrice)}</span>
               </div>
-              <Button variant="primary" onClick={handleClose} className="w-full">Done</Button>
+              <div className="flex justify-between px-4 py-2 text-xs text-secondary">
+                <span>GST (18%)</span>
+                <span className="font-mono">{formatCurrency(gstAmount)}</span>
+              </div>
+              <div className="flex justify-between px-4 py-3 text-sm font-bold text-primary bg-primary-subtle">
+                <span>Total Payable</span>
+                <span className="font-mono text-primary text-base">{formatCurrency(totalAmount)}</span>
+              </div>
             </div>
-          )}
+          </div>
+
+          <div className="p-3.5 rounded-xl border border-subtle bg-surface-muted flex items-start gap-3">
+            <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+            <p className="text-xs text-secondary leading-relaxed">
+              Online payment is not available. To renew, contact Inventra support and quote the total above. Once your
+              payment is recorded by an administrator, the tax invoice appears under Billing History.
+            </p>
+          </div>
+
+          <Button variant="outline" onClick={onClose} className="w-full">Close</Button>
         </div>
       </div>
     </div>
   );
 };
 
-// ─── Prorated Plan Upgrade Modal ──────────────────────────────────────────
+// ─── Plan Upgrade Summary Modal ───────────────────────────────────────────
+// Shows the prorated upgrade price; the upgrade itself is recorded by an administrator.
 interface ProratedUpgradeModalProps {
   open: boolean;
   onClose: () => void;
   targetPlan: { tier: PlanTier; cycle: BillingCycle; name: string; amount: number } | null;
-  subscription: SubscriptionDetails | null;
-  onSuccess: () => void;
 }
 
-const ProratedUpgradeModal: React.FC<ProratedUpgradeModalProps> = ({
-  open,
-  onClose,
-  targetPlan,
-  subscription,
-  onSuccess,
-}) => {
+const ProratedUpgradeModal: React.FC<ProratedUpgradeModalProps> = ({ open, onClose, targetPlan }) => {
   const toast = useToast();
-  const user = useAuthStore((s) => s.user);
   const [preview, setPreview] = useState<UpgradePreview | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
-  const [isInitiating, setIsInitiating] = useState(false);
-  const [qrCodeUrl, setQrCodeUrl] = useState<string>("");
-  const [step, setStep] = useState<"preview" | "success">("preview");
-
-  // Coupon state
-  const [couponCodeInput, setCouponCodeInput] = useState("");
-  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
-  const [appliedCoupon, setAppliedCoupon] = useState<CouponValidationResult | null>(null);
-  const [couponError, setCouponError] = useState<string | null>(null);
-
-  const couponDiscount = appliedCoupon?.discountAmount || 0;
-  const effectiveNetSubtotal = preview ? Math.max(0, preview.netSubtotal - couponDiscount) : 0;
-  const effectiveCgst = effectiveNetSubtotal * 0.09;
-  const effectiveSgst = effectiveNetSubtotal * 0.09;
-  const effectiveTotalPayable = effectiveNetSubtotal + effectiveCgst + effectiveSgst;
 
   useEffect(() => {
     if (open && targetPlan) {
-      setStep("preview");
       setIsLoadingPreview(true);
       subscriptionApi
         .getUpgradePreview(targetPlan.tier, targetPlan.cycle)
-        .then((data) => {
-          setPreview(data);
-          const initialPayable = data.totalPayable;
-          const upiString = `upi://pay?pa=inventra@icici&pn=Inventra%20Technologies&am=${initialPayable.toFixed(2)}&cu=INR&tn=${encodeURIComponent("Inventra Upgrade " + data.targetTier)}`;
-          QRCode.toDataURL(upiString, { width: 170, margin: 1, color: { dark: "#0f172a", light: "#ffffff" } })
-            .then(setQrCodeUrl)
-            .catch(() => {});
-        })
+        .then(setPreview)
         .catch(() => {
           toast.error("Could not calculate upgrade proration. Please try again.");
         })
@@ -455,132 +151,11 @@ const ProratedUpgradeModal: React.FC<ProratedUpgradeModalProps> = ({
     }
   }, [open, targetPlan, toast]);
 
-  // Re-generate QR when coupon changes total payable
-  useEffect(() => {
-    if (preview && effectiveTotalPayable > 0) {
-      const upiString = `upi://pay?pa=inventra@icici&pn=Inventra%20Technologies&am=${effectiveTotalPayable.toFixed(2)}&cu=INR&tn=${encodeURIComponent("Inventra Upgrade " + preview.targetTier)}`;
-      QRCode.toDataURL(upiString, { width: 170, margin: 1, color: { dark: "#0f172a", light: "#ffffff" } })
-        .then(setQrCodeUrl)
-        .catch(() => {});
-    }
-  }, [preview, effectiveTotalPayable]);
-
-  const handleApplyCoupon = async () => {
-    if (!couponCodeInput.trim() || !preview || !targetPlan) return;
-    setIsValidatingCoupon(true);
-    setCouponError(null);
-    try {
-      const res = await cmsApi.validateCoupon({
-        code: couponCodeInput.trim().toUpperCase(),
-        tier: targetPlan.tier,
-        billingCycle: targetPlan.cycle,
-        subtotal: preview.netSubtotal,
-      });
-      if (res.valid) {
-        setAppliedCoupon(res);
-        toast.success(`Coupon ${res.code} applied! ₹${res.discountAmount.toFixed(2)} discount`);
-      } else {
-        setAppliedCoupon(null);
-        setCouponError(res.message || "Coupon is not eligible for this upgrade.");
-      }
-    } catch (err: any) {
-      setAppliedCoupon(null);
-      setCouponError(err.response?.data?.message || "Failed to validate coupon.");
-    } finally {
-      setIsValidatingCoupon(false);
-    }
-  };
-
-  const handleRemoveCoupon = () => {
-    setAppliedCoupon(null);
-    setCouponCodeInput("");
-    setCouponError(null);
-  };
-
-  const handlePayUpgrade = async () => {
-    if (!targetPlan || !preview) return;
-    setIsInitiating(true);
-    try {
-      const loaded = await loadRazorpayScript();
-      if (!loaded || !window.Razorpay) {
-        toast.error("Payment gateway could not be loaded. Please check your connection.");
-        setIsInitiating(false);
-        return;
-      }
-
-      const order = await subscriptionApi.initiatePayment({
-        targetTier: targetPlan.tier,
-        targetBillingCycle: targetPlan.cycle,
-        couponCode: appliedCoupon?.code,
-      });
-
-      const razorpayKey = order.gatewayKey || (typeof import.meta !== "undefined" && (import.meta.env as any)?.VITE_RAZORPAY_KEY_ID) || "";
-
-      const rzp = new window.Razorpay({
-        key: razorpayKey,
-        amount: Math.round(effectiveTotalPayable * 100), // paise
-        currency: order.currency,
-        name: "Inventra",
-        description: order.description,
-        order_id: order.orderId,
-        prefill: {
-          name: user?.fullName || subscription?.legalName || "",
-          email: user?.email || "",
-        },
-        theme: { color: "#0F766E" },
-        handler: async (response: {
-          razorpay_payment_id: string;
-          razorpay_order_id: string;
-          razorpay_signature: string;
-        }) => {
-          try {
-            await subscriptionApi.verifyPayment({
-              razorpayPaymentId: response.razorpay_payment_id,
-              razorpayOrderId: response.razorpay_order_id,
-              razorpaySignature: response.razorpay_signature,
-            });
-            setStep("success");
-            onSuccess();
-            toast.success("Plan upgraded successfully! Confirmation email sent with Tax Invoice.");
-          } catch (err: unknown) {
-            toast.error(err instanceof Error ? err.message : "Payment verification failed.");
-          } finally {
-            setIsInitiating(false);
-          }
-        },
-        modal: {
-          ondismiss: () => {
-            setIsInitiating(false);
-          },
-        },
-      });
-
-      rzp.on("payment.failed", () => {
-        toast.error("Upgrade payment failed. Please try again.");
-        setIsInitiating(false);
-      });
-
-      rzp.open();
-      setIsInitiating(false);
-    } catch {
-      toast.error("Failed to initiate upgrade payment. Please try again.");
-      setIsInitiating(false);
-    }
-  };
-
-  const handleClose = () => {
-    setStep("preview");
-    setAppliedCoupon(null);
-    setCouponCodeInput("");
-    setCouponError(null);
-    onClose();
-  };
-
   if (!open || !targetPlan) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={handleClose} />
+      <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 w-full max-w-xl bg-surface border border-subtle rounded-2xl shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-subtle bg-surface-muted">
@@ -590,12 +165,10 @@ const ProratedUpgradeModal: React.FC<ProratedUpgradeModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-bold text-primary">Upgrade License Plan</h3>
-              <p className="text-xs text-muted">
-                Prorated Credit Calculation & Direct UPI QR Payment
-              </p>
+              <p className="text-xs text-muted">Prorated credit calculation</p>
             </div>
           </div>
-          <button type="button" onClick={handleClose} className="p-1.5 rounded-lg text-muted hover:text-primary hover:bg-surface transition-colors">
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg text-muted hover:text-primary hover:bg-surface transition-colors">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -606,7 +179,7 @@ const ProratedUpgradeModal: React.FC<ProratedUpgradeModalProps> = ({
               <RefreshCw className="h-8 w-8 text-primary animate-spin mx-auto" />
               <p className="text-xs text-muted">Calculating unused remaining days credit from your active plan…</p>
             </div>
-          ) : step === "preview" && preview ? (
+          ) : preview ? (
             <div className="space-y-5">
               {/* Proration Explanation Banner */}
               <div className="p-3.5 rounded-xl border border-success-border bg-success-subtle flex items-start gap-3">
@@ -616,156 +189,48 @@ const ProratedUpgradeModal: React.FC<ProratedUpgradeModalProps> = ({
                 </div>
               </div>
 
-              {/* Two Column Layout: Calculation Table vs Scannable QR */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
-                {/* Math Breakdown */}
-                <div className="rounded-xl border border-subtle bg-surface-muted overflow-hidden">
-                  <div className="px-3.5 py-2 border-b border-subtle bg-surface">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted">Upgrade Breakdown</span>
-                  </div>
-                  <div className="divide-y divide-subtle text-xs">
-                    <div className="flex justify-between px-3.5 py-2 text-secondary">
-                      <span>New Plan ({preview.targetTier})</span>
-                      <span className="font-mono font-medium text-primary">{formatCurrency(preview.targetPrice)}</span>
-                    </div>
-                    <div className="flex justify-between px-3.5 py-2 text-secondary">
-                      <span>Remaining Days ({preview.daysRemaining}d)</span>
-                      <span className="font-mono text-muted">@{formatCurrency(preview.dailyRate)}/d</span>
-                    </div>
-                    <div className="flex justify-between px-3.5 py-2 text-success font-semibold">
-                      <span>Less: Unused Credit</span>
-                      <span className="font-mono">- {formatCurrency(preview.unusedCredit)}</span>
-                    </div>
-                    {appliedCoupon && (
-                      <div className="flex justify-between px-3.5 py-2 text-emerald-600 bg-emerald-500/5 font-semibold">
-                        <span className="flex items-center gap-1">
-                          <Tag className="h-3 w-3" />
-                          <span>Promo ({appliedCoupon.code})</span>
-                        </span>
-                        <span className="font-mono">- {formatCurrency(couponDiscount)}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between px-3.5 py-2 text-secondary">
-                      <span>Net Taxable Subtotal</span>
-                      <span className="font-mono font-bold text-primary">{formatCurrency(effectiveNetSubtotal)}</span>
-                    </div>
-                    <div className="flex justify-between px-3.5 py-2 text-secondary">
-                      <span>GST (18%)</span>
-                      <span className="font-mono">{formatCurrency(effectiveCgst + effectiveSgst)}</span>
-                    </div>
-                    <div className="flex justify-between px-3.5 py-2.5 bg-primary-subtle text-primary font-bold">
-                      <span>Total Payable</span>
-                      <span className="font-mono text-sm">{formatCurrency(effectiveTotalPayable)}</span>
-                    </div>
-                  </div>
+              {/* Math Breakdown */}
+              <div className="rounded-xl border border-subtle bg-surface-muted overflow-hidden">
+                <div className="px-3.5 py-2 border-b border-subtle bg-surface">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted">Upgrade Breakdown</span>
                 </div>
-
-                {/* Scannable UPI QR */}
-                <div className="rounded-xl border border-teal-500/30 bg-teal-500/5 p-3 text-center space-y-2">
-                  <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-teal-700">
-                    <QrCode className="h-4 w-4" />
-                    <span>Scan & Pay via UPI</span>
+                <div className="divide-y divide-subtle text-xs">
+                  <div className="flex justify-between px-3.5 py-2 text-secondary">
+                    <span>New Plan ({preview.targetTier})</span>
+                    <span className="font-mono font-medium text-primary">{formatCurrency(preview.targetPrice)}</span>
                   </div>
-                  {qrCodeUrl ? (
-                    <div className="flex justify-center">
-                      <div className="p-1.5 bg-white rounded-lg shadow-xs border border-teal-200">
-                        <img src={qrCodeUrl} alt="UPI QR Code" className="h-28 w-28" />
-                      </div>
-                    </div>
-                  ) : null}
-                  <div className="text-[11px] font-mono font-bold text-teal-800">
-                    {formatCurrency(effectiveTotalPayable)}
+                  <div className="flex justify-between px-3.5 py-2 text-secondary">
+                    <span>Remaining Days ({preview.daysRemaining}d)</span>
+                    <span className="font-mono text-muted">@{formatCurrency(preview.dailyRate)}/d</span>
                   </div>
-                  <p className="text-[10px] text-muted">
-                    Scan with PhonePe, GPay, Paytm, or BHIM
-                  </p>
+                  <div className="flex justify-between px-3.5 py-2 text-success font-semibold">
+                    <span>Less: Unused Credit</span>
+                    <span className="font-mono">- {formatCurrency(preview.unusedCredit)}</span>
+                  </div>
+                  <div className="flex justify-between px-3.5 py-2 text-secondary">
+                    <span>Net Taxable Subtotal</span>
+                    <span className="font-mono font-bold text-primary">{formatCurrency(preview.netSubtotal)}</span>
+                  </div>
+                  <div className="flex justify-between px-3.5 py-2 text-secondary">
+                    <span>GST (18%)</span>
+                    <span className="font-mono">{formatCurrency(preview.cgstAmount + preview.sgstAmount)}</span>
+                  </div>
+                  <div className="flex justify-between px-3.5 py-2.5 bg-primary-subtle text-primary font-bold">
+                    <span>Total Payable</span>
+                    <span className="font-mono text-sm">{formatCurrency(preview.totalPayable)}</span>
+                  </div>
                 </div>
               </div>
 
-              {/* Promo Code Input Box */}
-              <div className="p-3 rounded-xl border border-subtle bg-surface-muted space-y-2">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-muted flex items-center gap-1">
-                  <Tag className="h-3 w-3 text-teal-600" />
-                  <span>Have a Promo or Gift Code?</span>
-                </div>
-                {appliedCoupon ? (
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                      <span className="font-mono font-bold text-emerald-700">{appliedCoupon.code}</span>
-                      <span className="text-emerald-600">(-{formatCurrency(appliedCoupon.discountAmount)})</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleRemoveCoupon}
-                      className="text-[11px] font-semibold text-danger hover:underline"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        placeholder="e.g. INVENTRAFIRST"
-                        value={couponCodeInput}
-                        onChange={(e) => setCouponCodeInput(e.target.value.toUpperCase())}
-                        className="flex-1 px-3 py-1.5 text-xs font-mono font-bold uppercase rounded-lg border border-subtle bg-surface text-primary focus:border-teal-500 focus:outline-none"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={isValidatingCoupon || !couponCodeInput.trim()}
-                        onClick={handleApplyCoupon}
-                        className="text-xs h-8"
-                      >
-                        {isValidatingCoupon ? "Checking…" : "Apply"}
-                      </Button>
-                    </div>
-                    {couponError && (
-                      <p className="text-[11px] text-danger flex items-center gap-1 mt-1">
-                        <AlertTriangle className="h-3 w-3 shrink-0" />
-                        <span>{couponError}</span>
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Checkout Button */}
-              <Button
-                variant="primary"
-                onClick={handlePayUpgrade}
-                disabled={isInitiating}
-                className="w-full gap-2 shadow-sm shadow-primary/20 py-2.5 text-sm"
-              >
-                {isInitiating ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                    Opening Payment Gateway…
-                  </>
-                ) : (
-                  <>
-                    <ArrowUpRight className="h-4 w-4" />
-                    Pay {formatCurrency(effectiveTotalPayable)} via Razorpay Gateway
-                  </>
-                )}
-              </Button>
-            </div>
-          ) : step === "success" ? (
-            <div className="py-8 text-center space-y-4">
-              <div className="h-14 w-14 mx-auto rounded-full bg-success-subtle border border-success-border flex items-center justify-center">
-                <CheckCircle2 className="h-8 w-8 text-success" />
-              </div>
-              <div>
-                <p className="text-base font-bold text-primary">Upgrade Activated Successfully!</p>
-                <p className="text-xs text-muted mt-1">
-                  Your store has been upgraded to <strong>{targetPlan.name}</strong>. A tax invoice with full transaction IDs has been sent to your email.
+              <div className="p-3.5 rounded-xl border border-subtle bg-surface-muted flex items-start gap-3">
+                <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <p className="text-xs text-secondary leading-relaxed">
+                  Online payment is not available. To upgrade to <strong>{targetPlan.name}</strong>, contact Inventra
+                  support and quote the total above. An administrator will record your payment and activate the plan.
                 </p>
               </div>
-              <Button variant="primary" onClick={handleClose} className="w-full">Done</Button>
+
+              <Button variant="outline" onClick={onClose} className="w-full">Close</Button>
             </div>
           ) : null}
         </div>
@@ -856,19 +321,15 @@ export function generateInvoiceHtml(invoice: LicenseInvoice, subscription: Subsc
       </div>
     </div>
 
-    <!-- Razorpay Payment Authentication Box -->
-    <div style="background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 8px; padding: 12px 16px; margin-bottom: 24px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; font-size: 12px;">
+    <!-- Payment Details Box -->
+    <div style="background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 8px; padding: 12px 16px; margin-bottom: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 12px;">
       <div>
-        <span style="color: #64748b; text-transform: uppercase; font-size: 10px; font-weight: 700; display: block; margin-bottom: 2px;">Razorpay Payment ID</span>
-        <span class="font-mono" style="color: #0f766e; font-weight: 700;">${invoice.razorpayPaymentId || invoice.paymentMethod || 'pay_verified'}</span>
-      </div>
-      <div>
-        <span style="color: #64748b; text-transform: uppercase; font-size: 10px; font-weight: 700; display: block; margin-bottom: 2px;">Razorpay Order ID</span>
-        <span class="font-mono" style="color: #0f172a; font-weight: 700;">${invoice.razorpayOrderId || 'order_verified'}</span>
+        <span style="color: #64748b; text-transform: uppercase; font-size: 10px; font-weight: 700; display: block; margin-bottom: 2px;">Payment Method</span>
+        <span style="color: #0f766e; font-weight: 700;">${invoice.paymentMethod || 'Manual Payment'}</span>
       </div>
       <div style="text-align: right;">
-        <span style="color: #64748b; text-transform: uppercase; font-size: 10px; font-weight: 700; display: block; margin-bottom: 2px;">Verification Status</span>
-        <span style="color: #059669; font-weight: 800;">✔ SECURELY VERIFIED</span>
+        <span style="color: #64748b; text-transform: uppercase; font-size: 10px; font-weight: 700; display: block; margin-bottom: 2px;">Payment Status</span>
+        <span style="color: #059669; font-weight: 800;">✔ PAID</span>
       </div>
     </div>
 
@@ -1011,22 +472,14 @@ const ReceiptModal: React.FC<ReceiptModalProps> = ({ invoice, subscription, onCl
               <div className="text-xs text-muted mt-0.5">Payment Mode: {invoice.paymentMethod}</div>
             </div>
 
-            {/* Razorpay Gateway Reference Details */}
-            <div className="border-t border-subtle p-3 bg-teal-500/5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-              <div className="flex items-center gap-4 flex-wrap">
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-muted block">Razorpay Payment ID</span>
-                  <span className="font-mono text-teal-700 font-bold">{invoice.razorpayPaymentId || invoice.paymentMethod || "pay_verified"}</span>
-                </div>
-                {invoice.razorpayOrderId && (
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-muted block">Razorpay Order ID</span>
-                    <span className="font-mono text-muted font-semibold">{invoice.razorpayOrderId}</span>
-                  </div>
-                )}
+            {/* Payment details */}
+            <div className="border-t border-subtle p-3 bg-surface-muted flex items-center justify-between gap-2 text-xs">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-muted block">Payment Method</span>
+                <span className="font-semibold text-primary">{invoice.paymentMethod || "Manual Payment"}</span>
               </div>
               <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-success-subtle text-success border border-success-border w-fit">
-                ✔ Authenticated
+                ✔ Paid
               </span>
             </div>
           </div>
@@ -1606,21 +1059,16 @@ export const BillingPlanSection: React.FC = () => {
         </div>
       </div>
 
-      {/* ── Prorated Plan Upgrade Modal with UPI QR & Razorpay ─── */}
+      {/* ── Plan Upgrade Summary Modal ─── */}
       <ProratedUpgradeModal
         open={Boolean(planToConfirm)}
         onClose={() => setPlanToConfirm(null)}
         targetPlan={planToConfirm}
-        subscription={subscription}
-        onSuccess={() => {
-          setPlanToConfirm(null);
-          fetchData();
-        }}
       />
 
       {/* ── Modals ───────────────────────────────────────────────── */}
       <ReceiptModal invoice={selectedInvoice} subscription={subscription} onClose={() => setSelectedInvoice(null)} />
-      <PayNowModal open={showPayNow} onClose={() => setShowPayNow(false)} subscription={subscription} onSuccess={() => fetchData()} />
+      <PayNowModal open={showPayNow} onClose={() => setShowPayNow(false)} subscription={subscription} />
     </div>
   );
 };

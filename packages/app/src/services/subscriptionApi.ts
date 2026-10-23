@@ -55,8 +55,6 @@ export interface LicenseInvoice {
   status: "PAID" | "PENDING" | "VOID";
   hsnSac: string;
   invoicePdfUrl?: string;
-  razorpayPaymentId?: string;
-  razorpayOrderId?: string;
 }
 
 export interface ChangePlanPayload {
@@ -79,19 +77,6 @@ export interface UpgradePreview {
   cgstAmount: number;
   sgstAmount: number;
   totalPayable: number;
-}
-
-export interface PaymentOrder {
-  orderId: string;
-  businessId: string;
-  amount: number;
-  currency: string;
-  gatewayKey: string;
-  description: string;
-  upiQrString?: string;
-  unusedCredit?: number;
-  couponCode?: string;
-  couponDiscount?: number;
 }
 
 // Admin-specific types
@@ -222,20 +207,6 @@ export const subscriptionApi = {
     const res = await apiClient.get<UpgradePreview>("/api/v1/subscription/upgrade-preview", {
       params: { targetTier, targetBillingCycle },
     });
-    return res.data;
-  },
-
-  async initiatePayment(payload?: { targetTier?: PlanTier; targetBillingCycle?: BillingCycle; couponCode?: string }): Promise<PaymentOrder> {
-    const res = await apiClient.post<PaymentOrder>("/api/v1/subscription/payment/initiate", payload || {});
-    return res.data;
-  },
-
-  async verifyPayment(payload: {
-    razorpayPaymentId: string;
-    razorpayOrderId: string;
-    razorpaySignature: string;
-  }): Promise<SubscriptionDetails> {
-    const res = await apiClient.post<SubscriptionDetails>("/api/v1/subscription/payment/verify", payload);
     return res.data;
   },
 

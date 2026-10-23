@@ -125,7 +125,6 @@ Use `02_MODULE_MAP.md §6`. For each contract, diff the source of truth against 
 - `SecurityConfig`: public vs protected routes, CORS, CSRF stance.
 - Secrets: `application*.yml`, `docker-compose.yml`, Tauri config, desktop-native config; nothing real committed.
 - Tauri `capabilities/default.json`: least privilege.
-- Razorpay webhooks: signature verification.
 - Dependencies: `pnpm audit`, `./mvnw dependency-check` (OWASP), `cargo audit`, `dotnet list package --vulnerable`.
 - Logging: no PII/tokens in logs; JVM crash logs (`hs_err_pid*.log`, `replay_pid*.log`) in the backend folder point to memory issues worth investigating.
 - No CI exists (`.github/` missing); record as S2.
