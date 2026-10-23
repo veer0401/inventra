@@ -4,6 +4,7 @@
 > **Target Audience**: Core Engineers, Tech Leads, Pharmacy Domain Architects  
 > **Key Database Tables**: `products`, `product_identifiers`, `inventory_items`, `inventory_batches`, `stock_movements`, `goods_receipt_notes`, `goods_receipt_items`, `sales`, `sale_items`, `sale_returns`, `inventory_transfers`  
 > **Database Engine**: PostgreSQL 16+ via Flyway (`V1` through `V19`)  
+> **Related Architecture References**: [TRANSITION_AND_FLOW_DIAGRAMS.md](file:///d:/project/anti-gravity-projects/inventra/docs/TRANSITION_AND_FLOW_DIAGRAMS.md) | [BACKEND_API_REFERENCE.md](file:///d:/project/anti-gravity-projects/inventra/docs/BACKEND_API_REFERENCE.md) | [SYSTEM_DIAGRAMS_AND_FUTURE_ROADMAP.md](file:///d:/project/anti-gravity-projects/inventra/docs/SYSTEM_DIAGRAMS_AND_FUTURE_ROADMAP.md)
 
 ---
 

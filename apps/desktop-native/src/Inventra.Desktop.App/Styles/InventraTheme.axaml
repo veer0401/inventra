@@ -1,0 +1,279 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Styles.Resources>
+        <ResourceDictionary>
+            <!-- 1. Canvas and Surface Tokens (Strict Light Mode Hierarchy) -->
+            <!-- Level 0: Global Application Background -->
+            <SolidColorBrush x:Key="InventraAppBg" Color="#F1F5F9" />
+            <!-- Level 1: Active Workspace Background -->
+            <SolidColorBrush x:Key="InventraWorkspaceBg" Color="#F8FAFC" />
+            <!-- Level 2: Surface Panels & Controls -->
+            <SolidColorBrush x:Key="InventraSurface" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="InventraSurfaceSubtle" Color="#F8FAFC" />
+            <SolidColorBrush x:Key="InventraSurfaceHeader" Color="#F1F5F9" />
+            <SolidColorBrush x:Key="InventraSurfaceHover" Color="#F0FDFA" />
+            <SolidColorBrush x:Key="InventraSurfaceSelected" Color="#CCFBF1" />
+
+            <!-- 2. Borders and Dividers -->
+            <SolidColorBrush x:Key="InventraBorder" Color="#CBD5E1" />
+            <SolidColorBrush x:Key="InventraBorderSubtle" Color="#E2E8F0" />
+            <SolidColorBrush x:Key="InventraBorderStrong" Color="#94A3B8" />
+            <SolidColorBrush x:Key="InventraBorderFocus" Color="#0F766E" />
+
+            <!-- 3. Typography Hierarchy -->
+            <SolidColorBrush x:Key="InventraTextPrimary" Color="#0F172A" />
+            <SolidColorBrush x:Key="InventraTextSecondary" Color="#334155" />
+            <SolidColorBrush x:Key="InventraTextMuted" Color="#64748B" />
+            <SolidColorBrush x:Key="InventraTextDisabled" Color="#94A3B8" />
+
+            <!-- 4. Brand Primary (Inventra Medical/Pharmacy Teal) -->
+            <SolidColorBrush x:Key="InventraPrimary" Color="#0F766E" />
+            <SolidColorBrush x:Key="InventraPrimaryHover" Color="#115E59" />
+            <SolidColorBrush x:Key="InventraPrimaryActive" Color="#134E4A" />
+            <SolidColorBrush x:Key="InventraPrimaryLight" Color="#F0FDFA" />
+            <SolidColorBrush x:Key="InventraPrimaryBorder" Color="#99F6E4" />
+            <SolidColorBrush x:Key="InventraPrimaryText" Color="#FFFFFF" />
+
+            <!-- 5. Semantic Badges & Feedback (Pharmacy Specific, Restrained Light Tones) -->
+            <!-- In-Stock / Success -->
+            <SolidColorBrush x:Key="InventraSuccessBg" Color="#F0FDF4" />
+            <SolidColorBrush x:Key="InventraSuccessBorder" Color="#BBF7D0" />
+            <SolidColorBrush x:Key="InventraSuccessText" Color="#15803D" />
+            <SolidColorBrush x:Key="InventraSuccessDot" Color="#16A34A" />
+
+            <!-- Low-Stock / Warning -->
+            <SolidColorBrush x:Key="InventraWarningBg" Color="#FFFBEB" />
+            <SolidColorBrush x:Key="InventraWarningBorder" Color="#FDE68A" />
+            <SolidColorBrush x:Key="InventraWarningText" Color="#B45309" />
+            <SolidColorBrush x:Key="InventraWarningDot" Color="#D97706" />
+
+            <!-- Out-Of-Stock / Danger -->
+            <SolidColorBrush x:Key="InventraDangerBg" Color="#FEF2F2" />
+            <SolidColorBrush x:Key="InventraDangerBorder" Color="#FECACA" />
+            <SolidColorBrush x:Key="InventraDangerText" Color="#B91C1C" />
+            <SolidColorBrush x:Key="InventraDangerDot" Color="#DC2626" />
+
+            <!-- Sync / Info -->
+            <SolidColorBrush x:Key="InventraInfoBg" Color="#F0F9FF" />
+            <SolidColorBrush x:Key="InventraInfoBorder" Color="#BAE6FD" />
+            <SolidColorBrush x:Key="InventraInfoText" Color="#0369A1" />
+            <SolidColorBrush x:Key="InventraInfoDot" Color="#0EA5E9" />
+        </ResourceDictionary>
+    </Styles.Resources>
+
+    <!-- Global Window Defaults -->
+    <Style Selector="Window">
+        <Setter Property="Background" Value="{DynamicResource InventraAppBg}" />
+        <Setter Property="Foreground" Value="{DynamicResource InventraTextPrimary}" />
+        <Setter Property="FontFamily" Value="Segoe UI, Inter, Roboto, Arial, sans-serif" />
+    </Style>
+
+    <!-- Top Application Menu Styling -->
+    <Style Selector="Menu">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+
+    <Style Selector="Menu > MenuItem">
+        <Setter Property="Foreground" Value="#1E293B" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Padding" Value="9,5" />
+        <Setter Property="CornerRadius" Value="3" />
+    </Style>
+
+    <Style Selector="Menu > MenuItem:pointerover">
+        <Setter Property="Background" Value="#E2E8F0" />
+        <Setter Property="Foreground" Value="#0F172A" />
+    </Style>
+
+    <Style Selector="MenuItem">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="#0F172A" />
+        <Setter Property="Padding" Value="10,6" />
+    </Style>
+
+    <Style Selector="MenuItem:pointerover">
+        <Setter Property="Background" Value="#F1F5F9" />
+        <Setter Property="Foreground" Value="#0F172A" />
+    </Style>
+
+    <Style Selector="MenuFlyoutPresenter">
+        <Setter Property="Background" Value="#FFFFFF" />
+        <Setter Property="BorderBrush" Value="#CBD5E1" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="4" />
+        <Setter Property="Padding" Value="4" />
+    </Style>
+
+    <Style Selector="Separator">
+        <Setter Property="Background" Value="#E2E8F0" />
+        <Setter Property="Height" Value="1" />
+        <Setter Property="Margin" Value="0,4" />
+    </Style>
+
+    <!-- Professional Software Button Hierarchies -->
+    <Style Selector="Button">
+        <Setter Property="Background" Value="#FFFFFF" />
+        <Setter Property="Foreground" Value="#1E293B" />
+        <Setter Property="BorderBrush" Value="#CBD5E1" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="3" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Padding" Value="9,4" />
+        <Setter Property="Height" Value="28" />
+    </Style>
+
+    <Style Selector="Button:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#F8FAFC" />
+        <Setter Property="BorderBrush" Value="#94A3B8" />
+    </Style>
+
+    <Style Selector="Button:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="#E2E8F0" />
+    </Style>
+
+    <!-- Primary Action Button (Inventra Teal) -->
+    <Style Selector="Button.primary">
+        <Setter Property="Background" Value="#0F766E" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+        <Setter Property="BorderBrush" Value="#0F766E" />
+        <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+
+    <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#115E59" />
+        <Setter Property="BorderBrush" Value="#115E59" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+
+    <Style Selector="Button.primary:pressed /template/ ContentPresenter">
+        <Setter Property="Background" Value="#134E4A" />
+        <Setter Property="BorderBrush" Value="#134E4A" />
+    </Style>
+
+    <!-- Cloud Sync Action Button (Operational Blue) -->
+    <Style Selector="Button.sync">
+        <Setter Property="Background" Value="#0284C7" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+        <Setter Property="BorderBrush" Value="#0284C7" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+
+    <Style Selector="Button.sync:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#0369A1" />
+        <Setter Property="BorderBrush" Value="#0369A1" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+
+    <!-- Subtle Secondary Button -->
+    <Style Selector="Button.subtle">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="Foreground" Value="#475569" />
+    </Style>
+
+    <Style Selector="Button.subtle:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#E2E8F0" />
+        <Setter Property="BorderBrush" Value="#CBD5E1" />
+        <Setter Property="Foreground" Value="#0F172A" />
+    </Style>
+
+    <!-- Operational Text Input Styling -->
+    <Style Selector="TextBox">
+        <Setter Property="Background" Value="#FFFFFF" />
+        <Setter Property="BorderBrush" Value="#CBD5E1" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="3" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="#0F172A" />
+        <Setter Property="Padding" Value="7,4" />
+        <Setter Property="Height" Value="28" />
+    </Style>
+
+    <Style Selector="TextBox:pointerover /template/ Border#PART_BorderElement">
+        <Setter Property="BorderBrush" Value="#94A3B8" />
+    </Style>
+
+    <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+        <Setter Property="BorderBrush" Value="#0F766E" />
+        <Setter Property="BorderThickness" Value="1.5" />
+    </Style>
+
+    <!-- CheckBox Controls -->
+    <Style Selector="CheckBox">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="#334155" />
+    </Style>
+
+    <!-- DataGrid Professional ERP Spreadsheet Styling -->
+    <Style Selector="DataGrid">
+        <Setter Property="Background" Value="#FFFFFF" />
+        <Setter Property="GridLinesVisibility" Value="All" />
+        <Setter Property="HorizontalGridLinesBrush" Value="#E2E8F0" />
+        <Setter Property="VerticalGridLinesBrush" Value="#E2E8F0" />
+        <Setter Property="BorderBrush" Value="#CBD5E1" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+
+    <Style Selector="DataGridRow">
+        <Setter Property="Background" Value="#FFFFFF" />
+        <Setter Property="MinHeight" Value="28" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="#0F172A" />
+    </Style>
+
+    <Style Selector="DataGridRow:nth-child(2n)">
+        <Setter Property="Background" Value="#F8FAFC" />
+    </Style>
+
+    <Style Selector="DataGridColumnHeader">
+        <Setter Property="Background" Value="#F1F5F9" />
+        <Setter Property="Foreground" Value="#334155" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="BorderBrush" Value="#CBD5E1" />
+        <Setter Property="BorderThickness" Value="0,0,1,1" />
+        <Setter Property="Padding" Value="8,5" />
+        <Setter Property="MinHeight" Value="28" />
+    </Style>
+
+    <Style Selector="DataGridColumnHeader:pointerover /template/ Grid">
+        <Setter Property="Background" Value="#E2E8F0" />
+    </Style>
+
+
+    <Style Selector="DataGridRow:pointerover /template/ Rectangle#BackgroundRectangle">
+        <Setter Property="Fill" Value="#F1F5F9" />
+    </Style>
+
+    <Style Selector="DataGridRow:selected /template/ Rectangle#BackgroundRectangle">
+        <Setter Property="Fill" Value="#CCFBF1" />
+    </Style>
+
+    <Style Selector="DataGridRow:selected:pointerover /template/ Rectangle#BackgroundRectangle">
+        <Setter Property="Fill" Value="#99F6E4" />
+    </Style>
+
+    <Style Selector="DataGridRow:selected">
+        <Setter Property="Foreground" Value="#0F172A" />
+    </Style>
+
+    <Style Selector="DataGridCell">
+        <Setter Property="Padding" Value="8,4" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Tooltip Styling -->
+    <Style Selector="ToolTip">
+        <Setter Property="Background" Value="#FFFFFF" />
+        <Setter Property="BorderBrush" Value="#CBD5E1" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Foreground" Value="#0F172A" />
+        <Setter Property="CornerRadius" Value="3" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Padding" Value="6,4" />
+    </Style>
+
+</Styles>

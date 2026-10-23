@@ -1,0 +1,737 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Inventra.Desktop.App.ViewModels"
+             xmlns:purch="using:Inventra.Desktop.Core.Domain.Purchasing"
+             xmlns:inv="using:Inventra.Desktop.Core.Domain.Inventory"
+             mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="750"
+             x:Class="Inventra.Desktop.App.Views.Workspaces.PurchasesWorkspaceView"
+             x:DataType="vm:PurchasesWorkspaceViewModel"
+             x:Name="PurchasesWorkspaceRoot">
+
+    <Grid RowDefinitions="Auto,*">
+        <!-- 1. Module Header & Sub-Navigation Tabs Strip -->
+        <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="0,0,0,1" Padding="8,4">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <!-- Navigation Tabs -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
+                    <Button Classes="subtle" Content="[F1] Purchase Orders"
+                            Command="{Binding SwitchToRegisterCommand}"/>
+                    <Button Classes="subtle" Content="[F6] New Purchase"
+                            Command="{Binding SwitchToNewPurchaseCommand}"/>
+                    <Button Classes="subtle" Content="[F7] Goods Receipts (GRN)"
+                            Command="{Binding SwitchToGrnRegisterCommand}"/>
+                    <Button Classes="subtle" Content="Suppliers Directory"
+                            Command="{Binding SwitchToSuppliersCommand}"/>
+                </StackPanel>
+
+                <!-- Center: Operational Alerts / Messages -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+                    <TextBlock Text="{Binding NotificationMessage}" Foreground="#15803D" FontWeight="SemiBold" FontSize="11"
+                               IsVisible="{Binding NotificationMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                    <TextBlock Text="{Binding ErrorMessage}" Foreground="#B91C1C" FontWeight="Bold" FontSize="11"
+                               IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                </StackPanel>
+
+                <!-- Quick Action Buttons -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+                    <Button Classes="primary" Content="+ New Purchase Order" Command="{Binding SwitchToNewPurchaseCommand}" Height="26" Padding="8,2" FontSize="11"/>
+                    <Button Content="+ Direct GRN Inward" Command="{Binding PrepareDirectGrnCommand}" Height="26" Padding="8,2" FontSize="11"/>
+                    <Button Content="+ Add Supplier" Command="{Binding OpenAddSupplierDialogCommand}" Height="26" Padding="8,2" FontSize="11"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 2. Main Content Panels Switched by SelectedTabIndex -->
+        <Panel Grid.Row="1">
+
+            <!-- TAB 0: PURCHASE ORDERS REGISTER -->
+            <Grid RowDefinitions="Auto,*,Auto" Margin="8"
+                  IsVisible="{Binding SelectedTabIndex, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}">
+                <!-- Filter Toolbar -->
+                <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3" Padding="8,6" Margin="0,0,0,8">
+                    <Grid ColumnDefinitions="Auto,Auto,*,Auto">
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="Search:" VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" Foreground="#475569"/>
+                            <TextBox Width="260" Height="26" FontSize="12" Watermark="Search PO #, supplier, invoice..." Text="{Binding PurchaseSearchQuery}"/>
+                            <Button Content="Filter" Command="{Binding LoadPurchasesCommand}" Height="26" Padding="8,2" FontSize="11"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="16,0,0,0">
+                            <TextBlock Text="Status:" VerticalAlignment="Center" FontSize="11" Foreground="#64748B"/>
+                            <ComboBox SelectedIndex="0" Height="26" FontSize="11"
+                                      SelectedItem="{Binding PurchaseStatusFilter}">
+                                <x:String>ALL</x:String>
+                                <x:String>DRAFT</x:String>
+                                <x:String>CONFIRMED</x:String>
+                                <x:String>PARTIALLY_RECEIVED</x:String>
+                                <x:String>COMPLETED</x:String>
+                                <x:String>CANCELLED</x:String>
+                            </ComboBox>
+                        </StackPanel>
+
+                        <Panel Grid.Column="2"/>
+
+                        <!-- KPI Badges -->
+                        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="8">
+                            <Border Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3" Padding="6,2">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <TextBlock Text="Total POs:" FontSize="11" Foreground="#64748B"/>
+                                    <TextBlock Text="{Binding TotalPurchasesCount}" FontSize="11" FontWeight="Bold" Foreground="#0F172A"/>
+                                </StackPanel>
+                            </Border>
+                            <Border Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1" CornerRadius="3" Padding="6,2">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <TextBlock Text="Total Value:" FontSize="11" Foreground="#15803D"/>
+                                    <TextBlock Text="{Binding TotalPurchasesAmount, StringFormat='₹{0:F2}'}" FontSize="11" FontWeight="Bold" Foreground="#15803D"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Purchases DataGrid -->
+                <Border Grid.Row="1" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3">
+                    <Grid>
+                        <DataGrid ItemsSource="{Binding Purchases}"
+                                  SelectedItem="{Binding SelectedPurchase}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  GridLinesVisibility="All"
+                                  HeadersVisibility="Column"
+                                  RowHeight="26">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Order #" Binding="{Binding OrderNumber}" Width="140" FontWeight="SemiBold"/>
+                                <DataGridTextColumn Header="Supplier" Binding="{Binding SupplierName}" Width="200"/>
+                                <DataGridTextColumn Header="Invoice No" Binding="{Binding SupplierInvoiceNumber}" Width="120"/>
+                                <DataGridTextColumn Header="Date" Binding="{Binding OrderDate}" Width="100"/>
+                                <DataGridTextColumn Header="Items" Binding="{Binding LineCount}" Width="60"/>
+                                <DataGridTextColumn Header="Subtotal" Binding="{Binding Subtotal, StringFormat='₹{0:F2}'}" Width="100"/>
+                                <DataGridTextColumn Header="GST" Binding="{Binding FormattedTax}" Width="90"/>
+                                <DataGridTextColumn Header="Total Amount" Binding="{Binding FormattedTotal}" Width="110" FontWeight="SemiBold"/>
+                                <DataGridTemplateColumn Header="Status" Width="130">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate x:DataType="purch:PurchaseOrderItem">
+                                            <Border Background="{Binding StatusBadgeBg}"
+                                                    BorderBrush="{Binding StatusBadgeBorder}"
+                                                    BorderThickness="1" CornerRadius="2"
+                                                    Padding="6,1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Status}" FontSize="10" FontWeight="Bold" Foreground="{Binding StatusBadgeFg}"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="Created By" Binding="{Binding CreatedBy}" Width="120"/>
+                                <DataGridTemplateColumn Header="Actions" Width="180">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate x:DataType="purch:PurchaseOrderItem">
+                                            <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Center">
+                                                <Button Classes="subtle" Content="Open"
+                                                        Command="{Binding #PurchasesWorkspaceRoot.((vm:PurchasesWorkspaceViewModel)DataContext).OpenPurchaseCommand}"
+                                                        CommandParameter="{Binding}"
+                                                        Height="22" Padding="6,1" FontSize="10"/>
+                                                <Button Classes="primary" Content="Receive GRN"
+                                                        Command="{Binding #PurchasesWorkspaceRoot.((vm:PurchasesWorkspaceViewModel)DataContext).PrepareInwardFromPurchaseCommand}"
+                                                        CommandParameter="{Binding}"
+                                                        Height="22" Padding="6,1" FontSize="10"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <!-- Real Empty State -->
+                        <Border Background="#F8FAFC"
+                                IsVisible="{Binding Purchases.Count, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}"
+                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
+                                <TextBlock Text="No purchase orders found."
+                                           FontSize="15" FontWeight="SemiBold" Foreground="#334155" HorizontalAlignment="Center"/>
+                                <TextBlock Text="No purchase orders have been created yet. Click '+ New Purchase Order' to begin vendor procurement."
+                                           FontSize="11" Foreground="#64748B" HorizontalAlignment="Center"/>
+                                <Button Classes="primary" Content="+ New Purchase Order"
+                                        Command="{Binding SwitchToNewPurchaseCommand}"
+                                        HorizontalAlignment="Center" Margin="0,6,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <!-- Bottom Status -->
+                <Border Grid.Row="2" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1,0,1,1" Padding="8,4">
+                    <TextBlock Text="Select a purchase order and click 'Receive GRN' to physically inward stock into inventory batches."
+                               FontSize="11" Foreground="#64748B"/>
+                </Border>
+            </Grid>
+
+            <!-- TAB 1: NEW / EDIT PURCHASE ORDER -->
+            <Grid RowDefinitions="Auto,*,Auto" Margin="8"
+                  IsVisible="{Binding SelectedTabIndex, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=1}">
+                <!-- Purchase Header Form -->
+                <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3" Padding="12,10" Margin="0,0,0,8">
+                    <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="2*,1.5*,1.5*,1.5*,Auto">
+                        <!-- Supplier Selection -->
+                        <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,12,6">
+                            <TextBlock Text="Supplier *:" FontSize="11" FontWeight="SemiBold" Foreground="#334155" Margin="0,0,0,2"/>
+                            <ComboBox ItemsSource="{Binding Suppliers}"
+                                      SelectedItem="{Binding SelectedDocSupplier}"
+                                      HorizontalAlignment="Stretch" Height="28">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="purch:SupplierItem">
+                                        <TextBlock Text="{Binding DisplayName}"/>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </StackPanel>
+
+                        <!-- Supplier Invoice Number -->
+                        <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,12,6">
+                            <TextBlock Text="Supplier Invoice / Bill #:" FontSize="11" FontWeight="SemiBold" Foreground="#334155" Margin="0,0,0,2"/>
+                            <TextBox Text="{Binding SupplierInvoiceNumber}" Watermark="INV-12345" Height="28"/>
+                        </StackPanel>
+
+                        <!-- Order Date -->
+                        <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,12,6">
+                            <TextBlock Text="PO Date (YYYY-MM-DD):" FontSize="11" FontWeight="SemiBold" Foreground="#334155" Margin="0,0,0,2"/>
+                            <TextBox Text="{Binding PurchaseOrderDate}" Height="28"/>
+                        </StackPanel>
+
+                        <!-- Payment Terms -->
+                        <StackPanel Grid.Row="0" Grid.Column="3" Margin="0,0,12,6">
+                            <TextBlock Text="Payment Terms (Days):" FontSize="11" FontWeight="SemiBold" Foreground="#334155" Margin="0,0,0,2"/>
+                            <NumericUpDown Value="{Binding PurchasePaymentTerms}" Minimum="0" Maximum="180" Height="28"/>
+                        </StackPanel>
+
+                        <!-- Tax Pricing Mode Toggle -->
+                        <StackPanel Grid.Row="0" Grid.Column="4" VerticalAlignment="Center">
+                            <CheckBox Content="Inclusive GST" IsChecked="{Binding IsPriceTaxInclusive}" FontSize="11" FontWeight="Medium"/>
+                        </StackPanel>
+
+                        <!-- Row 2: Add Line Row -->
+                        <Grid Grid.Row="1" Grid.ColumnSpan="5" ColumnDefinitions="2.5*,1*,1*,1*,1*,1*,1*,Auto" Margin="0,6,0,0">
+                            <!-- Product Search Box -->
+                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                <TextBlock Text="Search Business Product Catalog *:" FontSize="10" FontWeight="SemiBold" Foreground="#475569"/>
+                                <TextBox Text="{Binding LineProductSearch}" Watermark="Type medicine name or SKU..." Height="26"/>
+                                <!-- Dropdown suggestions popup / list -->
+                                <ListBox ItemsSource="{Binding MatchingProducts}"
+                                         SelectedItem="{Binding SelectedCatalogProduct}"
+                                         IsVisible="{Binding MatchingProducts.Count, Converter={x:Static ObjectConverters.NotEqual}, ConverterParameter=0}"
+                                         MaxHeight="120" BorderBrush="#94A3B8" BorderThickness="1" Background="#FFFFFF" Margin="0,2,0,0">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="inv:ProductItem">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="11"/>
+                                                <TextBlock Text="{Binding Strength}" FontSize="10" Foreground="#64748B"/>
+                                                <TextBlock Text="{Binding FormattedPrice}" FontSize="10" Foreground="#0F766E"/>
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </StackPanel>
+
+                            <!-- Qty -->
+                            <StackPanel Grid.Column="1" Margin="0,0,6,0">
+                                <TextBlock Text="Qty:" FontSize="10" FontWeight="SemiBold" Foreground="#475569"/>
+                                <NumericUpDown Value="{Binding LineQty}" Minimum="1" Height="26"/>
+                            </StackPanel>
+
+                            <!-- Free Qty -->
+                            <StackPanel Grid.Column="2" Margin="0,0,6,0">
+                                <TextBlock Text="Free Qty:" FontSize="10" Foreground="#64748B"/>
+                                <NumericUpDown Value="{Binding LineFreeQty}" Minimum="0" Height="26"/>
+                            </StackPanel>
+
+                            <!-- Purchase Rate -->
+                            <StackPanel Grid.Column="3" Margin="0,0,6,0">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <TextBlock Text="Rate (₹):" FontSize="10" FontWeight="SemiBold" Foreground="#475569"/>
+                                    <TextBlock Text="{Binding PreviousPurchasePriceHint}" FontSize="9" Foreground="#0284C7"/>
+                                </StackPanel>
+                                <NumericUpDown Value="{Binding LineRate}" Minimum="0" Increment="0.5" Height="26"/>
+                            </StackPanel>
+
+                            <!-- Discount -->
+                            <StackPanel Grid.Column="4" Margin="0,0,6,0">
+                                <TextBlock Text="Disc (₹):" FontSize="10" Foreground="#64748B"/>
+                                <NumericUpDown Value="{Binding LineDiscount}" Minimum="0" Height="26"/>
+                            </StackPanel>
+
+                            <!-- GST Rate -->
+                            <StackPanel Grid.Column="5" Margin="0,0,6,0">
+                                <TextBlock Text="GST %:" FontSize="10" Foreground="#64748B"/>
+                                <NumericUpDown Value="{Binding LineTaxRate}" Minimum="0" Maximum="28" Height="26"/>
+                            </StackPanel>
+
+                            <!-- Add Button -->
+                            <Button Grid.Column="7" Classes="primary" Content="+ Add Line"
+                                    Command="{Binding AddLineToPurchaseCommand}"
+                                    VerticalAlignment="Bottom" Height="26" Padding="12,2" FontSize="11"/>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <!-- Active Purchase Lines DataGrid -->
+                <Border Grid.Row="1" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3">
+                    <DataGrid ItemsSource="{Binding ActivePurchaseLines}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              GridLinesVisibility="All"
+                              HeadersVisibility="Column"
+                              RowHeight="26">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Product" Binding="{Binding ProductName}" Width="280" FontWeight="Medium"/>
+                            <DataGridTextColumn Header="Qty" Binding="{Binding FormattedQty}" Width="100"/>
+                            <DataGridTextColumn Header="Unit" Binding="{Binding PurchaseUnit}" Width="80"/>
+                            <DataGridTextColumn Header="Unit Rate" Binding="{Binding FormattedRate}" Width="100"/>
+                            <DataGridTextColumn Header="Discount" Binding="{Binding DiscountAmount, StringFormat='₹{0:F2}'}" Width="80"/>
+                            <DataGridTextColumn Header="GST Rate" Binding="{Binding TaxRate, StringFormat='{}{0}%'}" Width="80"/>
+                            <DataGridTextColumn Header="GST Amount" Binding="{Binding TaxAmount, StringFormat='₹{0:F2}'}" Width="90"/>
+                            <DataGridTextColumn Header="Line Total" Binding="{Binding FormattedTotal}" Width="110" FontWeight="Bold"/>
+                            <DataGridTemplateColumn Header="Action" Width="70">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate x:DataType="purch:PurchaseOrderLineItem">
+                                        <Button Classes="danger" Content="✕"
+                                                Command="{Binding #PurchasesWorkspaceRoot.ViewModel.RemovePurchaseLineCommand}"
+                                                CommandParameter="{Binding}"
+                                                Height="20" Width="20" Padding="0" FontSize="10" HorizontalAlignment="Center"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Border>
+
+                <!-- Purchase Bottom Summary & Actions -->
+                <Border Grid.Row="2" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1,0,1,1" Padding="12,8">
+                    <Grid ColumnDefinitions="*,Auto,Auto">
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="16">
+                            <TextBlock Text="Taxable Subtotal: " FontSize="11" Foreground="#475569"/>
+                            <TextBlock Text="{Binding DocSubtotal, StringFormat='₹{0:F2}'}" FontWeight="Bold" FontSize="12" Foreground="#0F172A"/>
+
+                            <TextBlock Text="CGST: " FontSize="11" Foreground="#475569"/>
+                            <TextBlock Text="{Binding DocCgst, StringFormat='₹{0:F2}'}" FontWeight="SemiBold" FontSize="11" Foreground="#0F172A"/>
+
+                            <TextBlock Text="SGST: " FontSize="11" Foreground="#475569"/>
+                            <TextBlock Text="{Binding DocSgst, StringFormat='₹{0:F2}'}" FontWeight="SemiBold" FontSize="11" Foreground="#0F172A"/>
+
+                            <TextBlock Text="Total GST: " FontSize="11" Foreground="#475569"/>
+                            <TextBlock Text="{Binding DocTotalTax, StringFormat='₹{0:F2}'}" FontWeight="Bold" FontSize="12" Foreground="#0F766E"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,24,0" Spacing="6">
+                            <TextBlock Text="Grand Total:" FontSize="13" FontWeight="Bold" Foreground="#0F172A"/>
+                            <TextBlock Text="{Binding DocGrandTotal, StringFormat='₹{0:F2}'}" FontSize="15" FontWeight="Bold" Foreground="#0F766E"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                            <Button Content="Cancel" Command="{Binding SwitchToRegisterCommand}" Height="28" Padding="10,2"/>
+                            <Button Content="Save Draft" Command="{Binding SavePurchaseDraftCommand}" Height="28" Padding="10,2"/>
+                            <Button Classes="primary" Content="Save &amp; Confirm PO" Command="{Binding SavePurchaseAndConfirmCommand}" Height="28" Padding="14,2" FontWeight="Bold"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- TAB 2: GOODS RECEIPTS (GRN) REGISTER -->
+            <Grid RowDefinitions="Auto,*,Auto" Margin="8"
+                  IsVisible="{Binding SelectedTabIndex, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=2}">
+                <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3" Padding="8,6" Margin="0,0,0,8">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="Filter GRNs:" VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" Foreground="#475569"/>
+                            <TextBox Width="260" Height="26" FontSize="12" Watermark="Search GRN #, supplier, invoice..." Text="{Binding GrnSearchQuery}"/>
+                            <Button Content="Refresh" Command="{Binding LoadGoodsReceiptsCommand}" Height="26" Padding="8,2" FontSize="11"/>
+                        </StackPanel>
+
+                        <Panel Grid.Column="1"/>
+
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+                            <Button Classes="primary" Content="+ Inward New Batch" Command="{Binding PrepareDirectGrnCommand}" Height="26" Padding="10,2" FontSize="11"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- GRN DataGrid -->
+                <Border Grid.Row="1" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3">
+                    <Grid>
+                        <DataGrid ItemsSource="{Binding GoodsReceipts}"
+                                  SelectedItem="{Binding SelectedGoodsReceipt}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  GridLinesVisibility="All"
+                                  HeadersVisibility="Column"
+                                  RowHeight="26">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="GRN #" Binding="{Binding ReceiptNumber}" Width="150" FontWeight="SemiBold"/>
+                                <DataGridTextColumn Header="Supplier" Binding="{Binding SupplierName}" Width="220"/>
+                                <DataGridTextColumn Header="Delivery Note / Bill #" Binding="{Binding VendorDeliveryNote}" Width="150"/>
+                                <DataGridTextColumn Header="Received Date" Binding="{Binding ReceivedDate}" Width="110"/>
+                                <DataGridTextColumn Header="Total Inward Value" Binding="{Binding FormattedTotal}" Width="130" FontWeight="Bold"/>
+                                <DataGridTemplateColumn Header="Status" Width="110">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate x:DataType="purch:GoodsReceiptItem">
+                                            <Border Background="{Binding StatusBadgeBg}"
+                                                    BorderBrush="{Binding StatusBadgeBorder}"
+                                                    BorderThickness="1" CornerRadius="2"
+                                                    Padding="6,1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Status}" FontSize="10" FontWeight="Bold" Foreground="{Binding StatusBadgeFg}"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTextColumn Header="Received By" Binding="{Binding ReceivedBy}" Width="130"/>
+                                <DataGridTextColumn Header="Sync Status" Binding="{Binding SyncStatus}" Width="100"/>
+                                <DataGridTemplateColumn Header="Action" Width="90">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate x:DataType="purch:GoodsReceiptItem">
+                                            <Button Classes="subtle" Content="View / Detail"
+                                                    Command="{Binding #PurchasesWorkspaceRoot.((vm:PurchasesWorkspaceViewModel)DataContext).OpenGrnCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    Height="22" Padding="6,1" FontSize="10" HorizontalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <!-- Real Empty State -->
+                        <Border Background="#F8FAFC"
+                                IsVisible="{Binding GoodsReceipts.Count, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}"
+                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
+                                <TextBlock Text="No goods receipts found."
+                                           FontSize="15" FontWeight="SemiBold" Foreground="#334155" HorizontalAlignment="Center"/>
+                                <TextBlock Text="No stock inward goods receipt records have been processed yet."
+                                           FontSize="11" Foreground="#64748B" HorizontalAlignment="Center"/>
+                                <Button Classes="primary" Content="+ Direct GRN Inward"
+                                        Command="{Binding PrepareDirectGrnCommand}"
+                                        HorizontalAlignment="Center" Margin="0,6,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="2" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1,0,1,1" Padding="8,4">
+                    <TextBlock Text="Posted GRNs have physically committed batches to SQLite with FEFO ordering and increased current store stock."
+                               FontSize="11" Foreground="#15803D" FontWeight="Medium"/>
+                </Border>
+            </Grid>
+
+            <!-- TAB 3: STOCK INWARD ENTRY (POST GRN) -->
+            <Grid RowDefinitions="Auto,*,Auto" Margin="8"
+                  IsVisible="{Binding SelectedTabIndex, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=3}">
+                <!-- Header Box -->
+                <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3" Padding="12,10" Margin="0,0,0,8">
+                    <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="1.5*,1.5*,1.5*,1.5*,*">
+                        <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,12,6">
+                            <TextBlock Text="GRN Number:" FontSize="11" FontWeight="SemiBold" Foreground="#334155" Margin="0,0,0,2"/>
+                            <TextBox Text="{Binding ActiveGrnNumber}" Height="28"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,0,12,6">
+                            <TextBlock Text="Supplier:" FontSize="11" FontWeight="SemiBold" Foreground="#334155" Margin="0,0,0,2"/>
+                            <ComboBox ItemsSource="{Binding Suppliers}"
+                                      SelectedItem="{Binding ActiveGrnSupplier}"
+                                      HorizontalAlignment="Stretch" Height="28">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate x:DataType="purch:SupplierItem">
+                                        <TextBlock Text="{Binding DisplayName}"/>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,12,6">
+                            <TextBlock Text="Delivery Note / Invoice #:" FontSize="11" FontWeight="SemiBold" Foreground="#334155" Margin="0,0,0,2"/>
+                            <TextBox Text="{Binding ActiveGrnDeliveryNote}" Height="28"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="0" Grid.Column="3" Margin="0,0,12,6">
+                            <TextBlock Text="Receipt Date (YYYY-MM-DD):" FontSize="11" FontWeight="SemiBold" Foreground="#334155" Margin="0,0,0,2"/>
+                            <TextBox Text="{Binding ActiveGrnReceivedDate}" Height="28"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="0" Grid.Column="4" Margin="0,0,0,6">
+                            <TextBlock Text="Notes:" FontSize="11" Foreground="#64748B" Margin="0,0,0,2"/>
+                            <TextBox Text="{Binding ActiveGrnNotes}" Height="28"/>
+                        </StackPanel>
+
+                        <!-- Add Individual Batch Line Strip -->
+                        <Grid Grid.Row="1" Grid.ColumnSpan="5" ColumnDefinitions="2*,1*,1*,1*,1*,1*,1*,Auto" Margin="0,8,0,0">
+                            <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                <TextBlock Text="Product *:" FontSize="10" FontWeight="SemiBold" Foreground="#475569"/>
+                                <ComboBox ItemsSource="{Binding MatchingProducts}"
+                                          SelectedItem="{Binding GrnLineSelectedProduct}"
+                                          HorizontalAlignment="Stretch" Height="26">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="inv:ProductItem">
+                                            <TextBlock Text="{Binding Name}"/>
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1" Margin="0,0,6,0">
+                                <TextBlock Text="Received Qty *:" FontSize="10" FontWeight="SemiBold" Foreground="#475569"/>
+                                <NumericUpDown Value="{Binding GrnLineReceivedQty}" Minimum="1" Height="26"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2" Margin="0,0,6,0">
+                                <TextBlock Text="Batch Number *:" FontSize="10" FontWeight="SemiBold" Foreground="#475569"/>
+                                <TextBox Text="{Binding GrnLineBatchNumber}" Watermark="B1234" Height="26"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="3" Margin="0,0,6,0">
+                                <TextBlock Text="Mfg Date:" FontSize="10" Foreground="#64748B"/>
+                                <TextBox Text="{Binding GrnLineMfgDate}" Watermark="YYYY-MM" Height="26"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="4" Margin="0,0,6,0">
+                                <TextBlock Text="Expiry Date (YYYY-MM) *:" FontSize="10" FontWeight="SemiBold" Foreground="#B91C1C"/>
+                                <TextBox Text="{Binding GrnLineExpiryDate}" Watermark="2028-04" Height="26"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="5" Margin="0,0,6,0">
+                                <TextBlock Text="Purchase Cost (₹):" FontSize="10" FontWeight="SemiBold" Foreground="#475569"/>
+                                <NumericUpDown Value="{Binding GrnLineUnitCost}" Minimum="0" Height="26"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="6" Margin="0,0,6,0">
+                                <TextBlock Text="MRP (₹) *:" FontSize="10" FontWeight="SemiBold" Foreground="#475569"/>
+                                <NumericUpDown Value="{Binding GrnLineMrp}" Minimum="0" Height="26"/>
+                            </StackPanel>
+
+                            <Button Grid.Column="7" Classes="primary" Content="+ Add Batch"
+                                    Command="{Binding AddLineToActiveGrnCommand}"
+                                    VerticalAlignment="Bottom" Height="26" Padding="10,2" FontSize="11"/>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+                <!-- Received Batch Lines Table -->
+                <Border Grid.Row="1" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3">
+                    <DataGrid ItemsSource="{Binding ActiveGrnLines}"
+                              AutoGenerateColumns="False"
+                              GridLinesVisibility="All"
+                              HeadersVisibility="Column"
+                              RowHeight="26">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Medicine Name" Binding="{Binding ProductName}" Width="250" FontWeight="Medium" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Batch Number" Binding="{Binding BatchNumber}" Width="130" FontWeight="Bold"/>
+                            <DataGridTextColumn Header="Mfg Date" Binding="{Binding ManufacturingDate}" Width="90"/>
+                            <DataGridTextColumn Header="Expiry Date (YYYY-MM)" Binding="{Binding ExpiryDate}" Width="140" FontWeight="SemiBold"/>
+                            <DataGridTextColumn Header="Received Qty" Binding="{Binding ReceivedQuantity}" Width="100"/>
+                            <DataGridTextColumn Header="Free Qty" Binding="{Binding FreeQuantity}" Width="80"/>
+                            <DataGridTextColumn Header="Cost (₹)" Binding="{Binding UnitCost, StringFormat='₹{0:F2}'}" Width="90"/>
+                            <DataGridTextColumn Header="MRP (₹)" Binding="{Binding Mrp, StringFormat='₹{0:F2}'}" Width="90"/>
+                            <DataGridTextColumn Header="Total Inward Value" Binding="{Binding FormattedCost}" Width="120" FontWeight="Bold"/>
+                            <DataGridTemplateColumn Header="Action" Width="70">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate x:DataType="purch:GoodsReceiptLineItem">
+                                        <Button Classes="danger" Content="✕"
+                                                Command="{Binding #PurchasesWorkspaceRoot.ViewModel.RemoveGrnLineCommand}"
+                                                CommandParameter="{Binding}"
+                                                Height="20" Width="20" Padding="0" FontSize="10" HorizontalAlignment="Center"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Border>
+
+                <!-- Bottom Post Action Strip -->
+                <Border Grid.Row="2" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1,0,1,1" Padding="12,8">
+                    <Grid ColumnDefinitions="*,Auto,Auto">
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="8">
+                            <TextBlock Text="Total Received Batches:" FontSize="11" Foreground="#475569"/>
+                            <TextBlock Text="{Binding ActiveGrnLines.Count}" FontWeight="Bold" FontSize="12" Foreground="#0F172A"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,24,0" Spacing="6">
+                            <TextBlock Text="Total Inward Amount:" FontSize="12" FontWeight="Bold" Foreground="#0F172A"/>
+                            <TextBlock Text="{Binding ActiveGrnTotalAmount, StringFormat='₹{0:F2}'}" FontSize="15" FontWeight="Bold" Foreground="#0F766E"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                            <Button Content="Back to GRNs" Command="{Binding SwitchToGrnRegisterCommand}" Height="28" Padding="10,2"/>
+                            <Button Classes="primary" Content="POST GRN &amp; INWARD STOCK"
+                                    Command="{Binding PostGoodsReceiptCommand}"
+                                    Height="28" Padding="16,2" FontWeight="Bold"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- TAB 4: SUPPLIERS DIRECTORY -->
+            <Grid RowDefinitions="Auto,*,Auto" Margin="8"
+                  IsVisible="{Binding SelectedTabIndex, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=4}">
+                <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3" Padding="8,6" Margin="0,0,0,8">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="Search Suppliers:" VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" Foreground="#475569"/>
+                            <TextBox Width="260" Height="26" FontSize="12" Watermark="Name, GSTIN, Code..." Text="{Binding SupplierSearchQuery}"/>
+                            <Button Content="Filter" Command="{Binding LoadSuppliersCommand}" Height="26" Padding="8,2" FontSize="11"/>
+                        </StackPanel>
+
+                        <Panel Grid.Column="1"/>
+
+                        <Button Grid.Column="2" Classes="primary" Content="+ Add Supplier"
+                                Command="{Binding OpenAddSupplierDialogCommand}" Height="26" Padding="10,2" FontSize="11"/>
+                    </Grid>
+                </Border>
+
+                <!-- Suppliers DataGrid -->
+                <Border Grid.Row="1" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3">
+                    <Grid>
+                        <DataGrid ItemsSource="{Binding Suppliers}"
+                                  SelectedItem="{Binding SelectedSupplier}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  GridLinesVisibility="All"
+                                  HeadersVisibility="Column"
+                                  RowHeight="26">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Supplier Code" Binding="{Binding SupplierCode}" Width="120" FontWeight="SemiBold"/>
+                                <DataGridTextColumn Header="Legal Name" Binding="{Binding LegalName}" Width="240" FontWeight="Medium"/>
+                                <DataGridTextColumn Header="Trade Name" Binding="{Binding TradeName}" Width="160"/>
+                                <DataGridTextColumn Header="GSTIN" Binding="{Binding GstinDisplay}" Width="150"/>
+                                <DataGridTextColumn Header="Contact Person" Binding="{Binding ContactPersonName}" Width="140"/>
+                                <DataGridTextColumn Header="Phone" Binding="{Binding PhoneDisplay}" Width="120"/>
+                                <DataGridTextColumn Header="Terms (Days)" Binding="{Binding PaymentTermsDays}" Width="100"/>
+                                <DataGridTemplateColumn Header="Status" Width="100">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate x:DataType="purch:SupplierItem">
+                                            <Border Background="{Binding StatusBadgeBg}"
+                                                    BorderBrush="{Binding StatusBadgeBorder}"
+                                                    BorderThickness="1" CornerRadius="2"
+                                                    Padding="6,1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Status}" FontSize="10" FontWeight="Bold" Foreground="{Binding StatusBadgeFg}"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Action" Width="90">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate x:DataType="purch:SupplierItem">
+                                            <Button Classes="subtle" Content="Edit"
+                                                    Command="{Binding #PurchasesWorkspaceRoot.((vm:PurchasesWorkspaceViewModel)DataContext).OpenEditSupplierDialogCommand}"
+                                                    CommandParameter="{Binding}"
+                                                    Height="22" Padding="8,1" FontSize="10" HorizontalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+
+                        <!-- Real Empty State -->
+                        <Border Background="#F8FAFC"
+                                IsVisible="{Binding Suppliers.Count, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}"
+                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
+                                <TextBlock Text="No suppliers found."
+                                           FontSize="15" FontWeight="SemiBold" Foreground="#334155" HorizontalAlignment="Center"/>
+                                <TextBlock Text="No suppliers are registered for this business yet."
+                                           FontSize="11" Foreground="#64748B" HorizontalAlignment="Center"/>
+                                <Button Classes="primary" Content="+ Add Supplier"
+                                        Command="{Binding OpenAddSupplierDialogCommand}"
+                                        HorizontalAlignment="Center" Margin="0,6,0,0"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <Border Grid.Row="2" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1,0,1,1" Padding="8,4">
+                    <TextBlock Text="Suppliers are isolated per business/tenant. Creating a supplier syncs to backend cloud when online."
+                               FontSize="11" Foreground="#64748B"/>
+                </Border>
+            </Grid>
+
+            <!-- MODAL: ADD SUPPLIER DIALOG -->
+            <Border Background="#80000000" IsVisible="{Binding ShowAddSupplierDialog}">
+                <Border Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="4"
+                        Width="500" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="16">
+                    <Grid RowDefinitions="Auto,Auto,Auto">
+                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+                            <TextBlock Grid.Column="0" Text="{Binding SupplierDialogTitle}" FontWeight="Bold" FontSize="13" Foreground="#0F172A"/>
+                            <Button Grid.Column="1" Classes="subtle" Content="✕" Command="{Binding CloseAddSupplierDialogCommand}"/>
+                        </Grid>
+
+                        <StackPanel Grid.Row="1" Spacing="8">
+                            <Grid ColumnDefinitions="*,*">
+                                <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                    <TextBlock Text="Supplier Code:" FontSize="10" Foreground="#475569"/>
+                                    <TextBox Text="{Binding NewSupplierCode}" Height="26"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="6,0,0,0">
+                                    <TextBlock Text="GSTIN:" FontSize="10" Foreground="#475569"/>
+                                    <TextBox Text="{Binding NewSupplierGstin}" Watermark="27AABCU9603R1ZN" Height="26"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <StackPanel>
+                                <TextBlock Text="Legal Name *:" FontSize="10" FontWeight="SemiBold" Foreground="#334155"/>
+                                <TextBox Text="{Binding NewSupplierLegalName}" Watermark="Apex Healthcare Distributors Pvt Ltd" Height="26"/>
+                            </StackPanel>
+
+                            <StackPanel>
+                                <TextBlock Text="Trade Name:" FontSize="10" Foreground="#475569"/>
+                                <TextBox Text="{Binding NewSupplierTradeName}" Watermark="Apex Pharma" Height="26"/>
+                            </StackPanel>
+
+                            <Grid ColumnDefinitions="*,*">
+                                <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                    <TextBlock Text="Contact Person:" FontSize="10" Foreground="#475569"/>
+                                    <TextBox Text="{Binding NewSupplierContactPerson}" Height="26"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="6,0,0,0">
+                                    <TextBlock Text="Phone Number:" FontSize="10" Foreground="#475569"/>
+                                    <TextBox Text="{Binding NewSupplierPhone}" Height="26"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid ColumnDefinitions="*,*">
+                                <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                                    <TextBlock Text="Email:" FontSize="10" Foreground="#475569"/>
+                                    <TextBox Text="{Binding NewSupplierEmail}" Height="26"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="6,0,0,0">
+                                    <TextBlock Text="Credit Terms (Days):" FontSize="10" Foreground="#475569"/>
+                                    <NumericUpDown Value="{Binding NewSupplierPaymentTerms}" Minimum="0" Height="26"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <StackPanel>
+                                <TextBlock Text="Address:" FontSize="10" Foreground="#475569"/>
+                                <TextBox Text="{Binding NewSupplierAddress}" Height="26"/>
+                            </StackPanel>
+
+                            <Grid ColumnDefinitions="*,*,*">
+                                <StackPanel Grid.Column="0" Margin="0,0,4,0">
+                                    <TextBlock Text="City:" FontSize="10" Foreground="#475569"/>
+                                    <TextBox Text="{Binding NewSupplierCity}" Height="26"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Margin="4,0,4,0">
+                                    <TextBlock Text="State:" FontSize="10" Foreground="#475569"/>
+                                    <TextBox Text="{Binding NewSupplierState}" Height="26"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2" Margin="4,0,0,0">
+                                    <TextBlock Text="PIN Code:" FontSize="10" Foreground="#475569"/>
+                                    <TextBox Text="{Binding NewSupplierPostalCode}" Height="26"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,16,0,0">
+                            <Button Content="Cancel" Command="{Binding CloseAddSupplierDialogCommand}" Height="28"/>
+                            <Button Classes="primary" Content="Save Supplier" Command="{Binding SaveSupplierCommand}" Height="28" Padding="14,2"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Border>
+
+        </Panel>
+    </Grid>
+</UserControl>

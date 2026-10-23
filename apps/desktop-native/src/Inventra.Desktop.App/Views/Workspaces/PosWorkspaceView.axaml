@@ -1,0 +1,438 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Inventra.Desktop.App.ViewModels"
+             xmlns:sales="using:Inventra.Desktop.Core.Domain.Sales"
+             mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="750"
+             x:Class="Inventra.Desktop.App.Views.Workspaces.PosWorkspaceView"
+             x:DataType="vm:PosWorkspaceViewModel"
+             x:Name="PosWorkspaceRoot">
+
+    <Grid>
+        <!-- MAIN POS WORKSPACE -->
+        <Grid RowDefinitions="Auto,Auto,*" Margin="8">
+            <!-- 0. Notification Banner -->
+            <Border Grid.Row="0" Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1"
+                    CornerRadius="3" Padding="8,4" Margin="0,0,0,6" IsVisible="{Binding HasBanner}">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Grid.Column="0" Text="{Binding StatusBanner}" FontWeight="SemiBold" FontSize="11" Foreground="#15803D" VerticalAlignment="Center"/>
+                    <Button Grid.Column="1" Classes="subtle" Content="✕" Command="{Binding DismissBannerCommand}" Height="20" Width="20" Padding="0"/>
+                </Grid>
+            </Border>
+
+            <!-- 1. Top Navigation Sub-Tabs Header -->
+            <Border Grid.Row="1" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="0,0,0,1" Padding="8,4" Margin="0,0,0,6">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <!-- Navigation Tabs -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
+                        <Button Classes="subtle" Content="[F2] POS Billing"
+                                Command="{Binding SwitchToBillingCommand}"/>
+                        <Button Classes="subtle" Content="Sales Register &amp; Invoices"
+                                Command="{Binding SwitchToRegisterCommand}"/>
+                        <Button Classes="subtle" Content="Customer Directory"
+                                Command="{Binding SwitchToCustomersCommand}"/>
+                    </StackPanel>
+
+                    <!-- Spacer -->
+                    <Panel Grid.Column="1"/>
+
+                    <!-- Right Quick Actions -->
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+                        <Button Classes="primary" Content="+ New Customer" Command="{Binding OpenAddCustomerDialogCommand}" Height="26" Padding="8,2" FontSize="11"/>
+                        <Button Content="Clear Bill" Command="{Binding ClearBillCommand}" Height="26" Padding="8,2" FontSize="11"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- 2. Main Content Panels Switched by SelectedPosTab -->
+            <Panel Grid.Row="2">
+
+                <!-- TAB 0: ACTIVE POS BILLING -->
+                <Grid ColumnDefinitions="*,340"
+                      IsVisible="{Binding SelectedPosTab, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}">
+                    <!-- Left Side: Item Search, Batch Selection, and Active Bill Table -->
+                    <Grid Grid.Column="0" RowDefinitions="Auto,*" Margin="0,0,8,0">
+                        <!-- Search & Add Item Controls -->
+                        <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3" Padding="8,6" Margin="0,0,0,6">
+                            <Grid ColumnDefinitions="*,Auto,80,Auto,Auto">
+                                <!-- Medicine Search -->
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="Scan / Search:" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="11" Foreground="#475569"/>
+                                    <AutoCompleteBox Width="280" Height="28" FontSize="12"
+                                                     Watermark="Scan barcode or type medicine name..."
+                                                     ItemsSource="{Binding SearchSuggestions}"
+                                                     SelectedItem="{Binding SelectedSearchProduct}"
+                                                     Text="{Binding SearchQuery, Mode=TwoWay}"
+                                                     ValueMemberBinding="{Binding Name}"/>
+                                </StackPanel>
+
+                                <!-- Batch Selector (FEFO order) -->
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Margin="8,0">
+                                    <TextBlock Text="Batch:" VerticalAlignment="Center" FontSize="11" Foreground="#64748B"/>
+                                    <ComboBox ItemsSource="{Binding ProductBatches}"
+                                              SelectedItem="{Binding SelectedBatch}"
+                                              Width="160" Height="28" FontSize="11">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding BatchNumber, StringFormat='{}{0} (Exp: {1})'}"/>
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </StackPanel>
+
+                                <!-- Qty Input -->
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" Margin="4,0">
+                                    <TextBlock Text="Qty:" VerticalAlignment="Center" FontSize="11" Foreground="#64748B"/>
+                                    <TextBox Text="{Binding AddQuantity}" Width="45" Height="28" FontSize="12"/>
+                                </StackPanel>
+
+                                <!-- Add Button -->
+                                <Button Grid.Column="3" Classes="primary" Content="+ Add Item" Command="{Binding AddSelectedItemToBillCommand}" Margin="4,0"/>
+
+                                <!-- Switch to Register -->
+                                <Button Grid.Column="4" Content="Register" Command="{Binding SwitchToRegisterCommand}" Margin="8,0,0,0"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Active Bill DataGrid -->
+                        <Border Grid.Row="1" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3">
+                            <Grid>
+                                <!-- DataGrid -->
+                                <DataGrid ItemsSource="{Binding Lines}"
+                                          AutoGenerateColumns="False"
+                                          IsReadOnly="True"
+                                          GridLinesVisibility="All"
+                                          BorderThickness="0"
+                                          FontSize="12">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Medicine Name" Binding="{Binding ProductName}" Width="2.5*"/>
+                                        <DataGridTextColumn Header="Batch" Binding="{Binding SelectedBatch.BatchNumber}" Width="120"/>
+                                        <DataGridTextColumn Header="Expiry" Binding="{Binding SelectedBatch.ExpiryDate}" Width="90"/>
+                                        <DataGridTextColumn Header="Qty" Binding="{Binding Quantity}" Width="70"/>
+                                        <DataGridTextColumn Header="Price (₹)" Binding="{Binding FormattedPrice}" Width="90"/>
+                                        <DataGridTextColumn Header="GST %" Binding="{Binding TaxRate, StringFormat={}{0:F1}%}" Width="70"/>
+                                        <DataGridTextColumn Header="Taxable" Binding="{Binding FormattedTaxable}" Width="90"/>
+                                        <DataGridTextColumn Header="GST (₹)" Binding="{Binding FormattedGst}" Width="85"/>
+                                        <DataGridTextColumn Header="Total (₹)" Binding="{Binding FormattedTotal}" Width="100"/>
+                                        <DataGridTemplateColumn Header="Action" Width="60">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Button Classes="subtle" Content="✕"
+                                                            Command="{Binding $parent#PosWorkspaceRoot.ViewModel.RemoveLineCommand}"
+                                                            CommandParameter="{Binding}"
+                                                            Height="22" Width="22" Padding="0" Foreground="#DC2626" HorizontalAlignment="Center"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <!-- Empty State when 0 lines -->
+                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8"
+                                            IsVisible="{Binding Lines.Count, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}">
+                                    <TextBlock Text="Current Bill is Empty" FontSize="14" FontWeight="Bold" Foreground="#64748B" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Scan a barcode or search for medicine in the top bar to add items to bill."
+                                               FontSize="11" Foreground="#94A3B8" HorizontalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                    <!-- Right Side: Customer, Payment, Tax Summary, and Checkout Button -->
+                    <Border Grid.Column="1" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3" Padding="14,12">
+                        <Grid RowDefinitions="Auto,Auto,*,Auto">
+                            <!-- Customer Details -->
+                            <StackPanel Grid.Row="0" Spacing="6" Margin="0,0,0,12">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <TextBlock Grid.Column="0" Text="CUSTOMER DETAILS" FontSize="10" FontWeight="Bold" Foreground="#0F766E" VerticalAlignment="Center"/>
+                                    <Button Grid.Column="1" Classes="subtle" Content="Directory" Command="{Binding SwitchToCustomersCommand}" FontSize="10" Padding="4,1" Height="20"/>
+                                </Grid>
+                                <TextBox Text="{Binding CustomerName}" Watermark="Customer Name (e.g. Ramesh)"/>
+                                <TextBox Text="{Binding CustomerPhone}" Watermark="Customer Phone (e.g. 9876543210)"/>
+                            </StackPanel>
+
+                            <!-- Payment Method Selector -->
+                            <StackPanel Grid.Row="1" Spacing="6" Margin="0,0,0,12">
+                                <TextBlock Text="PAYMENT MODE" FontSize="10" FontWeight="Bold" Foreground="#0F766E"/>
+                                <Grid ColumnDefinitions="*,*,*">
+                                    <RadioButton Grid.Column="0" Content="Cash" IsChecked="{Binding PaymentMethod, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=CASH}"
+                                                 Command="{Binding SelectCashPaymentCommand}" FontSize="11"/>
+                                    <RadioButton Grid.Column="1" Content="UPI" IsChecked="{Binding PaymentMethod, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=UPI}"
+                                                 Command="{Binding SelectUpiPaymentCommand}" FontSize="11"/>
+                                    <RadioButton Grid.Column="2" Content="Card" IsChecked="{Binding PaymentMethod, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=CARD}"
+                                                 Command="{Binding SelectCardPaymentCommand}" FontSize="11"/>
+                                </Grid>
+                                <TextBox Text="{Binding TenderedAmount}" Watermark="Amount Tendered" Margin="0,4,0,0"/>
+                            </StackPanel>
+
+                            <!-- Order Summary Details -->
+                            <Border Grid.Row="2" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="3" Padding="10">
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="TAX &amp; BILL SUMMARY" FontSize="10" FontWeight="Bold" Foreground="#475569" Margin="0,0,0,4"/>
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Grid.Column="0" Text="Subtotal (Taxable):" FontSize="11" Foreground="#64748B"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding Subtotal, StringFormat='₹{0:F2}'}" FontSize="11" FontWeight="SemiBold" Foreground="#1E293B"/>
+                                    </Grid>
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Grid.Column="0" Text="CGST Amount:" FontSize="11" Foreground="#64748B"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding CgstAmount, StringFormat='₹{0:F2}'}" FontSize="11" Foreground="#1E293B"/>
+                                    </Grid>
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Grid.Column="0" Text="SGST Amount:" FontSize="11" Foreground="#64748B"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding SgstAmount, StringFormat='₹{0:F2}'}" FontSize="11" Foreground="#1E293B"/>
+                                    </Grid>
+                                    <Separator Background="#CBD5E1" Margin="0,4"/>
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Grid.Column="0" Text="Grand Total:" FontSize="14" FontWeight="Bold" Foreground="#0F172A"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding GrandTotal, StringFormat='₹{0:F2}'}" FontSize="16" FontWeight="Bold" Foreground="#0F766E"/>
+                                    </Grid>
+                                    <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,0">
+                                        <TextBlock Grid.Column="0" Text="Change Due:" FontSize="11" Foreground="#64748B"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding ChangeDue, StringFormat='₹{0:F2}'}" FontSize="11" FontWeight="Bold" Foreground="#0F172A"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Checkout Button -->
+                            <StackPanel Grid.Row="3" Margin="0,12,0,0" Spacing="6">
+                                <Button Classes="primary" Content="COMPLETE &amp; PRINT BILL [ENTER]"
+                                        Command="{Binding CheckoutCommand}"
+                                        HorizontalAlignment="Stretch" Height="40" FontSize="13" FontWeight="Bold"/>
+                                <Button Content="Clear Current Bill" Command="{Binding ClearBillCommand}"
+                                        HorizontalAlignment="Stretch" Height="26" FontSize="11"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- TAB 1: SALES REGISTER -->
+                <Grid RowDefinitions="Auto,*,Auto"
+                      IsVisible="{Binding SelectedPosTab, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=1}">
+                    <!-- Register Toolbar -->
+                    <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3" Padding="8,6" Margin="0,0,0,6">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <TextBlock Text="INVENTRA SALES REGISTER" FontWeight="Bold" FontSize="12" Foreground="#0F172A"/>
+                                <TextBlock Text="— Completed Local Invoices" FontSize="11" Foreground="#64748B"/>
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                <Button Content="Refresh" Command="{Binding LoadRecentSalesCommand}"/>
+                                <Button Classes="primary" Content="← Back to POS Billing" Command="{Binding SwitchToBillingCommand}"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Sales Register Grid -->
+                    <Border Grid.Row="1" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3">
+                        <Grid>
+                            <DataGrid ItemsSource="{Binding RecentSales}"
+                                      SelectedItem="{Binding SelectedRegisterSale}"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      GridLinesVisibility="All"
+                                      BorderThickness="0"
+                                      FontSize="12">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Invoice Number" Binding="{Binding InvoiceNumber}" Width="150"/>
+                                    <DataGridTextColumn Header="Date &amp; Time" Binding="{Binding FormattedDate}" Width="160"/>
+                                    <DataGridTextColumn Header="Customer" Binding="{Binding CustomerName}" Width="1.5*"/>
+                                    <DataGridTextColumn Header="Items" Binding="{Binding ItemCount}" Width="70"/>
+                                    <DataGridTextColumn Header="Taxable (₹)" Binding="{Binding FormattedSubtotal}" Width="110"/>
+                                    <DataGridTextColumn Header="GST (₹)" Binding="{Binding FormattedTax}" Width="100"/>
+                                    <DataGridTextColumn Header="Grand Total (₹)" Binding="{Binding FormattedTotal}" Width="120"/>
+                                    <DataGridTextColumn Header="Payment" Binding="{Binding PaymentMethod}" Width="90"/>
+                                    <DataGridTemplateColumn Header="Sync Status" Width="110">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Border CornerRadius="3" Padding="6,2" Margin="2" HorizontalAlignment="Center"
+                                                        Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1">
+                                                    <TextBlock Text="{Binding SyncStatus}" FontSize="10" FontWeight="Bold" Foreground="#15803D"/>
+                                                </Border>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+
+                            <!-- Empty State for Sales Register -->
+                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8"
+                                        IsVisible="{Binding RecentSales.Count, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}">
+                                <TextBlock Text="No sales recorded yet." FontSize="14" FontWeight="Bold" Foreground="#64748B" HorizontalAlignment="Center"/>
+                                <TextBlock Text="Switch to POS Billing to create and checkout the first bill." FontSize="11" Foreground="#94A3B8" HorizontalAlignment="Center"/>
+                                <Button Classes="primary" Content="Start New Bill" Command="{Binding SwitchToBillingCommand}" Margin="0,6,0,0" HorizontalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Selected Invoice Detail Drawer -->
+                    <Border Grid.Row="2" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3"
+                            Padding="8,6" Margin="0,6,0,0" IsVisible="{Binding SelectedRegisterSale, Converter={x:Static ObjectConverters.IsNotNull}}">
+                        <StackPanel Spacing="4">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="Selected Invoice:" FontWeight="Bold" FontSize="11" Foreground="#334155"/>
+                                <TextBlock Text="{Binding SelectedRegisterSale.InvoiceNumber}" FontWeight="Bold" FontSize="11" Foreground="#0F766E"/>
+                                <TextBlock Text="|" Foreground="#CBD5E1"/>
+                                <TextBlock Text="Items in Invoice:" FontSize="11" Foreground="#64748B"/>
+                            </StackPanel>
+
+                            <DataGrid ItemsSource="{Binding SelectedRegisterSale.Items}"
+                                      Height="90" AutoGenerateColumns="False" IsReadOnly="True" GridLinesVisibility="All" FontSize="11">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Medicine" Binding="{Binding ProductName}" Width="2*"/>
+                                    <DataGridTextColumn Header="Batch" Binding="{Binding BatchNumber}" Width="120"/>
+                                    <DataGridTextColumn Header="Qty" Binding="{Binding Quantity}" Width="70"/>
+                                    <DataGridTextColumn Header="Price (₹)" Binding="{Binding FormattedPrice}" Width="90"/>
+                                    <DataGridTextColumn Header="Taxable" Binding="{Binding FormattedTaxable}" Width="90"/>
+                                    <DataGridTextColumn Header="GST" Binding="{Binding FormattedTax}" Width="80"/>
+                                    <DataGridTextColumn Header="Total" Binding="{Binding FormattedTotal}" Width="95"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- TAB 2: CUSTOMERS DIRECTORY -->
+                <Grid RowDefinitions="Auto,*"
+                      IsVisible="{Binding SelectedPosTab, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=2}">
+                    <!-- Filter Toolbar -->
+                    <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3" Padding="8,6" Margin="0,0,0,6">
+                        <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                            <!-- Search -->
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="Search Customers:" VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" Foreground="#475569"/>
+                                <TextBox Width="260" Height="28" FontSize="12" Watermark="Name, phone, code..." Text="{Binding CustomerSearchQuery}"/>
+                                <Button Content="Filter" Command="{Binding LoadCustomersCommand}" Height="28" Padding="10,2" FontSize="11"/>
+                            </StackPanel>
+
+                            <Panel Grid.Column="1"/>
+
+                            <!-- KPI Badge -->
+                            <Border Grid.Column="2" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="3" Padding="8,2" Margin="0,0,10,0" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <TextBlock Text="Total Registered:" FontSize="11" Foreground="#64748B"/>
+                                    <TextBlock Text="{Binding TotalCustomerCount}" FontSize="11" FontWeight="Bold" Foreground="#0F172A"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Actions -->
+                            <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6">
+                                <Button Classes="primary" Content="+ Add Customer" Command="{Binding OpenAddCustomerDialogCommand}" Height="28" Padding="10,2" FontSize="11"/>
+                                <Button Content="← Back to POS" Command="{Binding SwitchToBillingCommand}" Height="28" Padding="10,2" FontSize="11"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Customers DataGrid -->
+                    <Border Grid.Row="1" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3">
+                        <Grid>
+                            <DataGrid ItemsSource="{Binding Customers}"
+                                      SelectedItem="{Binding SelectedCustomer}"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      GridLinesVisibility="All"
+                                      BorderThickness="0"
+                                      FontSize="12">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Customer Code" Binding="{Binding CustomerCode}" Width="120" FontWeight="SemiBold"/>
+                                    <DataGridTextColumn Header="Full Name" Binding="{Binding FullName}" Width="2*"/>
+                                    <DataGridTextColumn Header="Phone Number" Binding="{Binding Phone}" Width="130"/>
+                                    <DataGridTextColumn Header="Email" Binding="{Binding Email}" Width="1.5*"/>
+                                    <DataGridTextColumn Header="GSTIN" Binding="{Binding Gstin}" Width="130"/>
+                                    <DataGridTemplateColumn Header="Status" Width="90">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <Border Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1" CornerRadius="2" Padding="6,1" HorizontalAlignment="Center">
+                                                    <TextBlock Text="{Binding Status}" FontSize="9" FontWeight="Bold" Foreground="#15803D"/>
+                                                </Border>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="Action" Width="120">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate x:DataType="sales:CustomerItem">
+                                                <Button Classes="primary" Content="Select for Bill"
+                                                        Command="{Binding #PosWorkspaceRoot.((vm:PosWorkspaceViewModel)DataContext).SelectCustomerForBillCommand}"
+                                                        CommandParameter="{Binding}"
+                                                        Height="22" Padding="8,1" FontSize="10" HorizontalAlignment="Center"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+
+                            <!-- Real Empty State -->
+                            <Border Background="#F8FAFC"
+                                    IsVisible="{Binding Customers.Count, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}"
+                                    HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
+                                    <TextBlock Text="No customers found."
+                                               FontSize="15" FontWeight="SemiBold" Foreground="#334155" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Register customers to maintain sales history, dues, and GST invoicing."
+                                               FontSize="11" Foreground="#64748B" HorizontalAlignment="Center"/>
+                                    <Button Classes="primary" Content="+ Add Customer"
+                                            Command="{Binding OpenAddCustomerDialogCommand}"
+                                            HorizontalAlignment="Center" Margin="0,6,0,0"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+            </Panel>
+        </Grid>
+
+        <!-- DIALOG OVERLAY: ADD CUSTOMER -->
+        <Border Background="#80000000" IsVisible="{Binding ShowAddCustomerDialog}">
+            <Border Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="6"
+                    Width="460" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="20">
+                <StackPanel Spacing="12">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <StackPanel Grid.Column="0" Spacing="2">
+                            <TextBlock Text="Register New Customer" FontWeight="Bold" FontSize="14" Foreground="#0F172A"/>
+                            <TextBlock Text="Stores customer in local SQLite cache and syncs to cloud." FontSize="11" Foreground="#64748B"/>
+                        </StackPanel>
+                        <Button Grid.Column="1" Classes="subtle" Content="✕" Command="{Binding CloseAddCustomerDialogCommand}" Height="22" Width="22" Padding="0"/>
+                    </Grid>
+
+                    <Separator Margin="0,4"/>
+
+                    <StackPanel Spacing="8">
+                        <StackPanel Spacing="3">
+                            <TextBlock Text="Full Name *" FontSize="11" Foreground="#475569"/>
+                            <TextBox Text="{Binding NewCustomerName}" Watermark="e.g. Ramesh Sharma"/>
+                        </StackPanel>
+
+                        <StackPanel Spacing="3">
+                            <TextBlock Text="Phone Number *" FontSize="11" Foreground="#475569"/>
+                            <TextBox Text="{Binding NewCustomerPhone}" Watermark="e.g. 9876543210"/>
+                        </StackPanel>
+
+                        <StackPanel Spacing="3">
+                            <TextBlock Text="Email Address" FontSize="11" Foreground="#475569"/>
+                            <TextBox Text="{Binding NewCustomerEmail}" Watermark="e.g. ramesh@example.com"/>
+                        </StackPanel>
+
+                        <StackPanel Spacing="3">
+                            <TextBlock Text="Address" FontSize="11" Foreground="#475569"/>
+                            <TextBox Text="{Binding NewCustomerAddress}" Watermark="e.g. 123 Gandhi Road, Mumbai"/>
+                        </StackPanel>
+
+                        <StackPanel Spacing="3">
+                            <TextBlock Text="GSTIN (for B2B registered patients)" FontSize="11" Foreground="#475569"/>
+                            <TextBox Text="{Binding NewCustomerGstin}" Watermark="e.g. 27AAAAA0000A1Z5"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <Separator Margin="0,4"/>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                        <Button Content="Cancel" Command="{Binding CloseAddCustomerDialogCommand}"/>
+                        <Button Classes="primary" Content="Register Customer" Command="{Binding SaveCustomerCommand}"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Border>
+
+    </Grid>
+</UserControl>

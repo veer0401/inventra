@@ -1,0 +1,252 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Inventra.Desktop.App.ViewModels"
+        xmlns:views="using:Inventra.Desktop.App.Views.Workspaces"
+        xmlns:localViews="using:Inventra.Desktop.App.Views"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="800"
+        x:Class="Inventra.Desktop.App.Views.ShellWindow"
+        x:DataType="vm:ShellViewModel"
+        Title="Inventra Pharmacy ERP — Professional Desktop Terminal"
+        Width="1280" Height="800"
+        MinWidth="1024" MinHeight="650"
+        WindowStartupLocation="CenterScreen"
+        Background="#F1F5F9"
+        FontFamily="Segoe UI, Inter, Roboto, Helvetica, Arial">
+
+    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
+        <!-- 1. Top Application Bar & Menu -->
+        <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="0,0,0,1" Padding="8,3,8,3">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <!-- Branding Badge -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="8" Margin="0,0,12,0">
+                    <Border Background="#0F766E" CornerRadius="3" Padding="6,2">
+                        <TextBlock Text="INVENTRA" FontWeight="Bold" FontSize="11" Foreground="White" LetterSpacing="0.8"/>
+                    </Border>
+                    <TextBlock Text="PHARMACY ERP" FontWeight="SemiBold" FontSize="11" Foreground="#475569" VerticalAlignment="Center"/>
+                    <Border Background="#F1F5F9" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3" Padding="5,1">
+                        <TextBlock Text="DESKTOP WORKSTATION" FontSize="10" FontWeight="Medium" Foreground="#64748B"/>
+                    </Border>
+                </StackPanel>
+
+                <!-- Professional ERP Dropdown Menu Bar -->
+                <Menu Grid.Column="1" VerticalAlignment="Center">
+                    <!-- Inventory Menu -->
+                    <MenuItem Header="_Inventory">
+                        <MenuItem Header="Products &amp; Catalog Master" Command="{Binding SwitchToMedicinesCommand}" InputGesture="Ctrl+I"/>
+                        <MenuItem Header="Stock Levels by Store" Command="{Binding SwitchToStockCommand}"/>
+                        <MenuItem Header="Batch &amp; FEFO Expiry Registry" Command="{Binding SwitchToBatchesCommand}"/>
+                        <Separator/>
+                        <MenuItem Header="Stock Adjustments" Command="{Binding SwitchToStockCommand}"/>
+                        <MenuItem Header="Inter-Store Stock Transfer" Command="{Binding NotifyFutureModuleCommand}" CommandParameter="Inter-Store Stock Transfer"/>
+                        <Separator/>
+                        <MenuItem Header="Low Stock Warnings (&lt;15 Units)" Command="{Binding SwitchToStockCommand}"/>
+                        <MenuItem Header="Expiring Stock (&lt;90 Days)" Command="{Binding SwitchToBatchesCommand}"/>
+                    </MenuItem>
+
+                    <!-- Sales Menu -->
+                    <MenuItem Header="_Sales">
+                        <MenuItem Header="New Bill / Retail POS" Command="{Binding SwitchToSalesCommand}" InputGesture="F2"/>
+                        <MenuItem Header="Sales Register &amp; Invoices" Command="{Binding SwitchToSalesRegisterCommand}"/>
+                        <MenuItem Header="Sales Return / Credit Note" Command="{Binding NotifyFutureModuleCommand}" CommandParameter="Sales Return / Credit Note"/>
+                        <Separator/>
+                        <MenuItem Header="Customer Directory &amp; Dues" Command="{Binding SwitchToCustomersCommand}"/>
+                        <MenuItem Header="Day Shift Closing Register" Command="{Binding NotifyFutureModuleCommand}" CommandParameter="Day Shift Closing Register"/>
+                    </MenuItem>
+
+                    <!-- Purchases Menu -->
+                    <MenuItem Header="_Purchases">
+                        <MenuItem Header="Purchase Orders (PO)" Command="{Binding SwitchToPurchasesCommand}"/>
+                        <MenuItem Header="New Purchase Order" Command="{Binding SwitchToNewPurchaseCommand}" InputGesture="F6"/>
+                        <MenuItem Header="Receive Goods Inward (GRN)" Command="{Binding SwitchToGrnCommand}" InputGesture="F7"/>
+                        <MenuItem Header="Supplier Directory" Command="{Binding SwitchToSuppliersCommand}"/>
+                        <MenuItem Header="Purchase Returns &amp; Debit Notes" Command="{Binding NotifyFutureModuleCommand}" CommandParameter="Purchase Returns &amp; Debit Notes"/>
+                    </MenuItem>
+
+                    <!-- Reports Menu -->
+                    <MenuItem Header="_Reports">
+                        <MenuItem Header="Sales Summary &amp; Analytics" Command="{Binding SwitchToReportsCommand}"/>
+                        <MenuItem Header="GST Register (GSTR-1 / GSTR-3B)" Command="{Binding NotifyFutureModuleCommand}" CommandParameter="GST Register (GSTR-1 / GSTR-3B)"/>
+                        <MenuItem Header="Stock Valuation Ledger" Command="{Binding NotifyFutureModuleCommand}" CommandParameter="Stock Valuation Ledger"/>
+                        <MenuItem Header="Schedule H Drug Compliance Register" Command="{Binding NotifyFutureModuleCommand}" CommandParameter="Schedule H Drug Compliance Register"/>
+                    </MenuItem>
+
+                    <!-- Finance Menu -->
+                    <MenuItem Header="_Finance">
+                        <MenuItem Header="General Ledger Accounts" Command="{Binding SwitchToFinanceCommand}"/>
+                        <MenuItem Header="Daily Cash &amp; Bank Book" Command="{Binding NotifyFutureModuleCommand}" CommandParameter="Daily Cash &amp; Bank Book"/>
+                        <MenuItem Header="Customer Outstanding Balances" Command="{Binding SwitchToCustomersCommand}"/>
+                    </MenuItem>
+
+                    <!-- Settings Menu -->
+                    <MenuItem Header="_Settings">
+                        <MenuItem Header="System Diagnostics &amp; Telemetry" Command="{Binding SwitchToDiagnosticsCommand}"/>
+                        <MenuItem Header="Pharmacy Store Profile" Command="{Binding SwitchToDiagnosticsCommand}"/>
+                        <MenuItem Header="Device Identity &amp; Cloud Pairing" Command="{Binding SwitchToPairingCommand}"/>
+                        <MenuItem Header="Switch Account / Re-authenticate" Command="{Binding SwitchToPairingCommand}"/>
+                        <Separator/>
+                        <MenuItem Header="Log Out of Workstation" Command="{Binding LogoutCommand}"/>
+                        <Separator/>
+                        <MenuItem Header="Local SQLite Database Check" Command="{Binding SwitchToDiagnosticsCommand}"/>
+                    </MenuItem>
+                </Menu>
+
+                <!-- Right Side Context Info in Header -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Spacing="8">
+                    <Border Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1" CornerRadius="3" Padding="6,2">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <Ellipse Width="6" Height="6" Fill="#16A34A" VerticalAlignment="Center"/>
+                            <TextBlock Text="{Binding AuthModeBadge}" FontSize="10" FontWeight="SemiBold" Foreground="#15803D"/>
+                        </StackPanel>
+                    </Border>
+                    <Button Classes="subtle" Content="Sign Out" Command="{Binding LogoutCommand}"
+                            IsVisible="{Binding IsPaired}" FontSize="10" Height="22" Padding="6,0"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- 2. Fast Ribbon / Quick Actions Toolbar -->
+        <Border Grid.Row="1" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="0,0,0,1" Padding="8,4,8,4">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <!-- Action Buttons -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6">
+                    <Button Classes="primary" Content="[F2] POS Billing" Command="{Binding SwitchToSalesCommand}"/>
+                    <Button Content="[F3] Inventory" Command="{Binding SwitchToInventoryCommand}"/>
+                    <Button Content="[F6] Purchases" Command="{Binding SwitchToPurchasesCommand}"/>
+                    <Button Content="[F7] GRN Inward" Command="{Binding SwitchToGrnCommand}"/>
+                    <Button Content="[F4] Reports" Command="{Binding SwitchToReportsCommand}"/>
+                    <Button Content="[F5] Refresh" Command="{Binding InventoryWorkspace.LoadProductsCommand}"/>
+                    <Button Content="[F8] Diagnostics" Command="{Binding SwitchToDiagnosticsCommand}"/>
+                    <Button Classes="sync" Content="[F9] Sync Cloud" Command="{Binding SyncNowCommand}"/>
+                    <Button Classes="subtle" Content="[F10] Print Test" Command="{Binding PrintTestReceiptCommand}"/>
+                </StackPanel>
+
+                <!-- Active Workspace Heading -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right" Spacing="6" Margin="0,0,12,0">
+                    <TextBlock Text="Module:" FontSize="11" Foreground="#64748B"/>
+                    <TextBlock Text="{Binding ActiveWorkspaceTitle}" FontWeight="SemiBold" FontSize="12" Foreground="#0F172A"/>
+                </StackPanel>
+
+                <!-- Mode Indicator in Toolbar -->
+                <Border Grid.Column="2" CornerRadius="3" Padding="8,3"
+                        Background="#F1F5F9" BorderBrush="#CBD5E1" BorderThickness="1">
+                    <TextBlock Text="{Binding StatusBar.ConnectivityText}" FontSize="11" FontWeight="SemiBold" Foreground="#0F766E"/>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- 3. Notification Toast / Alert Strip -->
+        <Border Grid.Row="2" Background="#F0FDFA" BorderBrush="#99F6E4" BorderThickness="0,0,0,1" Padding="8,4"
+                IsVisible="{Binding HasNotification}">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <Border Grid.Column="0" Background="#0F766E" CornerRadius="2" Padding="4,1" Margin="0,0,8,0">
+                    <TextBlock Text="NOTICE" FontSize="10" FontWeight="Bold" Foreground="White"/>
+                </Border>
+                <TextBlock Grid.Column="1" Text="{Binding NotificationBanner}" FontSize="11" FontWeight="Medium" Foreground="#0F766E" VerticalAlignment="Center"/>
+                <Button Grid.Column="2" Classes="subtle" Content="✕" Command="{Binding DismissNotificationCommand}" Height="22" Width="22" Padding="0" FontSize="11" Foreground="#0F766E"/>
+            </Grid>
+        </Border>
+
+        <!-- 4. Central Active Workspace Host -->
+        <Border Grid.Row="3" Background="#F1F5F9">
+            <ContentControl Content="{Binding CurrentWorkspace}">
+                <ContentControl.DataTemplates>
+                    <DataTemplate DataType="{x:Type vm:InventoryWorkspaceViewModel}">
+                        <views:InventoryWorkspaceView/>
+                    </DataTemplate>
+                    <DataTemplate DataType="{x:Type vm:PosWorkspaceViewModel}">
+                        <views:PosWorkspaceView/>
+                    </DataTemplate>
+                    <DataTemplate DataType="{x:Type vm:PurchasesWorkspaceViewModel}">
+                        <views:PurchasesWorkspaceView/>
+                    </DataTemplate>
+                    <DataTemplate DataType="{x:Type vm:DevicePairingViewModel}">
+                        <localViews:DevicePairingView/>
+                    </DataTemplate>
+                    <DataTemplate DataType="{x:Type vm:DiagnosticsViewModel}">
+                        <views:DiagnosticsView/>
+                    </DataTemplate>
+                </ContentControl.DataTemplates>
+            </ContentControl>
+        </Border>
+
+        <!-- 5. Bottom Status Bar (Professional Segmented Software Status Bar) -->
+        <Border Grid.Row="4" Background="#F1F5F9" BorderBrush="#CBD5E1" BorderThickness="0,1,0,0" Height="26" Padding="4,0">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto,Auto,Auto,Auto">
+                <!-- Segment: Store Context -->
+                <Border Grid.Column="0" BorderBrush="#CBD5E1" BorderThickness="0,0,1,0" Padding="6,0,10,0">
+                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Text="Store:" FontSize="11" Foreground="#64748B"/>
+                        <TextBlock Text="{Binding StatusBar.StoreName}" FontSize="11" FontWeight="SemiBold" Foreground="#0F172A"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Segment: Engine & Connectivity Status -->
+                <Border Grid.Column="1" BorderBrush="#CBD5E1" BorderThickness="0,0,1,0" Padding="10,0">
+                    <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
+                        <Ellipse Width="6" Height="6" Fill="#16A34A" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding StatusBar.ConnectivityText}" FontSize="11" FontWeight="Medium" Foreground="#0F172A"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Segment: Sync Queue -->
+                <Border Grid.Column="2" BorderBrush="#CBD5E1" BorderThickness="0,0,1,0" Padding="10,0">
+                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Text="Sync:" FontSize="11" Foreground="#64748B"/>
+                        <TextBlock Text="{Binding StatusBar.SyncStatusText}" FontSize="11" FontWeight="Medium" Foreground="#0F172A"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Segment: Printer -->
+                <Border Grid.Column="3" BorderBrush="#CBD5E1" BorderThickness="0,0,1,0" Padding="10,0">
+                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Text="Printer:" FontSize="11" Foreground="#64748B"/>
+                        <TextBlock Text="{Binding StatusBar.PrinterStatusText}" FontSize="11" FontWeight="Medium" Foreground="#0F172A"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Segment: Scanner -->
+                <Border Grid.Column="4" BorderBrush="#CBD5E1" BorderThickness="0,0,1,0" Padding="10,0">
+                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Text="Scanner:" FontSize="11" Foreground="#64748B"/>
+                        <TextBlock Text="{Binding StatusBar.ScannerStatusText}" FontSize="11" FontWeight="Medium" Foreground="#0F172A"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Center Spacer -->
+                <Panel Grid.Column="5"/>
+
+                <!-- Segment: GST Context -->
+                <Border Grid.Column="6" BorderBrush="#CBD5E1" BorderThickness="1,0,0,0" Padding="10,0">
+                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding StatusBar.GstinText}" FontSize="11" Foreground="#475569"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Segment: Current User Context -->
+                <Border Grid.Column="7" BorderBrush="#CBD5E1" BorderThickness="1,0,0,0" Padding="10,0">
+                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Text="User:" FontSize="11" Foreground="#64748B"/>
+                        <TextBlock Text="{Binding StatusBar.UserText}" FontSize="11" FontWeight="SemiBold" Foreground="#0F172A"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Segment: Terminal ID -->
+                <Border Grid.Column="8" BorderBrush="#CBD5E1" BorderThickness="1,0,0,0" Padding="10,0">
+                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Text="Terminal:" FontSize="11" Foreground="#64748B"/>
+                        <TextBlock Text="{Binding StatusBar.DeviceCode}" FontSize="11" Foreground="#334155"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Segment: App Version -->
+                <Border Grid.Column="9" BorderBrush="#CBD5E1" BorderThickness="1,0,0,0" Padding="10,0,4,0">
+                    <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding StatusBar.AppVersion}" FontSize="11" Foreground="#64748B"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

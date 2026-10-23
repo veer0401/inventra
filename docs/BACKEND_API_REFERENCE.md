@@ -5,7 +5,7 @@
 > **Database Engine**: PostgreSQL 16+ (Managed via Flyway Migrations `V1` through `V19`)  
 > **Multi-Tenancy Model**: Logical Row-Level Tenancy (`business_id` & `store_id`) with `TenantContextHolder` ThreadLocal propagation  
 > **Default Port**: `8080` (Base URL: `http://localhost:8080`)  
-> **Related Architecture Guide**: [INVENTORY_LIFECYCLE.md](file:///d:/project/anti-gravity-projects/inventra/docs/INVENTORY_LIFECYCLE.md) (Deep dive into the 7-stage life cycle, thought process, and locking models)
+> **Related Architecture Guides**: [INVENTORY_LIFECYCLE.md](file:///d:/project/anti-gravity-projects/inventra/docs/INVENTORY_LIFECYCLE.md) | [TRANSITION_AND_FLOW_DIAGRAMS.md](file:///d:/project/anti-gravity-projects/inventra/docs/TRANSITION_AND_FLOW_DIAGRAMS.md) | [SYSTEM_DIAGRAMS_AND_FUTURE_ROADMAP.md](file:///d:/project/anti-gravity-projects/inventra/docs/SYSTEM_DIAGRAMS_AND_FUTURE_ROADMAP.md)
 
 ---
 

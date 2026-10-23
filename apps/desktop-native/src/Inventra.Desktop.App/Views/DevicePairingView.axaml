@@ -1,0 +1,78 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Inventra.Desktop.App.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="800"
+             x:Class="Inventra.Desktop.App.Views.DevicePairingView"
+             x:DataType="vm:DevicePairingViewModel"
+             Background="#F1F5F9">
+
+    <Grid>
+        <!-- Center Setup Card -->
+        <Border Width="480" VerticalAlignment="Center" HorizontalAlignment="Center"
+                Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1"
+                CornerRadius="4" Padding="32,28">
+            <StackPanel Spacing="16">
+                <!-- Header with Brand Badge -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+                    <Border Background="#0F766E" CornerRadius="3" Padding="8,3">
+                        <TextBlock Text="INVENTRA" FontWeight="Bold" FontSize="13" Foreground="White" LetterSpacing="1"/>
+                    </Border>
+                    <TextBlock Text="WORKSTATION AUTHENTICATION" FontWeight="Bold" FontSize="13" Foreground="#0F172A" VerticalAlignment="Center"/>
+                </StackPanel>
+
+                <TextBlock Text="Authenticate against Inventra Cloud to authorize this workstation and establish secure local session."
+                           TextWrapping="Wrap" TextAlignment="Center" FontSize="11" Foreground="#64748B"/>
+
+                <!-- Security Alert Box if set (e.g. Device Revoked or Session Expired) -->
+                <Border Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1" CornerRadius="3" Padding="10,8"
+                        IsVisible="{Binding SecurityNotice, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="SECURITY ALERT" FontSize="10" FontWeight="Bold" Foreground="#991B1B"/>
+                        <TextBlock Text="{Binding SecurityNotice}" FontSize="11" TextWrapping="Wrap" Foreground="#B91C1C"/>
+                    </StackPanel>
+                </Border>
+
+                <Separator Margin="0,4"/>
+
+                <!-- CLOUD AUTHENTICATION & PAIRING FORM -->
+                <StackPanel Spacing="12">
+                    <TextBlock Text="INVENTRA CLOUD CREDENTIALS" FontWeight="SemiBold" FontSize="11" Foreground="#0F766E"/>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Inventra Cloud Server URL" FontSize="11" FontWeight="Medium" Foreground="#334155"/>
+                        <TextBox Text="{Binding CloudUrl}" Watermark="e.g. http://localhost:8081"/>
+                    </StackPanel>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Pharmacist / Staff Account Email" FontSize="11" FontWeight="Medium" Foreground="#334155"/>
+                        <TextBox Text="{Binding Email}" Watermark="user@pharmacy.com"/>
+                    </StackPanel>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Account Password" FontSize="11" FontWeight="Medium" Foreground="#334155"/>
+                        <TextBox Text="{Binding Password}" PasswordChar="●" Watermark="Account password"/>
+                    </StackPanel>
+
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Store Code (Optional, leave blank for default assigned store)" FontSize="11" FontWeight="Medium" Foreground="#334155"/>
+                        <TextBox Text="{Binding StoreCode}" Watermark="e.g. STORE-01"/>
+                    </StackPanel>
+
+                    <Button Classes="primary" Content="Authenticate &amp; Authorize Workstation" Command="{Binding ConnectAndPairCommand}"
+                            Height="34" FontSize="12" Margin="0,8,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            IsEnabled="{Binding !IsLoading}"/>
+                </StackPanel>
+
+                <!-- Status / Error Banner -->
+                <Border Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1" CornerRadius="3" Padding="8,6"
+                        IsVisible="{Binding StatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                    <TextBlock Text="{Binding StatusMessage}" FontSize="11" TextWrapping="Wrap"
+                               HorizontalAlignment="Center" FontWeight="Medium"
+                               Foreground="{Binding HasError, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=True, FallbackValue='#15803D'}"/>
+                </Border>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>

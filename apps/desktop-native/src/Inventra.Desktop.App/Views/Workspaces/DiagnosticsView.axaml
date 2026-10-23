@@ -1,0 +1,184 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Inventra.Desktop.App.ViewModels"
+             x:Class="Inventra.Desktop.App.Views.Workspaces.DiagnosticsView"
+             x:DataType="vm:DiagnosticsViewModel">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="16" Margin="24">
+
+            <!-- Top Header & Action Buttons -->
+            <Border Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="16">
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Column="0" Spacing="4">
+                        <TextBlock Text="System Diagnostics &amp; Operational Telemetry" FontSize="18" FontWeight="Bold" Foreground="#0F172A"/>
+                        <TextBlock Text="Inspect local-first runtime health, SQLite storage, cloud connectivity, and persistent logs." FontSize="12" Foreground="#64748B"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Button Content="Open Logs Folder" Command="{Binding OpenLogsFolderCommand}"
+                                Background="#F1F5F9" Foreground="#334155" BorderBrush="#CBD5E1" BorderThickness="1"
+                                Padding="12,6" FontSize="11" FontWeight="SemiBold" CornerRadius="4"/>
+                        <Button Content="Open Data Folder" Command="{Binding OpenDataFolderCommand}"
+                                Background="#F1F5F9" Foreground="#334155" BorderBrush="#CBD5E1" BorderThickness="1"
+                                Padding="12,6" FontSize="11" FontWeight="SemiBold" CornerRadius="4"/>
+                        <Button Content="Run Connectivity Test" Command="{Binding RunConnectivityTestCommand}"
+                                Background="#0284C7" Foreground="#FFFFFF" BorderThickness="0"
+                                Padding="12,6" FontSize="11" FontWeight="SemiBold" CornerRadius="4"/>
+                        <Button Content="Check DB Integrity" Command="{Binding RunDatabaseCheckCommand}"
+                                Background="#0D9488" Foreground="#FFFFFF" BorderThickness="0"
+                                Padding="12,6" FontSize="11" FontWeight="SemiBold" CornerRadius="4"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Status Banner if any -->
+            <Border Background="#EFF6FF" BorderBrush="#BFDBFE" BorderThickness="1" CornerRadius="4" Padding="12,8"
+                    IsVisible="{Binding DiagnosticMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                <TextBlock Text="{Binding DiagnosticMessage}" FontSize="12" Foreground="#1E40AF" FontWeight="Medium"/>
+            </Border>
+
+            <!-- Diagnostic Cards Grid -->
+            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto" Margin="0,4">
+
+                <!-- 1. Application & Platform Environment -->
+                <Border Grid.Row="0" Grid.Column="0" Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="16" Margin="0,0,8,12">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Application &amp; Platform Runtime" FontSize="13" FontWeight="Bold" Foreground="#1E293B"/>
+                        <Separator Background="#F1F5F9" Height="1"/>
+
+                        <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto" Margin="0,4">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="App Version:" FontSize="11" Foreground="#64748B"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding AppVersion}" FontSize="11" FontWeight="SemiBold" Foreground="#0F172A"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text=".NET Version:" FontSize="11" Foreground="#64748B" Margin="0,6,0,0"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DotNetVersion}" FontSize="11" Foreground="#0F172A" Margin="0,6,0,0"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Operating System:" FontSize="11" Foreground="#64748B" Margin="0,6,0,0"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding OsVersion}" FontSize="11" Foreground="#0F172A" Margin="0,6,0,0"/>
+
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Hardware Terminal:" FontSize="11" Foreground="#64748B" Margin="0,6,0,0"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding DeviceCode}" FontSize="11" FontWeight="Bold" Foreground="#0F172A" Margin="0,6,0,0"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- 2. Business & Store Tenancy Context -->
+                <Border Grid.Row="0" Grid.Column="1" Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="16" Margin="8,0,0,12">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Store Identity &amp; Tenant Assignment" FontSize="13" FontWeight="Bold" Foreground="#1E293B"/>
+                        <Separator Background="#F1F5F9" Height="1"/>
+
+                        <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto" Margin="0,4">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Assigned Business:" FontSize="11" Foreground="#64748B"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding BusinessName}" FontSize="11" FontWeight="SemiBold" Foreground="#0F172A"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Active Store:" FontSize="11" Foreground="#64748B" Margin="0,6,0,0"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding StoreName}" FontSize="11" Foreground="#0F172A" Margin="0,6,0,0"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="GSTIN:" FontSize="11" Foreground="#64748B" Margin="0,6,0,0"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Gstin}" FontSize="11" FontWeight="SemiBold" Foreground="#0F172A" Margin="0,6,0,0"/>
+
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Device Identity ID:" FontSize="11" Foreground="#64748B" Margin="0,6,0,0"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding DeviceId}" FontSize="10" Foreground="#64748B" Margin="0,6,0,0"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- 3. Local SQLite Persistence Engine -->
+                <Border Grid.Row="1" Grid.Column="0" Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="16" Margin="0,0,8,0">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Local SQLite Persistence Engine" FontSize="13" FontWeight="Bold" Foreground="#1E293B"/>
+                        <Separator Background="#F1F5F9" Height="1"/>
+
+                        <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="0,4">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Engine Health:" FontSize="11" Foreground="#64748B"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding DatabaseStatus}" FontSize="11" FontWeight="SemiBold" Foreground="#15803D"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Database File:" FontSize="11" Foreground="#64748B" Margin="0,6,0,0"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DatabasePath}" FontSize="10" Foreground="#475569" Margin="0,6,0,0"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Catalog Medicines:" FontSize="11" Foreground="#64748B" Margin="0,6,0,0"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ProductCount}" FontSize="11" FontWeight="Bold" Foreground="#0F172A" Margin="0,6,0,0"/>
+
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Cached Reference Meds:" FontSize="11" Foreground="#64748B" Margin="0,6,0,0"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding CachedGlobalMedicineCount}" FontSize="11" FontWeight="Bold" Foreground="#0284C7" Margin="0,6,0,0"/>
+
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Local Sales Persisted:" FontSize="11" Foreground="#64748B" Margin="0,6,0,0"/>
+                            <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding SalesCount}" FontSize="11" FontWeight="Bold" Foreground="#0F172A" Margin="0,6,0,0"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- 4. Cloud Connectivity & Global Medicine Catalog Diagnostics -->
+                <Border Grid.Row="1" Grid.Column="1" Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="16" Margin="8,0,0,0">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Cloud Connectivity &amp; Global Catalog Telemetry" FontSize="13" FontWeight="Bold" Foreground="#1E293B"/>
+                        <Separator Background="#F1F5F9" Height="1"/>
+
+                        <Grid ColumnDefinitions="140,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="0,4">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Connection State:" FontSize="11" Foreground="#64748B"/>
+                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding CloudStatus}" FontSize="11" FontWeight="Bold" Foreground="#0369A1"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Backend Base URL:" FontSize="11" Foreground="#64748B" Margin="0,6,0,0"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding ApiBaseUrl}" FontSize="11" Foreground="#0F172A" Margin="0,6,0,0"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Catalog API Status:" FontSize="11" Foreground="#64748B" Margin="0,6,0,0"/>
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding CatalogApiStatus}" FontSize="11" FontWeight="SemiBold" Foreground="#0F172A" Margin="0,6,0,0"/>
+
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Last Catalog Query:" FontSize="11" Foreground="#64748B" Margin="0,6,0,0"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding LastCatalogUrl}" FontSize="10" Foreground="#475569" Margin="0,6,0,0"/>
+
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Last Latency / Error:" FontSize="11" Foreground="#64748B" Margin="0,6,0,0"/>
+                            <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding LastCatalogLatency}" FontSize="11" Foreground="#475569" Margin="0,6,0,0"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- 5. Secure Offline Authentication, Device Authorization & Policy -->
+                <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="16" Margin="0,12,0,0">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="Workstation Security, Device Authorization &amp; Offline Policy" FontSize="13" FontWeight="Bold" Foreground="#1E293B"/>
+                        <Separator Background="#F1F5F9" Height="1"/>
+
+                        <Grid ColumnDefinitions="*,*" Margin="0,4">
+                            <StackPanel Grid.Column="0" Spacing="6" Margin="0,0,12,0">
+                                <Grid ColumnDefinitions="160,*" RowDefinitions="Auto,Auto,Auto,Auto">
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Authentication Status:" FontSize="11" Foreground="#64748B"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding AuthStatus}" FontSize="11" FontWeight="Bold" Foreground="#0F766E"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Device Trust Status:" FontSize="11" Foreground="#64748B" Margin="0,6,0,0"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DeviceAuthStatus}" FontSize="11" FontWeight="SemiBold" Foreground="#0F172A" Margin="0,6,0,0"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Authorized User Account:" FontSize="11" Foreground="#64748B" Margin="0,6,0,0"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding UserAccount}" FontSize="11" Foreground="#0F172A" Margin="0,6,0,0"/>
+
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Security Role:" FontSize="11" Foreground="#64748B" Margin="0,6,0,0"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding UserRole}" FontSize="11" FontWeight="SemiBold" Foreground="#0F172A" Margin="0,6,0,0"/>
+                                </Grid>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1" Spacing="6" Margin="12,0,0,0">
+                                <Grid ColumnDefinitions="160,*" RowDefinitions="Auto,Auto,Auto,Auto">
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Last Cloud Validation:" FontSize="11" Foreground="#64748B"/>
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding LastCloudAuthAt}" FontSize="11" Foreground="#0F172A"/>
+
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Offline Validity Policy:" FontSize="11" Foreground="#64748B" Margin="0,6,0,0"/>
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding OfflinePolicyStatus}" FontSize="11" FontWeight="SemiBold" Foreground="#15803D" Margin="0,6,0,0"/>
+
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="Permissions Snapshot:" FontSize="11" Foreground="#64748B" Margin="0,6,0,0"/>
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding PermissionsList}" FontSize="10" TextWrapping="Wrap" Foreground="#475569" Margin="0,6,0,0"/>
+
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Sync Failures / Rejections:" FontSize="11" Foreground="#64748B" Margin="0,6,0,0"/>
+                                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding FailedSyncCount}" FontSize="11" FontWeight="Bold" Foreground="#B91C1C" Margin="0,6,0,0"/>
+                                </Grid>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+            </Grid>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
