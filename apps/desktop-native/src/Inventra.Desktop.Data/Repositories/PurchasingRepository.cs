@@ -41,6 +41,9 @@ public interface IPurchasingRepository
     /// <summary>Records the outcome of syncing a goods receipt (SYNCED or FAILED).</summary>
     Task MarkGoodsReceiptSyncStateAsync(string goodsReceiptId, string syncStatus);
 
+    /// <summary>Pack size (base units per selling unit) and selling unit for each known product id.</summary>
+    Task<IReadOnlyDictionary<string, (int Factor, string SellingUnit)>> GetPackInfoAsync(IEnumerable<string> productIds);
+
     // Purchase Order Management
     Task<IReadOnlyList<PurchaseOrderItem>> GetPurchasesAsync(string businessId, string? storeId = null);
     Task<PurchaseOrderItem?> GetPurchaseByIdAsync(string id);
@@ -441,6 +444,23 @@ public sealed class PurchasingRepository : IPurchasingRepository
         cmd.Parameters.AddWithValue("@state", syncState);
         cmd.Parameters.AddWithValue("@err", (object?)syncError ?? DBNull.Value);
         await cmd.ExecuteNonQueryAsync();
+    }
+
+    public async Task<IReadOnlyDictionary<string, (int Factor, string SellingUnit)>> GetPackInfoAsync(IEnumerable<string> productIds)
+    {
+        var result = new Dictionary<string, (int, string)>(StringComparer.OrdinalIgnoreCase);
+        await using var connection = _dbContext.CreateConnection();
+        await connection.OpenAsync();
+        foreach (var id in productIds.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            await using var cmd = connection.CreateCommand();
+            cmd.CommandText = "SELECT 1 FROM cache_products WHERE id = @p;";
+            cmd.Parameters.AddWithValue("@p", id);
+            if (await cmd.ExecuteScalarAsync() == null) continue; // unknown product: leave the line as it was
+
+            result[id] = await ProductRepository.GetPackInfoAsync(connection, null, id);
+        }
+        return result;
     }
 
     public async Task MarkGoodsReceiptSyncStateAsync(string goodsReceiptId, string syncStatus)
@@ -1114,7 +1134,12 @@ public sealed class PurchasingRepository : IPurchasingRepository
             foreach (var line in grn.Lines)
             {
                 var normBatch = line.BatchNumber.Trim().ToUpperInvariant();
-                var totalQtyToInward = (double)(line.ReceivedQuantity + line.FreeQuantity);
+                // The receipt is entered in the product's selling/purchase unit (strips); stock is kept in base
+                // units, so convert here and send the same factor to the server.
+                var pack = await ProductRepository.GetPackInfoAsync(connection, tx, line.ProductId);
+                line.ConversionFactor = pack.Factor;
+                line.PurchaseUnit = pack.SellingUnit;
+                var totalQtyToInward = (double)(line.ReceivedQuantity + line.FreeQuantity) * pack.Factor;
 
                 // Check for duplicate / existing batch in cache_batches
                 string? existingBatchId = null;
@@ -1383,8 +1408,8 @@ public sealed class PurchasingRepository : IPurchasingRepository
                     purchaseOrderLineId = l.PurchaseOrderLineId,
                     productId = l.ProductId,
                     receivedQuantity = l.ReceivedQuantity,
-                    purchaseUnit = "STRIP",
-                    conversionFactor = 1,
+                    purchaseUnit = l.PurchaseUnit,
+                    conversionFactor = l.ConversionFactor,
                     rejectedQuantity = l.RejectedQuantity,
                     freeQuantity = l.FreeQuantity,
                     batchNumber = l.BatchNumber,
@@ -1434,7 +1459,7 @@ public sealed class PurchasingRepository : IPurchasingRepository
                         status, retry_count, created_at
                     ) VALUES (
                         @op_id, @biz, @store, @dev, @user,
-                        @seq, 'GOODS_RECEIPT_POSTED', 1,
+                        @seq, 'GOODS_RECEIPT_POSTED', 2, -- event version 2: quantities carry a real conversionFactor
                         @p_json, @p_check, @idemp,
                         'PENDING', 0, @now
                     );

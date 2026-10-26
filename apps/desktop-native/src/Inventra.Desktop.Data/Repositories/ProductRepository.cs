@@ -251,6 +251,24 @@ public sealed class ProductRepository : IProductRepository
     }
 
     /// <summary>
+    /// Pack size and selling unit of a product, read inside the caller's transaction. Quantities entered on the
+    /// screens are in selling units; stock is kept in base units, so they are multiplied by this factor.
+    /// An unknown product is treated as 1:1.
+    /// </summary>
+    internal static async Task<(int Factor, string SellingUnit)> GetPackInfoAsync(
+        SqliteConnection connection, SqliteTransaction? tx, string productId)
+    {
+        await using var cmd = connection.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT units_per_selling_unit, selling_unit FROM cache_products WHERE id = @p;";
+        cmd.Parameters.AddWithValue("@p", productId);
+        await using var r = await cmd.ExecuteReaderAsync();
+        if (!await r.ReadAsync()) return (1, "STRIP");
+        var unit = r.IsDBNull(1) || string.IsNullOrWhiteSpace(r.GetString(1)) ? "STRIP" : r.GetString(1);
+        return (Core.Domain.Inventory.StockUnits.ConversionFactor(r.GetDouble(0)), unit);
+    }
+
+    /// <summary>
     /// Stock deduction shared with the atomic "sale + outbox" write in <see cref="SalesRepository"/>, so
     /// both paths apply identical rules inside the caller's transaction.
     /// </summary>

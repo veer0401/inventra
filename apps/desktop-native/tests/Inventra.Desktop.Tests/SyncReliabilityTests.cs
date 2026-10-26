@@ -169,14 +169,14 @@ public class SyncReliabilityTests : IDisposable
     public async Task CompleteSale_WritesSaleStockAndSyncOperationInOneTransaction()
     {
         await _db.InitializeAsync();
-        await SeedStockAsync(10);
+        await SeedStockAsync(100);
         var sale = NewSale(quantity: 2);
 
         await _sales.CompleteSaleWithOutboxAsync(sale);
 
         Assert.Equal("PENDING", (await SaleSyncAsync(sale.Id)).Status);
-        Assert.Equal(8, await ProductStockAsync());
-        Assert.Equal(8, await BatchStockAsync());
+        Assert.Equal(80, await ProductStockAsync());
+        Assert.Equal(80, await BatchStockAsync());
 
         var op = Assert.Single(await _queue.GetPendingOperationsAsync(Biz));
         Assert.Equal("SALE_CREATED", op.EventType);
@@ -190,7 +190,7 @@ public class SyncReliabilityTests : IDisposable
     public async Task CompleteSale_WhenTheWriteFails_RollsBackStockSaleAndOperationTogether()
     {
         await _db.InitializeAsync();
-        await SeedStockAsync(10);
+        await SeedStockAsync(100);
         var sale = NewSale(quantity: 2);
         await _sales.CompleteSaleWithOutboxAsync(sale);
 
@@ -199,8 +199,8 @@ public class SyncReliabilityTests : IDisposable
         duplicate.Id = sale.Id;
         await Assert.ThrowsAnyAsync<Exception>(() => _sales.CompleteSaleWithOutboxAsync(duplicate));
 
-        Assert.Equal(8, await ProductStockAsync()); // deducted once, not twice
-        Assert.Equal(8, await BatchStockAsync());
+        Assert.Equal(80, await ProductStockAsync()); // deducted once, not twice
+        Assert.Equal(80, await BatchStockAsync());
         Assert.Equal(1, await _queue.GetPendingCountAsync(Biz));
         Assert.Equal(1L, await ScalarAsync("SELECT COUNT(*) FROM local_sales;"));
     }
@@ -209,7 +209,7 @@ public class SyncReliabilityTests : IDisposable
     public async Task CompletedSale_SurvivesRestartWithItsPendingOperation()
     {
         await _db.InitializeAsync();
-        await SeedStockAsync(10);
+        await SeedStockAsync(100);
         var sale = NewSale();
         await _sales.CompleteSaleWithOutboxAsync(sale);
 
@@ -219,6 +219,100 @@ public class SyncReliabilityTests : IDisposable
         Assert.Equal(1, await new OfflineQueueRepository(db2).GetPendingCountAsync(Biz));
         Assert.NotNull(await new SalesRepository(db2).GetSaleByIdAsync(sale.Id));
     }
+
+    // ------------------------------------------------------- units of measure
+
+    [Fact]
+    public async Task Sale_DeductsLocalStockInBaseUnits_SoItAgreesWithTheServer()
+    {
+        await _db.InitializeAsync();
+        await SeedStockAsync(100); // 100 capsules; the product is sold in strips of 10
+
+        await _sales.CompleteSaleWithOutboxAsync(NewSale(quantity: 2)); // 2 strips
+
+        Assert.Equal(80, await ProductStockAsync()); // 20 capsules left the shelf, not 2
+        Assert.Equal(80, await BatchStockAsync());
+    }
+
+    [Fact]
+    public async Task GoodsReceipt_AddsLocalStockInBaseUnits_AndSendsTheMatchingConversionFactor()
+    {
+        await _db.InitializeAsync();
+        await SeedStockAsync(100);
+        var grn = ReceiptOf(received: 6m, free: 1m, batchNumber: "UNITS-1");
+
+        await _purchasing.PostGoodsReceiptTransactionAsync(grn, "USR-01", Device);
+
+        // (6 received + 1 free) strips x 10 capsules per strip = 70 capsules into a new batch and the product total.
+        Assert.Equal(170, await ProductStockAsync());
+        Assert.Equal(70.0, Convert.ToDouble(await ScalarAsync(
+            "SELECT available_quantity FROM cache_batches WHERE batch_number = 'UNITS-1';")));
+        Assert.Equal(10, grn.Lines[0].ConversionFactor);
+        Assert.Equal("STRIP", grn.Lines[0].PurchaseUnit);
+
+        var op = Assert.Single(await _queue.GetPendingOperationsAsync(Biz));
+        Assert.Equal(2, op.EventVersion);
+        using var doc = JsonDocument.Parse(op.PayloadJson);
+        var line = doc.RootElement.GetProperty("lines")[0];
+        Assert.Equal(10, line.GetProperty("conversionFactor").GetInt32());
+        Assert.Equal("STRIP", line.GetProperty("purchaseUnit").GetString());
+        Assert.Equal(6m, line.GetProperty("receivedQuantity").GetDecimal()); // still the quantity in strips
+    }
+
+    [Fact]
+    public async Task GoodsReceiptQueuedByAnEarlierBuild_IsCorrectedBeforeItIsUploaded()
+    {
+        await _db.InitializeAsync();
+        await SeedStockAsync(100);
+
+        // Exactly what the earlier build queued: version 1, one pack counted as one base unit.
+        var legacyPayload = JsonSerializer.Serialize(new
+        {
+            grnId = "88888888-8888-8888-8888-888888888888", storeId = SyncContractTests.StoreId,
+            supplierId = SyncContractTests.SupplierId, receivedDate = "2026-10-26",
+            lines = new[]
+            {
+                new { productId = SyncContractTests.ProductId, receivedQuantity = 6, purchaseUnit = "STRIP", conversionFactor = 1,
+                      batchNumber = "OLD-1", expiryDate = "2028-04-01", unitCost = 30, mrp = 60, sellingPrice = 55, taxRate = 0 }
+            }
+        });
+        var legacy = await _queue.EnqueueOperationAsync(Biz, "STORE-01", Device, "USR-01", "GOODS_RECEIPT_POSTED", legacyPayload, "GRN-88888888-8888-8888-8888-888888888888");
+        await ExecAsync("UPDATE offline_operations SET event_version = 1 WHERE operation_id = @i;", ("@i", legacy.OperationId));
+        _api.UploadHandler = (_, ops) => Reply(ops.Select(o => Res(o.EventId, "APPLIED", "srv-" + o.EventId)).ToArray());
+
+        await Engine().RunSyncCycleAsync(Biz, Device);
+
+        var sent = _api.UploadedBatches.Single().Single();
+        Assert.Equal(10, sent.Payload.GetProperty("lines")[0].GetProperty("conversionFactor").GetInt32());
+        Assert.Equal(CanonicalJson.ComputeChecksum(sent.Payload.GetRawText()), sent.PayloadChecksum);
+        Assert.Equal(2, sent.EventVersion);
+        Assert.Equal("SYNCED", (await OpAsync(legacy.OperationId)).Status);
+    }
+
+    [Theory]
+    [InlineData(10.0, 10)]
+    [InlineData(1.0, 1)]
+    [InlineData(0.5, 1)]   // cannot be expressed as a whole conversion: 1:1 rather than a guess
+    [InlineData(0.0, 1)]
+    [InlineData(2.5, 1)]
+    public void StockUnits_UsesOnlyWholePackSizes(double unitsPerSellingUnit, int expectedFactor)
+    {
+        Assert.Equal(expectedFactor, Inventra.Desktop.Core.Domain.Inventory.StockUnits.ConversionFactor(unitsPerSellingUnit));
+    }
+
+    private static GoodsReceiptItem ReceiptOf(decimal received, decimal free, string batchNumber) => new()
+    {
+        BusinessId = Biz, StoreId = SyncContractTests.StoreId, SupplierId = SyncContractTests.SupplierId,
+        SupplierName = "Acme", ReceiptNumber = "GRN-" + batchNumber, ReceivedDate = "2026-10-26", TotalAmount = 180m,
+        Lines =
+        {
+            new GoodsReceiptLineItem
+            {
+                ProductId = SyncContractTests.ProductId, ProductName = "Amoxicillin", ReceivedQuantity = received, FreeQuantity = free,
+                BatchNumber = batchNumber, ExpiryDate = "2028-04", UnitCost = 30m, Mrp = 60m, SellingPrice = 55m, TaxRate = 0m
+            }
+        }
+    };
 
     // ------------------------------------------------------- goods receipts
 
@@ -327,7 +421,7 @@ public class SyncReliabilityTests : IDisposable
     public async Task AppliedSale_IsMarkedSyncedWithTheServerSaleId_UsingARealServerResponse()
     {
         await _db.InitializeAsync();
-        await SeedStockAsync(10);
+        await SeedStockAsync(100);
         var sale = NewSale();
         await _sales.CompleteSaleWithOutboxAsync(sale);
         var queued = Assert.Single(await _queue.GetPendingOperationsAsync(Biz));
@@ -348,7 +442,7 @@ public class SyncReliabilityTests : IDisposable
     public async Task RejectedSale_IsMarkedFailedWithTheServersReason_UsingARealServerResponse()
     {
         await _db.InitializeAsync();
-        await SeedStockAsync(10);
+        await SeedStockAsync(100);
         var sale = NewSale();
         await _sales.CompleteSaleWithOutboxAsync(sale);
         var queued = Assert.Single(await _queue.GetPendingOperationsAsync(Biz));
@@ -370,7 +464,7 @@ public class SyncReliabilityTests : IDisposable
     public async Task LegacySaleCompletedOperations_AreRebuiltFromTheLocalSale_AndUploaded()
     {
         await _db.InitializeAsync();
-        await SeedStockAsync(10);
+        await SeedStockAsync(100);
 
         // Exactly what earlier builds did: save the sale, then queue a summary-only SALE_COMPLETED event.
         var sale = NewSale();

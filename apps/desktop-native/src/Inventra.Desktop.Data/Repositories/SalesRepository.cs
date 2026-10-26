@@ -77,7 +77,10 @@ public sealed class SalesRepository : ISalesRepository
 
         foreach (var item in sale.Items)
         {
-            await ProductRepository.DeductStockCoreAsync(connection, tx, item.ProductId, item.BatchId, item.Quantity);
+            // The till sells in selling units (strips); stock is kept in base units, exactly as the server
+            // converts the same line when the sale syncs.
+            var pack = await ProductRepository.GetPackInfoAsync(connection, tx, item.ProductId);
+            await ProductRepository.DeductStockCoreAsync(connection, tx, item.ProductId, item.BatchId, item.Quantity * pack.Factor);
         }
 
         await OfflineQueueRepository.EnqueueInTransactionAsync(

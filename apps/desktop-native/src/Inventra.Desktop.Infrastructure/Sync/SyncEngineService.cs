@@ -115,6 +115,7 @@ public sealed class SyncEngineService : ISyncEngineService
         if (!await _apiClient.PingAsync()) return;
 
         await MigrateLegacySalesAsync(businessId);
+        await MigrateLegacyReceiptsAsync(businessId);
 
         var push = await PushAsync(businessId, deviceId);
         if (push != PushOutcome.NotAuthorized)
@@ -364,6 +365,49 @@ public sealed class SyncEngineService : ISyncEngineService
             catch (Exception ex)
             {
                 _logger.Error(LogCategory.SYNC, $"Could not rebuild legacy sale operation {op.OperationId}.", ex);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Goods receipts queued before event version 2 were sent with <c>conversionFactor 1</c>, so the server would
+    /// have received packs as if they were single base units. Not yet delivered, they are corrected from the
+    /// local product's pack size before upload and marked version 2.
+    /// </summary>
+    private async Task MigrateLegacyReceiptsAsync(string businessId)
+    {
+        var candidates = await _queueRepo.GetRetargetableOperationsAsync(businessId, GoodsReceiptPostedEvent);
+        foreach (var op in candidates.Where(o => o.EventVersion < 2))
+        {
+            try
+            {
+                var node = System.Text.Json.Nodes.JsonNode.Parse(op.PayloadJson) as System.Text.Json.Nodes.JsonObject;
+                var lines = node?["lines"] as System.Text.Json.Nodes.JsonArray;
+                if (node == null || lines == null)
+                {
+                    await _queueRepo.MarkFailedAsync(op.OperationId, "MALFORMED_PAYLOAD", "The queued receipt has no lines.");
+                    continue;
+                }
+
+                var productIds = lines.Select(l => l?["productId"]?.GetValue<string>()).Where(id => !string.IsNullOrEmpty(id)).Select(id => id!).ToList();
+                var packs = await _purchasingRepo.GetPackInfoAsync(productIds);
+                foreach (var line in lines.OfType<System.Text.Json.Nodes.JsonObject>())
+                {
+                    var id = line["productId"]?.GetValue<string>();
+                    if (id != null && packs.TryGetValue(id, out var pack))
+                    {
+                        line["conversionFactor"] = pack.Factor;
+                        line["purchaseUnit"] = pack.SellingUnit;
+                    }
+                }
+
+                await _queueRepo.RewriteOperationAsync(op.OperationId, op.EventType, node.ToJsonString(), op.IdempotencyKey, eventVersion: 2);
+                _logger.Info(LogCategory.SYNC, $"Corrected pack conversion on queued goods receipt {op.OperationId}.");
+            }
+            catch (Exception ex) when (ex is System.Text.Json.JsonException or InvalidOperationException or FormatException)
+            {
+                _logger.Error(LogCategory.SYNC, $"Could not correct queued goods receipt {op.OperationId}.", ex);
+                await _queueRepo.MarkFailedAsync(op.OperationId, "MALFORMED_PAYLOAD", "The queued receipt could not be read.");
             }
         }
     }

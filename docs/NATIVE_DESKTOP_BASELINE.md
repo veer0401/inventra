@@ -45,7 +45,7 @@ _Update 2026-10-27: the synchronisation findings below were extended and verifie
 6. **Silent catch-all in `RunSyncCycleAsync` (fixed).** Unexpected errors are logged with context; operation ids, codes and messages are logged, never payloads or tokens.
 7. **Transient server errors failed permanently (fixed on both sides).** The desktop now keeps retryable rejections pending (up to 10 attempts) and the server no longer stores a retryable failure as a permanent rejection.
 8. **Cloud list refresh only read the first 50 suppliers** (fixed: all pages are read now).
-9. **Unit-of-measure mismatch on goods receipts (open).** A receipt of 6 strips creates 6 base units on the server (the desktop sends `conversionFactor 1`). See `docs/SYNC_CONTRACT.md` section 6.1.
+9. **Unit-of-measure mismatch on goods receipts and local sales (fixed).** The desktop sent `conversionFactor 1` and moved local stock in strips while the server and the stock cache are in base units. Fixed and verified live; see `docs/SYNC_CONTRACT.md` section 6 for the assumption, the history that cannot be repaired automatically, and two server-side findings (cost per unit, free quantity).
 
 ## 5. Outdated or inaccurate documentation
 
@@ -68,7 +68,7 @@ New Supplier -> validate -> save -> refresh -> restart -> verify, with honest sy
 
 ## 7. Recommended next priorities
 
-1. Decide the unit of measure for received quantities and fix the goods-receipt `conversionFactor`, then align the local stock cache (the POS deducts selling-unit quantities from stock cached in base units). Wrong units corrupt stock silently.
+1. Decide how the server values cost per unit (a receipt stores it per base unit, `SaleService` reads it per selling unit) and add a free-quantity field to goods receipts. See `docs/SYNC_CONTRACT.md` sections 6.1a and 6.1b. (The unit-of-measure fix itself is done.)
 2. Give the remaining queued event types a server route: product edits, stock adjustments, customers and global-medicine imports (existing REST endpoints or new sync events). Queue purchase orders created offline (`PURCHASE_ORDER_CREATED` has a server handler but no desktop producer).
 3. Build a screen to review and resolve `FAILED` operations (a rejected offline sale needs a human decision), and show the pending/failed counts where cashiers can see them.
 4. Extend the download slice beyond suppliers (products, batches, customers) once each entity's local merge rules are defined.

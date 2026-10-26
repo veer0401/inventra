@@ -35,7 +35,7 @@ public interface IOfflineQueueRepository
     Task<IReadOnlyList<OfflineOperation>> GetRetargetableOperationsAsync(string businessId, string eventType);
 
     /// <summary>Re-targets an operation to a new event type, payload and idempotency key and resets it to PENDING.</summary>
-    Task RewriteOperationAsync(string operationId, string eventType, string payloadJson, string idempotencyKey);
+    Task RewriteOperationAsync(string operationId, string eventType, string payloadJson, string idempotencyKey, int? eventVersion = null);
 }
 
 public sealed class OfflineQueueRepository : IOfflineQueueRepository
@@ -341,7 +341,7 @@ public sealed class OfflineQueueRepository : IOfflineQueueRepository
         return list;
     }
 
-    public async Task RewriteOperationAsync(string operationId, string eventType, string payloadJson, string idempotencyKey)
+    public async Task RewriteOperationAsync(string operationId, string eventType, string payloadJson, string idempotencyKey, int? eventVersion = null)
     {
         await using var connection = _dbContext.CreateConnection();
         await connection.OpenAsync();
@@ -350,9 +350,11 @@ public sealed class OfflineQueueRepository : IOfflineQueueRepository
         cmd.CommandText = @"
             UPDATE offline_operations
             SET event_type = @evt, payload_json = @json, payload_checksum = @csum, idempotency_key = @idem,
+                event_version = COALESCE(@ver, event_version),
                 status = 'PENDING', retry_count = 0, error_code = NULL, error_message = NULL
             WHERE operation_id = @opId;
         ";
+        cmd.Parameters.AddWithValue("@ver", (object?)eventVersion ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@opId", operationId);
         cmd.Parameters.AddWithValue("@evt", eventType);
         cmd.Parameters.AddWithValue("@json", payloadJson);

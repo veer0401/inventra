@@ -146,6 +146,13 @@ public sealed class GoodsReceiptLineItem
     public string? PurchaseOrderLineId { get; set; }
     public string ProductId { get; set; } = string.Empty;
     public string ProductName { get; set; } = string.Empty;
+
+    /// <summary>Unit the quantities on this line are entered in (the product's selling unit).</summary>
+    public string PurchaseUnit { get; set; } = "STRIP";
+
+    /// <summary>Base units per <see cref="PurchaseUnit"/>; set when the receipt is posted and sent to the server.</summary>
+    public int ConversionFactor { get; set; } = 1;
+
     public decimal ReceivedQuantity { get; set; } = 0m;
     public decimal RejectedQuantity { get; set; } = 0m;
     public decimal FreeQuantity { get; set; } = 0m;

@@ -387,10 +387,15 @@ class SyncDesktopContractIntegrationTest {
             .filter(b -> b.getBusinessId().equals(business.getId()) && "GRN-B1".equals(b.getBatchNumber()))
             .findFirst().orElseThrow();
         assertThat(created.getExpiryDate()).isEqualTo(LocalDate.of(2028, 4, 1));
-        assertThat(created.getPurchasePrice()).isEqualByComparingTo("30.00");
         assertThat(created.getMrp()).isEqualByComparingTo("60.00");
         assertThat(created.getSellingPrice()).isEqualByComparingTo("55.00");
-        assertThat(currentStock().subtract(before)).as("stock received").isEqualByComparingTo(created.getQuantity());
+
+        // 6 strips x 10 capsules per strip: the server stores BASE units. (The desktop used to send
+        // conversionFactor 1, which stored 6.)
+        assertThat(created.getQuantity()).isEqualByComparingTo("60.000");
+        assertThat(currentStock().subtract(before)).as("stock received").isEqualByComparingTo("60.000");
+        // The server keeps the batch cost per base unit: 30.00 per strip / 10 = 3.00 per capsule.
+        assertThat(created.getPurchasePrice()).isEqualByComparingTo("3.00");
     }
 
     @Test
