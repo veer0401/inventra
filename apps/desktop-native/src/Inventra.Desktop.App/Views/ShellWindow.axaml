@@ -12,21 +12,21 @@
         Width="1280" Height="800"
         MinWidth="1024" MinHeight="650"
         WindowStartupLocation="CenterScreen"
-        Background="#F1F5F9"
-        FontFamily="Segoe UI, Inter, Roboto, Helvetica, Arial">
+        Background="#F5F7FA"
+        FontFamily="Segoe UI Variable Text, Inter, Segoe UI, Roboto, Arial">
 
     <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
         <!-- 1. Top Application Bar & Menu -->
-        <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="0,0,0,1" Padding="8,3,8,3">
+        <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="16,8,16,8">
             <Grid ColumnDefinitions="Auto,*,Auto">
                 <!-- Branding Badge -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="8" Margin="0,0,12,0">
-                    <Border Background="#0F766E" CornerRadius="3" Padding="6,2">
-                        <TextBlock Text="INVENTRA" FontWeight="Bold" FontSize="11" Foreground="White" LetterSpacing="0.8"/>
+                    <Border Background="#0D9488" CornerRadius="8" Padding="10,4">
+                        <TextBlock Text="INVENTRA" FontWeight="Bold" FontSize="12" Foreground="White" LetterSpacing="1"/>
                     </Border>
-                    <TextBlock Text="PHARMACY ERP" FontWeight="SemiBold" FontSize="11" Foreground="#475569" VerticalAlignment="Center"/>
-                    <Border Background="#F1F5F9" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3" Padding="5,1">
-                        <TextBlock Text="DESKTOP WORKSTATION" FontSize="10" FontWeight="Medium" Foreground="#64748B"/>
+                    <TextBlock Text="Pharmacy ERP" FontWeight="SemiBold" FontSize="13" Foreground="#334155" VerticalAlignment="Center"/>
+                    <Border Classes="pill" Background="#F1F5F9">
+                        <TextBlock Text="Workstation" FontSize="11" FontWeight="Medium" Foreground="#64748B"/>
                     </Border>
                 </StackPanel>
 
@@ -95,7 +95,7 @@
 
                 <!-- Right Side Context Info in Header -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Spacing="8">
-                    <Border Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1" CornerRadius="3" Padding="6,2">
+                    <Border Classes="pill" Background="#ECFDF5" BorderBrush="#A7F3D0" BorderThickness="1">
                         <StackPanel Orientation="Horizontal" Spacing="4">
                             <Ellipse Width="6" Height="6" Fill="#16A34A" VerticalAlignment="Center"/>
                             <TextBlock Text="{Binding AuthModeBadge}" FontSize="10" FontWeight="SemiBold" Foreground="#15803D"/>
@@ -108,17 +108,17 @@
         </Border>
 
         <!-- 2. Fast Ribbon / Quick Actions Toolbar -->
-        <Border Grid.Row="1" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="0,0,0,1" Padding="8,4,8,4">
+        <Border Grid.Row="1" Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="16,6,16,6">
             <Grid ColumnDefinitions="Auto,*,Auto">
                 <!-- Action Buttons -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6">
                     <Button Classes="primary" Content="[F2] POS Billing" Command="{Binding SwitchToSalesCommand}"/>
-                    <Button Content="[F3] Inventory" Command="{Binding SwitchToInventoryCommand}"/>
-                    <Button Content="[F6] Purchases" Command="{Binding SwitchToPurchasesCommand}"/>
-                    <Button Content="[F7] GRN Inward" Command="{Binding SwitchToGrnCommand}"/>
-                    <Button Content="[F4] Reports" Command="{Binding SwitchToReportsCommand}"/>
-                    <Button Content="[F5] Refresh" Command="{Binding InventoryWorkspace.LoadProductsCommand}"/>
-                    <Button Content="[F8] Diagnostics" Command="{Binding SwitchToDiagnosticsCommand}"/>
+                    <Button Classes="nav" Content="[F3] Inventory" Command="{Binding SwitchToInventoryCommand}"/>
+                    <Button Classes="nav" Content="[F6] Purchases" Command="{Binding SwitchToPurchasesCommand}"/>
+                    <Button Classes="nav" Content="[F7] GRN Inward" Command="{Binding SwitchToGrnCommand}"/>
+                    <Button Classes="nav" Content="[F4] Reports" Command="{Binding SwitchToReportsCommand}"/>
+                    <Button Classes="nav" Content="[F5] Refresh" Command="{Binding InventoryWorkspace.LoadProductsCommand}"/>
+                    <Button Classes="nav" Content="[F8] Diagnostics" Command="{Binding SwitchToDiagnosticsCommand}"/>
                     <Button Classes="sync" Content="[F9] Sync Cloud" Command="{Binding SyncNowCommand}"/>
                     <Button Classes="subtle" Content="[F10] Print Test" Command="{Binding PrintTestReceiptCommand}"/>
                 </StackPanel>
@@ -130,15 +130,14 @@
                 </StackPanel>
 
                 <!-- Mode Indicator in Toolbar -->
-                <Border Grid.Column="2" CornerRadius="3" Padding="8,3"
-                        Background="#F1F5F9" BorderBrush="#CBD5E1" BorderThickness="1">
+                <Border Grid.Column="2" Classes="pill" Background="#F0FDFA" BorderBrush="#99F6E4" BorderThickness="1">
                     <TextBlock Text="{Binding StatusBar.ConnectivityText}" FontSize="11" FontWeight="SemiBold" Foreground="#0F766E"/>
                 </Border>
             </Grid>
         </Border>
 
         <!-- 3. Notification Toast / Alert Strip -->
-        <Border Grid.Row="2" Background="#F0FDFA" BorderBrush="#99F6E4" BorderThickness="0,0,0,1" Padding="8,4"
+        <Border Grid.Row="2" Background="#F0FDFA" BorderBrush="#99F6E4" BorderThickness="0,0,0,1" Padding="16,6"
                 IsVisible="{Binding HasNotification}">
             <Grid ColumnDefinitions="Auto,*,Auto">
                 <Border Grid.Column="0" Background="#0F766E" CornerRadius="2" Padding="4,1" Margin="0,0,8,0">
