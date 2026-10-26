@@ -356,6 +356,7 @@ public sealed class DatabaseContext
         await TryAddColumnAsync(connection, "auth_session", "last_cloud_validation_at", "INTEGER DEFAULT 0");
         await TryAddColumnAsync(connection, "auth_session", "offline_policy_max_days", "INTEGER DEFAULT 14");
 
+        await TryAddColumnAsync(connection, "local_purchase_lines", "conversion_factor", "INTEGER NOT NULL DEFAULT 1");
         await TryAddColumnAsync(connection, "local_sales", "server_sale_id", "TEXT");
         await TryAddColumnAsync(connection, "local_sales", "sync_error", "TEXT");
 

@@ -42,6 +42,7 @@ public sealed class SyncEngineService : ISyncEngineService
         "SUPPLIER_CREATED", "PURCHASE_ORDER_CREATED", "GOODS_RECEIPT_POSTED"
     };
 
+    private const string PurchaseOrderCreatedEvent = "PURCHASE_ORDER_CREATED";
     private const string GoodsReceiptPostedEvent = "GOODS_RECEIPT_POSTED";
     private const string SupplierCreatedEvent = "SUPPLIER_CREATED";
     private const string LegacySaleEvent = "SALE_COMPLETED";
@@ -116,6 +117,10 @@ public sealed class SyncEngineService : ISyncEngineService
 
         await MigrateLegacySalesAsync(businessId);
         await MigrateLegacyReceiptsAsync(businessId);
+
+        var backfilled = await _purchasingRepo.EnqueueUnsentPurchaseOrdersAsync(businessId, deviceId);
+        if (backfilled > 0)
+            _logger.Info(LogCategory.SYNC, $"Queued {backfilled} confirmed purchase order(s) saved by an earlier build that were never sent.");
 
         var push = await PushAsync(businessId, deviceId);
         if (push != PushOutcome.NotAuthorized)
@@ -288,6 +293,40 @@ public sealed class SyncEngineService : ISyncEngineService
                 if (receiptId != null)
                     await _purchasingRepo.MarkGoodsReceiptSyncStateAsync(receiptId, "SYNCED");
                 break;
+
+            case PurchaseOrderCreatedEvent:
+                if (string.IsNullOrEmpty(serverEntityId))
+                {
+                    await FailPermanentlyAsync(businessId, op, "SERVER_RESPONSE_INVALID",
+                        "The server confirmed the purchase order but returned no id.");
+                    return;
+                }
+
+                var purchaseId = PurchaseOrderSyncPayload.PurchaseOrderIdFromKey(op.IdempotencyKey);
+                if (purchaseId != null)
+                {
+                    // Receipts reference the order and its lines by id, and the server assigned new ones: read them
+                    // back and remap. If they cannot be read now the operation stays pending; the next cycle is
+                    // answered DUPLICATE and completes the remap before anything is marked synchronised.
+                    var serverOrder = await _apiClient.GetPurchaseOrderAsync(serverEntityId);
+                    if (serverOrder?.Lines == null)
+                    {
+                        _logger.Warn(LogCategory.SYNC, $"Purchase order {op.OperationId} is on the server but its lines could not be read yet; left pending.");
+                        return;
+                    }
+
+                    try
+                    {
+                        await _purchasingRepo.ReconcilePurchaseOrderCreatedAsync(businessId, purchaseId, serverEntityId,
+                            serverOrder.Lines.Select(l => (l.ProductId, l.Id)).ToList());
+                    }
+                    catch (InvalidOperationException ex)
+                    {
+                        await FailPermanentlyAsync(businessId, op, "PO_LINE_MAPPING_FAILED", ex.Message);
+                        return;
+                    }
+                }
+                break;
         }
 
         await _queueRepo.MarkSyncedAsync(op.OperationId, serverEntityId);
@@ -328,6 +367,12 @@ public sealed class SyncEngineService : ISyncEngineService
                 var receiptId = GoodsReceiptIdFromKey(op.IdempotencyKey);
                 if (receiptId != null)
                     await _purchasingRepo.MarkGoodsReceiptSyncStateAsync(receiptId, "FAILED");
+                break;
+
+            case PurchaseOrderCreatedEvent:
+                var purchaseId = PurchaseOrderSyncPayload.PurchaseOrderIdFromKey(op.IdempotencyKey);
+                if (purchaseId != null)
+                    await _purchasingRepo.MarkPurchaseSyncStateAsync(purchaseId, "FAILED");
                 break;
         }
 

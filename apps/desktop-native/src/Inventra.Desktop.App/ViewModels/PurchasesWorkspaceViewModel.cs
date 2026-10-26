@@ -14,6 +14,7 @@ using Inventra.Desktop.Infrastructure.Api;
 using Inventra.Desktop.Infrastructure.Connectivity;
 using Inventra.Desktop.Infrastructure.Identity;
 using Inventra.Desktop.Infrastructure.Logging;
+using Inventra.Desktop.Infrastructure.Sync;
 
 namespace Inventra.Desktop.App.ViewModels;
 
@@ -25,6 +26,7 @@ public sealed partial class PurchasesWorkspaceViewModel : ViewModelBase
     private readonly IInventraApiClient _apiClient;
     private readonly IAuthorizationService _authService;
     private readonly ICloudConnectivityService _connectivityService;
+    private readonly ISyncEngineService _syncEngine;
     private readonly IAppLogger _logger;
 
     public PurchasesWorkspaceViewModel(
@@ -34,8 +36,10 @@ public sealed partial class PurchasesWorkspaceViewModel : ViewModelBase
         IInventraApiClient apiClient,
         IAuthorizationService authService,
         ICloudConnectivityService connectivityService,
+        ISyncEngineService syncEngine,
         IAppLogger? logger = null)
     {
+        _syncEngine = syncEngine;
         _purchasingRepo = purchasingRepo;
         _productRepo = productRepo;
         _identityService = identityService;
@@ -693,6 +697,7 @@ public sealed partial class PurchasesWorkspaceViewModel : ViewModelBase
             OrderedQuantity = LineQty,
             FreeQuantity = LineFreeQty,
             PurchaseUnit = SelectedCatalogProduct.SellingUnit ?? "STRIP",
+            ConversionFactor = Inventra.Desktop.Core.Domain.Inventory.StockUnits.ConversionFactor(SelectedCatalogProduct.UnitsPerSellingUnit),
             UnitPrice = LineRate,
             DiscountAmount = LineDiscount,
             TaxRate = LineTaxRate,
@@ -830,38 +835,23 @@ public sealed partial class PurchasesWorkspaceViewModel : ViewModelBase
                 Lines = ActivePurchaseLines.ToList()
             };
 
-            await _purchasingRepo.SavePurchaseAsync(po);
-
-            // If confirmed and cloud online, try online API
-            if (targetStatus == "CONFIRMED" && _connectivityService.IsOnline)
+            if (targetStatus == "CONFIRMED")
             {
-                try
-                {
-                    var req = new CreatePurchaseOrderApiRequest(
-                        session.StoreId,
-                        SelectedDocSupplier.Id,
-                        po.OrderDate,
-                        null,
-                        0m,
-                        po.Notes,
-                        po.Lines.ConvertAll(l => new CreatePurchaseOrderLineApiRequest(
-                            l.ProductId, null, l.PurchaseUnit, 1, l.OrderedQuantity, l.UnitPrice, 0m, l.TaxRate
-                        ))
-                    );
-                    var onlinePo = await _apiClient.CreatePurchaseOrderAsync(req);
-                    if (onlinePo != null)
-                    {
-                        await _apiClient.ConfirmPurchaseOrderAsync(onlinePo.Id);
-                        await _purchasingRepo.UpdatePurchaseStatusAsync(po.Id, "CONFIRMED");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.Warn(LogCategory.SYNC, $"Cloud PO creation skipped/failed, queued locally: {ex.Message}");
-                }
-            }
+                // Saved and queued in one transaction, whether or not the server is reachable. The previous direct
+                // REST call used field names the server rejects and had no idempotency key, so it is gone: the
+                // sync engine is the only path, and a confirmed order is submitted exactly once.
+                var device = await _identityService.GetDeviceAsync();
+                await _purchasingRepo.SavePurchaseWithQueuedCreateAsync(po, device.DeviceId, session.UserId);
+                _ = _syncEngine.RunSyncCycleAsync(session.BusinessId, device.DeviceId);
 
-            NotificationMessage = $"Purchase order '{po.OrderNumber}' saved as {targetStatus}. Stock has NOT been increased (Stock increases only upon GRN receipt).";
+                NotificationMessage = $"Purchase order '{po.OrderNumber}' is confirmed on this workstation and queued. It is NOT on the server yet; " +
+                                      "it is sent automatically and shows as Synced once the server has accepted it. Stock is not increased until goods are received.";
+            }
+            else
+            {
+                await _purchasingRepo.SavePurchaseAsync(po);
+                NotificationMessage = $"Purchase order '{po.OrderNumber}' saved as {targetStatus}. Stock has NOT been increased (Stock increases only upon GRN receipt).";
+            }
             SelectedTabIndex = 0; // Return to Register
             await LoadPurchasesAsync();
         }
@@ -886,6 +876,14 @@ public sealed partial class PurchasesWorkspaceViewModel : ViewModelBase
         if (po == null)
         {
             ErrorMessage = "Select a purchase order to receive goods.";
+            return;
+        }
+
+        if (!string.Equals(po.SyncStatus, "SYNCED", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(po.Status, "CONFIRMED", StringComparison.OrdinalIgnoreCase))
+        {
+            // The server only knows the order after it syncs, so a receipt that references it would be rejected.
+            ErrorMessage = $"Purchase order '{po.OrderNumber}' has not synced to the server yet ({po.SyncStatus}). Receive goods against it once it has synced.";
             return;
         }
 

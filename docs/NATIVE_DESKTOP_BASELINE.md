@@ -69,7 +69,7 @@ New Supplier -> validate -> save -> refresh -> restart -> verify, with honest sy
 ## 7. Recommended next priorities
 
 1. Decide how the server values cost per unit (a receipt stores it per base unit, `SaleService` reads it per selling unit) and add a free-quantity field to goods receipts. See `docs/SYNC_CONTRACT.md` sections 6.1a and 6.1b. (The unit-of-measure fix itself is done.)
-2. Give the remaining queued event types a server route: product edits, stock adjustments, customers and global-medicine imports (existing REST endpoints or new sync events). Queue purchase orders created offline (`PURCHASE_ORDER_CREATED` has a server handler but no desktop producer).
+2. Give the remaining queued event types a server route: product edits, stock adjustments, customers and global-medicine imports (existing REST endpoints or new sync events). Offline purchase orders are now queued (see `docs/SYNC_CONTRACT.md`).
 3. Build a screen to review and resolve `FAILED` operations (a rejected offline sale needs a human decision), and show the pending/failed counts where cashiers can see them.
 4. Extend the download slice beyond suppliers (products, batches, customers) once each entity's local merge rules are defined.
 5. Remove or hide the non-functional menu items until their workspaces exist.

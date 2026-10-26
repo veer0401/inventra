@@ -220,6 +220,176 @@ public class SyncReliabilityTests : IDisposable
         Assert.NotNull(await new SalesRepository(db2).GetSaleByIdAsync(sale.Id));
     }
 
+    // ------------------------------------------------------- purchase orders
+
+    private static PurchaseOrderItem NewPurchaseOrder(string? id = null, string status = "CONFIRMED")
+    {
+        var po = SyncContractTests.SamplePurchaseOrder();
+        po.Id = id ?? Guid.NewGuid().ToString();
+        po.BusinessId = Biz;
+        po.Status = status;
+        po.SyncStatus = "PENDING";
+        po.Lines[0].Id = Guid.NewGuid().ToString();
+        po.Lines[0].PurchaseOrderId = po.Id;
+        return po;
+    }
+
+    // The order exactly as the real backend returned it (captured), pointed at our local product id.
+    private static PurchaseOrderApiDto RealServerOrder(params string[] productIds)
+    {
+        var text = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "server-purchase-order.json"));
+        var order = JsonSerializer.Deserialize<ApiResponseWrapper<PurchaseOrderApiDto>>(text)!.Data!;
+        var template = order.Lines!.Single();
+        return order with
+        {
+            Lines = productIds.Select((p, i) => template with { Id = $"{template.Id}-{i}", ProductId = p }).ToList()
+        };
+    }
+
+    private async Task InsertReceiptAgainstAsync(string purchaseId, string purchaseLineId)
+    {
+        await ExecAsync(@"INSERT INTO local_goods_receipts (id, business_id, store_id, supplier_id, supplier_name, purchase_id,
+                              receipt_number, received_date, received_by, created_at)
+                          VALUES ('grn-local', @b, 'STORE-01', 'sup', 'Acme', @po, 'GRN-1', '2026-10-26', 'USR-01', 1);",
+            ("@b", Biz), ("@po", purchaseId));
+        await ExecAsync(@"INSERT INTO local_goods_receipt_lines (id, grn_id, purchase_line_id, product_id, product_name, received_qty,
+                              batch_number, expiry_date, unit_cost, mrp, selling_price, total_amount)
+                          VALUES ('grn-line', 'grn-local', @pl, @p, 'Amoxicillin', 5, 'B1', '2028-04', 30, 60, 55, 150);",
+            ("@pl", purchaseLineId), ("@p", SyncContractTests.ProductId));
+    }
+
+    [Fact]
+    public async Task PurchaseOrder_IsSavedAndQueuedAtomically_AndCanBeSubmittedOnlyOnce()
+    {
+        await _db.InitializeAsync();
+        var po = NewPurchaseOrder();
+
+        var op = await _purchasing.SavePurchaseWithQueuedCreateAsync(po, Device, "USR-01");
+
+        Assert.Equal("PURCHASE_ORDER_CREATED", op.EventType);
+        Assert.Equal($"PO-{po.Id}", op.IdempotencyKey);
+        Assert.Equal(CanonicalJson.ComputeChecksum(op.PayloadJson), op.PayloadChecksum);
+        var stored = await _purchasing.GetPurchaseByIdAsync(po.Id);
+        Assert.Equal("CONFIRMED", stored!.Status);
+        Assert.Equal("PENDING", stored.SyncStatus);
+        Assert.Equal(10, stored.Lines.Single().ConversionFactor); // the pack size survives a reload
+        Assert.Single(await _queue.GetPendingOperationsAsync(Biz));
+
+        // Saving it again would send a second order to the supplier.
+        var edited = NewPurchaseOrder(po.Id);
+        edited.Notes = "changed after sending";
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _purchasing.SavePurchaseWithQueuedCreateAsync(edited, Device, "USR-01"));
+        Assert.Single(await _queue.GetPendingOperationsAsync(Biz));
+        Assert.Equal("Urgent", (await _purchasing.GetPurchaseByIdAsync(po.Id))!.Notes); // the rejected edit changed nothing
+    }
+
+    [Fact]
+    public async Task SyncedPurchaseOrder_GetsServerIds_AndReceiptsReferencingItAreRepointed()
+    {
+        await _db.InitializeAsync();
+        var po = NewPurchaseOrder();
+        var op = await _purchasing.SavePurchaseWithQueuedCreateAsync(po, Device, "USR-01");
+        await InsertReceiptAgainstAsync(po.Id, po.Lines[0].Id);
+
+        var server = RealServerOrder(SyncContractTests.ProductId);
+        _api.UploadResultHandler = (_, _) => RealUploadReply("server-upload-response-po-applied.json", op.OperationId);
+        _api.GetPurchaseOrderHandler = _ => server;
+        var serverPoId = RealUploadReply("server-upload-response-po-applied.json", op.OperationId).Data!.Results.Single().ServerEntityId!;
+        server = server with { Id = serverPoId };
+
+        var status = await Engine().RunSyncCycleAsync(Biz, Device);
+
+        Assert.Null(await _purchasing.GetPurchaseByIdAsync(po.Id)); // the local id is gone
+        var synced = await _purchasing.GetPurchaseByIdAsync(serverPoId);
+        Assert.Equal("SYNCED", synced!.SyncStatus);
+        Assert.Equal("CONFIRMED", synced.Status);
+        Assert.Equal(server.Lines![0].Id, synced.Lines.Single().Id);
+        Assert.Equal(synced.Id, synced.Lines.Single().PurchaseOrderId);
+        Assert.Equal(serverPoId, await ScalarAsync("SELECT purchase_id FROM local_goods_receipts WHERE id = 'grn-local';"));
+        Assert.Equal(server.Lines[0].Id, await ScalarAsync("SELECT purchase_line_id FROM local_goods_receipt_lines WHERE id = 'grn-line';"));
+        Assert.Equal("SYNCED", (await OpAsync(op.OperationId)).Status);
+        Assert.Equal(0, status.PendingCount);
+    }
+
+    [Fact]
+    public async Task PurchaseOrderWhoseServerLinesCannotBeReadYet_StaysPending_ThenCompletesOnTheNextCycle()
+    {
+        await _db.InitializeAsync();
+        var po = NewPurchaseOrder();
+        var op = await _purchasing.SavePurchaseWithQueuedCreateAsync(po, Device, "USR-01");
+        _api.UploadHandler = (_, _) => Reply(Res(op.OperationId, "APPLIED", "srv-po-1"));
+        _api.GetPurchaseOrderHandler = _ => null; // for example a cashier login, or a dropped connection
+        var engine = Engine();
+
+        await engine.RunSyncCycleAsync(Biz, Device);
+
+        Assert.Equal("PENDING", (await OpAsync(op.OperationId)).Status); // not marked synced without the remap
+        Assert.NotNull(await _purchasing.GetPurchaseByIdAsync(po.Id));
+        Assert.Equal("PENDING", (await _purchasing.GetPurchaseByIdAsync(po.Id))!.SyncStatus);
+
+        // Next cycle: the server answers DUPLICATE for the same operation, and now the order can be read.
+        _api.UploadHandler = (_, _) => Reply(Res(op.OperationId, "DUPLICATE", "srv-po-1"));
+        _api.GetPurchaseOrderHandler = _ => RealServerOrder(SyncContractTests.ProductId) with { Id = "srv-po-1" };
+        await engine.RunSyncCycleAsync(Biz, Device);
+
+        Assert.Equal("SYNCED", (await OpAsync(op.OperationId)).Status);
+        Assert.Equal("SYNCED", (await _purchasing.GetPurchaseByIdAsync("srv-po-1"))!.SyncStatus);
+    }
+
+    [Fact]
+    public async Task RejectedPurchaseOrder_IsMarkedFailedWithTheServersReason()
+    {
+        await _db.InitializeAsync();
+        var po = NewPurchaseOrder();
+        var op = await _purchasing.SavePurchaseWithQueuedCreateAsync(po, Device, "USR-01");
+        _api.UploadHandler = (_, _) => Reply(Res(op.OperationId, "REJECTED", null, "SUPPLIER_INACTIVE", "Cannot create purchase order for inactive supplier"));
+
+        await Engine().RunSyncCycleAsync(Biz, Device);
+
+        var failed = await OpAsync(op.OperationId);
+        Assert.Equal("FAILED", failed.Status);
+        Assert.Equal("SUPPLIER_INACTIVE", failed.Code);
+        Assert.Equal("FAILED", (await _purchasing.GetPurchaseByIdAsync(po.Id))!.SyncStatus);
+    }
+
+    [Fact]
+    public async Task ServerOrderWithADifferentProduct_FailsTheRemapVisibly_InsteadOfLinkingTheWrongLine()
+    {
+        await _db.InitializeAsync();
+        var po = NewPurchaseOrder();
+        var op = await _purchasing.SavePurchaseWithQueuedCreateAsync(po, Device, "USR-01");
+        _api.UploadHandler = (_, _) => Reply(Res(op.OperationId, "APPLIED", "srv-po-2"));
+        _api.GetPurchaseOrderHandler = _ => RealServerOrder("some-other-product") with { Id = "srv-po-2" };
+
+        await Engine().RunSyncCycleAsync(Biz, Device);
+
+        var failed = await OpAsync(op.OperationId);
+        Assert.Equal("FAILED", failed.Status);
+        Assert.Equal("PO_LINE_MAPPING_FAILED", failed.Code);
+        Assert.NotNull(await _purchasing.GetPurchaseByIdAsync(po.Id)); // untouched
+    }
+
+    [Fact]
+    public async Task ConfirmedOrdersSavedByEarlierBuilds_AreQueuedOnce_AndDraftsAreNot()
+    {
+        await _db.InitializeAsync();
+        var confirmed = NewPurchaseOrder(status: "CONFIRMED");
+        var draft = NewPurchaseOrder(status: "DRAFT");
+        await _purchasing.SavePurchaseAsync(confirmed); // the old path: saved locally, never queued
+        await _purchasing.SavePurchaseAsync(draft);
+        _api.UploadHandler = (_, ops) => Reply(ops.Select(o => Res(o.EventId, "REJECTED", null, "SUPPLIER_INACTIVE", "x")).ToArray());
+        var engine = Engine();
+
+        await engine.RunSyncCycleAsync(Biz, Device);
+        await engine.RunSyncCycleAsync(Biz, Device); // a second cycle must not queue it again
+
+        var sent = _api.UploadedBatches.SelectMany(b => b).ToList();
+        var order = Assert.Single(sent);
+        Assert.Equal("PURCHASE_ORDER_CREATED", order.EventType);
+        Assert.Equal(10, order.Payload.GetProperty("lines")[0].GetProperty("conversionFactor").GetInt32());
+        Assert.Equal(1L, await ScalarAsync("SELECT COUNT(*) FROM offline_operations WHERE idempotency_key LIKE 'PO-%';"));
+    }
+
     // ------------------------------------------------------- units of measure
 
     [Fact]

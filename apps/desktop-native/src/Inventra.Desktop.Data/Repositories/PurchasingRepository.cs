@@ -48,6 +48,21 @@ public interface IPurchasingRepository
     Task<IReadOnlyList<PurchaseOrderItem>> GetPurchasesAsync(string businessId, string? storeId = null);
     Task<PurchaseOrderItem?> GetPurchaseByIdAsync(string id);
     Task SavePurchaseAsync(PurchaseOrderItem purchase);
+
+    /// <summary>
+    /// Saves the order as CONFIRMED and queues its PURCHASE_ORDER_CREATED operation in one transaction. Throws if
+    /// this order was already submitted, so a confirmed order can never be queued twice.
+    /// </summary>
+    Task<OfflineOperation> SavePurchaseWithQueuedCreateAsync(PurchaseOrderItem purchase, string deviceId, string userId);
+
+    /// <summary>Swaps the client order/line ids for the server's and repoints receipts that reference them.</summary>
+    Task ReconcilePurchaseOrderCreatedAsync(string businessId, string localPurchaseId, string serverPurchaseId,
+        IReadOnlyList<(string ProductId, string LineId)> serverLines);
+
+    Task MarkPurchaseSyncStateAsync(string purchaseId, string syncStatus);
+
+    /// <summary>Queues confirmed orders saved by earlier builds that were never sent. Returns how many were queued.</summary>
+    Task<int> EnqueueUnsentPurchaseOrdersAsync(string businessId, string deviceId);
     Task UpdatePurchaseStatusAsync(string id, string status);
     Task<decimal?> GetPreviousPurchasePriceAsync(string businessId, string productId);
 
@@ -620,9 +635,10 @@ public sealed class PurchasingRepository : IPurchasingRepository
         cmd.CommandText = @"
             SELECT id, purchase_id, product_id, product_name, ordered_qty, free_qty,
                    received_qty, purchase_unit, unit_price, discount_amount,
-                   tax_rate, tax_amount, total_amount
+                   tax_rate, tax_amount, total_amount, conversion_factor
             FROM local_purchase_lines
-            WHERE purchase_id = @pid;
+            WHERE purchase_id = @pid
+            ORDER BY rowid;
         ";
         cmd.Parameters.AddWithValue("@pid", purchaseId);
 
@@ -643,7 +659,8 @@ public sealed class PurchasingRepository : IPurchasingRepository
                 DiscountAmount = Convert.ToDecimal(reader.GetDouble(9)),
                 TaxRate = Convert.ToDecimal(reader.GetDouble(10)),
                 TaxAmount = Convert.ToDecimal(reader.GetDouble(11)),
-                LineTotal = Convert.ToDecimal(reader.GetDouble(12))
+                LineTotal = Convert.ToDecimal(reader.GetDouble(12)),
+                ConversionFactor = reader.IsDBNull(13) ? 1 : Math.Max(1, reader.GetInt32(13))
             });
         }
 
@@ -656,6 +673,205 @@ public sealed class PurchasingRepository : IPurchasingRepository
         await connection.OpenAsync();
         await using var tx = (SqliteTransaction)await connection.BeginTransactionAsync();
 
+        await SavePurchaseCoreAsync(connection, tx, purchase);
+
+        await tx.CommitAsync();
+    }
+
+    public async Task<OfflineOperation> SavePurchaseWithQueuedCreateAsync(PurchaseOrderItem purchase, string deviceId, string userId)
+    {
+        await using var connection = _dbContext.CreateConnection();
+        await connection.OpenAsync();
+        await using var tx = (SqliteTransaction)await connection.BeginTransactionAsync();
+
+        var key = PurchaseOrderSyncPayload.IdempotencyKey(purchase.Id);
+        await using (var existsCmd = connection.CreateCommand())
+        {
+            existsCmd.Transaction = tx;
+            existsCmd.CommandText = "SELECT 1 FROM offline_operations WHERE idempotency_key = @k LIMIT 1;";
+            existsCmd.Parameters.AddWithValue("@k", key);
+            if (await existsCmd.ExecuteScalarAsync() != null)
+            {
+                // A confirmed order is submitted exactly once; saving it again would queue a second order.
+                throw new InvalidOperationException(
+                    $"Purchase order '{purchase.OrderNumber}' has already been confirmed and sent, so it can no longer be changed.");
+            }
+        }
+
+        purchase.Status = "CONFIRMED";
+        purchase.SyncStatus = "PENDING";
+        await SavePurchaseCoreAsync(connection, tx, purchase);
+
+        var op = await OfflineQueueRepository.EnqueueInTransactionAsync(
+            connection, tx, purchase.BusinessId, purchase.StoreId, deviceId, userId,
+            PurchaseOrderSyncPayload.EventType, PurchaseOrderSyncPayload.Build(purchase), key, purchase.CreatedAt);
+
+        await tx.CommitAsync();
+        return op;
+    }
+
+    public async Task ReconcilePurchaseOrderCreatedAsync(
+        string businessId, string localPurchaseId, string serverPurchaseId, IReadOnlyList<(string ProductId, string LineId)> serverLines)
+    {
+        await using var connection = _dbContext.CreateConnection();
+        await connection.OpenAsync();
+        await using var tx = (SqliteTransaction)await connection.BeginTransactionAsync();
+
+        if (!string.Equals(localPurchaseId, serverPurchaseId, StringComparison.OrdinalIgnoreCase))
+        {
+            // Local lines in the order they were sent; the server numbers its lines in the same order.
+            var localLines = new List<(string Id, string ProductId)>();
+            await using (var linesCmd = connection.CreateCommand())
+            {
+                linesCmd.Transaction = tx;
+                linesCmd.CommandText = "SELECT id, product_id FROM local_purchase_lines WHERE purchase_id = @p ORDER BY rowid;";
+                linesCmd.Parameters.AddWithValue("@p", localPurchaseId);
+                await using var r = await linesCmd.ExecuteReaderAsync();
+                while (await r.ReadAsync()) localLines.Add((r.GetString(0), r.GetString(1)));
+            }
+
+            var used = new HashSet<int>();
+            var lineMap = new List<(string OldId, string NewId)>();
+            for (var i = 0; i < localLines.Count; i++)
+            {
+                var wanted = localLines[i].ProductId;
+                var pick = i < serverLines.Count && !used.Contains(i) &&
+                           string.Equals(serverLines[i].ProductId, wanted, StringComparison.OrdinalIgnoreCase)
+                    ? i
+                    : Enumerable.Range(0, serverLines.Count).FirstOrDefault(
+                        j => !used.Contains(j) && string.Equals(serverLines[j].ProductId, wanted, StringComparison.OrdinalIgnoreCase), -1);
+                if (pick < 0)
+                    throw new InvalidOperationException($"The server order has no line for product {wanted}.");
+
+                used.Add(pick);
+                lineMap.Add((localLines[i].Id, serverLines[pick].LineId));
+            }
+
+            // The child lines reference the parent, so copy the parent under the server id first.
+            await using (var copyCmd = connection.CreateCommand())
+            {
+                copyCmd.Transaction = tx;
+                copyCmd.CommandText = @"
+                    INSERT INTO local_purchases (
+                        id, business_id, store_id, supplier_id, supplier_name, order_number, supplier_invoice_no,
+                        order_date, expected_delivery_date, status, payment_terms_days, notes, subtotal,
+                        discount_amount, tax_amount, total_amount, sync_status, created_at, created_by)
+                    SELECT @new, business_id, store_id, supplier_id, supplier_name, order_number, supplier_invoice_no,
+                        order_date, expected_delivery_date, status, payment_terms_days, notes, subtotal,
+                        discount_amount, tax_amount, total_amount, sync_status, created_at, created_by
+                    FROM local_purchases WHERE id = @old AND business_id = @biz;";
+                copyCmd.Parameters.AddWithValue("@new", serverPurchaseId);
+                copyCmd.Parameters.AddWithValue("@old", localPurchaseId);
+                copyCmd.Parameters.AddWithValue("@biz", businessId);
+                await copyCmd.ExecuteNonQueryAsync();
+            }
+
+            foreach (var (oldId, newId) in lineMap)
+            {
+                await using var moveCmd = connection.CreateCommand();
+                moveCmd.Transaction = tx;
+                moveCmd.CommandText = "UPDATE local_purchase_lines SET id = @new, purchase_id = @po WHERE id = @old;";
+                moveCmd.Parameters.AddWithValue("@new", newId);
+                moveCmd.Parameters.AddWithValue("@po", serverPurchaseId);
+                moveCmd.Parameters.AddWithValue("@old", oldId);
+                await moveCmd.ExecuteNonQueryAsync();
+
+                await using var grnLineCmd = connection.CreateCommand();
+                grnLineCmd.Transaction = tx;
+                grnLineCmd.CommandText = "UPDATE local_goods_receipt_lines SET purchase_line_id = @new WHERE purchase_line_id = @old;";
+                grnLineCmd.Parameters.AddWithValue("@new", newId);
+                grnLineCmd.Parameters.AddWithValue("@old", oldId);
+                await grnLineCmd.ExecuteNonQueryAsync();
+            }
+
+            await using (var grnCmd = connection.CreateCommand())
+            {
+                grnCmd.Transaction = tx;
+                grnCmd.CommandText = "UPDATE local_goods_receipts SET purchase_id = @new WHERE purchase_id = @old;";
+                grnCmd.Parameters.AddWithValue("@new", serverPurchaseId);
+                grnCmd.Parameters.AddWithValue("@old", localPurchaseId);
+                await grnCmd.ExecuteNonQueryAsync();
+            }
+
+            await using (var delCmd = connection.CreateCommand())
+            {
+                delCmd.Transaction = tx;
+                delCmd.CommandText = "DELETE FROM local_purchases WHERE id = @old AND business_id = @biz;";
+                delCmd.Parameters.AddWithValue("@old", localPurchaseId);
+                delCmd.Parameters.AddWithValue("@biz", businessId);
+                await delCmd.ExecuteNonQueryAsync();
+            }
+        }
+
+        // The server confirms an order when it creates it. A status that has moved on locally (partially received...)
+        // is kept; only the sync flag changes.
+        await using (var flagCmd = connection.CreateCommand())
+        {
+            flagCmd.Transaction = tx;
+            flagCmd.CommandText = @"
+                UPDATE local_purchases
+                SET sync_status = 'SYNCED', status = CASE WHEN status = 'DRAFT' THEN 'CONFIRMED' ELSE status END
+                WHERE id = @id;";
+            flagCmd.Parameters.AddWithValue("@id", serverPurchaseId);
+            await flagCmd.ExecuteNonQueryAsync();
+        }
+
+        await tx.CommitAsync();
+    }
+
+    public async Task MarkPurchaseSyncStateAsync(string purchaseId, string syncStatus)
+    {
+        await using var connection = _dbContext.CreateConnection();
+        await connection.OpenAsync();
+
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = "UPDATE local_purchases SET sync_status = @s WHERE id = @id;";
+        cmd.Parameters.AddWithValue("@s", syncStatus);
+        cmd.Parameters.AddWithValue("@id", purchaseId);
+        await cmd.ExecuteNonQueryAsync();
+    }
+
+    public async Task<int> EnqueueUnsentPurchaseOrdersAsync(string businessId, string deviceId)
+    {
+        // Confirmed orders saved by earlier builds were never queued (their direct REST call used field names the
+        // server rejects), so they exist only on this workstation. Queue each exactly once.
+        var ids = new List<string>();
+        await using (var connection = _dbContext.CreateConnection())
+        {
+            await connection.OpenAsync();
+            await using var cmd = connection.CreateCommand();
+            cmd.CommandText = @"
+                SELECT p.id FROM local_purchases p
+                WHERE p.business_id = @biz AND p.status = 'CONFIRMED' AND p.sync_status = 'PENDING'
+                  AND NOT EXISTS (SELECT 1 FROM offline_operations o WHERE o.idempotency_key = 'PO-' || p.id)
+                ORDER BY p.created_at;";
+            cmd.Parameters.AddWithValue("@biz", businessId);
+            await using var r = await cmd.ExecuteReaderAsync();
+            while (await r.ReadAsync()) ids.Add(r.GetString(0));
+        }
+
+        var queued = 0;
+        foreach (var id in ids)
+        {
+            var po = await GetPurchaseByIdAsync(id);
+            if (po == null || po.Lines.Count == 0) continue;
+
+            await using var connection = _dbContext.CreateConnection();
+            await connection.OpenAsync();
+            await using var tx = (SqliteTransaction)await connection.BeginTransactionAsync();
+            await OfflineQueueRepository.EnqueueInTransactionAsync(
+                connection, tx, po.BusinessId, po.StoreId, deviceId, "legacy-backfill",
+                PurchaseOrderSyncPayload.EventType, PurchaseOrderSyncPayload.Build(po),
+                PurchaseOrderSyncPayload.IdempotencyKey(po.Id), po.CreatedAt);
+            await tx.CommitAsync();
+            queued++;
+        }
+
+        return queued;
+    }
+
+    private static async Task SavePurchaseCoreAsync(SqliteConnection connection, SqliteTransaction tx, PurchaseOrderItem purchase)
+    {
         await using (var cmd = connection.CreateCommand())
         {
             cmd.Transaction = tx;
@@ -727,14 +943,15 @@ public sealed class PurchasingRepository : IPurchasingRepository
                 INSERT INTO local_purchase_lines (
                     id, purchase_id, product_id, product_name, ordered_qty, free_qty,
                     received_qty, purchase_unit, unit_price, discount_amount,
-                    tax_rate, tax_amount, total_amount
+                    tax_rate, tax_amount, total_amount, conversion_factor
                 ) VALUES (
                     @id, @pid, @prid, @pname, @oqty, @fqty,
                     @rqty, @unit, @price, @disc,
-                    @trate, @tax, @tot
+                    @trate, @tax, @tot, @cf
                 );
             ";
 
+            lCmd.Parameters.AddWithValue("@cf", Math.Max(1, line.ConversionFactor));
             lCmd.Parameters.AddWithValue("@id", line.Id);
             lCmd.Parameters.AddWithValue("@pid", purchase.Id);
             lCmd.Parameters.AddWithValue("@prid", line.ProductId);
@@ -751,8 +968,6 @@ public sealed class PurchasingRepository : IPurchasingRepository
 
             await lCmd.ExecuteNonQueryAsync();
         }
-
-        await tx.CommitAsync();
     }
 
     public async Task UpdatePurchaseStatusAsync(string id, string status)

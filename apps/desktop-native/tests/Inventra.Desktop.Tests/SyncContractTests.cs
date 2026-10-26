@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using Inventra.Desktop.Core.Domain.Purchasing;
 using Inventra.Desktop.Core.Domain.Sales;
 using Inventra.Desktop.Core.Domain.Sync;
 using Inventra.Desktop.Infrastructure.Api;
@@ -69,6 +70,44 @@ public class SyncContractTests
     public void SaleCreatedPayload_MatchesTheFixtureTheBackendIsTestedWith()
     {
         AssertMatchesFixture("sale-created-payload.json", SaleSyncPayload.Build(SampleSale()));
+    }
+
+    internal static PurchaseOrderItem SamplePurchaseOrder() => new()
+    {
+        Id = "99999999-9999-9999-9999-999999999999",
+        BusinessId = "55555555-5555-5555-5555-555555555555",
+        StoreId = StoreId,
+        SupplierId = SupplierId,
+        SupplierName = "Acme Distributors",
+        OrderNumber = "PO-261026-1001",
+        OrderDate = "2026-10-26",
+        Notes = "Urgent",
+        CreatedAt = 1792996200000,
+        Lines =
+        {
+            new PurchaseOrderLineItem
+            {
+                Id = "aaaaaaaa-0000-0000-0000-000000000001", ProductId = ProductId, ProductName = "Amoxicillin",
+                OrderedQuantity = 10m, PurchaseUnit = "STRIP", ConversionFactor = 10, UnitPrice = 30m,
+                DiscountAmount = 15m, TaxRate = 12m
+            }
+        }
+    };
+
+    [Fact]
+    public void PurchaseOrderPayload_MatchesTheFixtureTheBackendIsTestedWith()
+    {
+        var json = PurchaseOrderSyncPayload.Build(SamplePurchaseOrder());
+        AssertMatchesFixture("po-created-payload.json", json);
+
+        using var doc = JsonDocument.Parse(json);
+        var line = doc.RootElement.GetProperty("lines")[0];
+        Assert.Equal(10, line.GetProperty("conversionFactor").GetInt32());       // 1 strip = 10 base units
+        Assert.Equal(30m, line.GetProperty("unitCost").GetDecimal());            // the server's name; the old REST DTO said unitPrice
+        Assert.Equal(5m, line.GetProperty("discountPercentage").GetDecimal());   // 15 off 300 gross
+        Assert.Equal(0m, doc.RootElement.GetProperty("discountAmount").GetDecimal()); // not counted twice
+        Assert.Contains("PO-261026-1001", doc.RootElement.GetProperty("notes").GetString());
+        Assert.False(line.TryGetProperty("unitPrice", out _));
     }
 
     [Fact]

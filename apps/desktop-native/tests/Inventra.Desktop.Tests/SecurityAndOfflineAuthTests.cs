@@ -655,8 +655,10 @@ internal sealed class MockInventraApiClient : IInventraApiClient
     public Task<PageResponse<PurchaseOrderApiDto>?> ListPurchaseOrdersAsync(string? status = null, string? supplierId = null, string? query = null, int page = 0, int size = 50, CancellationToken ct = default) =>
         Task.FromResult<PageResponse<PurchaseOrderApiDto>?>(new PageResponse<PurchaseOrderApiDto>(new List<PurchaseOrderApiDto>(), 0, 0, size, page));
 
+    public Func<string, PurchaseOrderApiDto?>? GetPurchaseOrderHandler { get; set; }
+
     public Task<PurchaseOrderApiDto?> GetPurchaseOrderAsync(string id, CancellationToken ct = default) =>
-        Task.FromResult<PurchaseOrderApiDto?>(null);
+        Task.FromResult(GetPurchaseOrderHandler?.Invoke(id));
 
     public Task<PurchaseOrderApiDto?> CreatePurchaseOrderAsync(CreatePurchaseOrderApiRequest request, CancellationToken ct = default) =>
         Task.FromResult<PurchaseOrderApiDto?>(null);

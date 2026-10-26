@@ -67,6 +67,10 @@ public sealed class PurchaseOrderLineItem
     public decimal FreeQuantity { get; set; } = 0m;
     public decimal ReceivedQuantity { get; set; } = 0m;
     public string PurchaseUnit { get; set; } = "STRIP";
+
+    /// <summary>Base units per <see cref="PurchaseUnit"/> (the product's pack size when the line was added).</summary>
+    public int ConversionFactor { get; set; } = 1;
+
     public decimal UnitPrice { get; set; } = 0m;
     public decimal DiscountAmount { get; set; } = 0m;
     public decimal TaxRate { get; set; } = 12.0m;

@@ -24,7 +24,10 @@ import com.inventra.inventra_backend.purchasing.application.GoodsReceiptService;
 import com.inventra.inventra_backend.purchasing.application.SupplierService;
 import com.inventra.inventra_backend.purchasing.domain.model.GoodsReceipt;
 import com.inventra.inventra_backend.purchasing.domain.model.GoodsReceiptStatus;
+import com.inventra.inventra_backend.purchasing.domain.model.PurchaseOrder;
+import com.inventra.inventra_backend.purchasing.domain.model.PurchaseOrderStatus;
 import com.inventra.inventra_backend.purchasing.domain.repository.GoodsReceiptRepository;
+import com.inventra.inventra_backend.purchasing.domain.repository.PurchaseOrderRepository;
 import com.inventra.inventra_backend.purchasing.domain.model.SupplierType;
 import com.inventra.inventra_backend.purchasing.domain.repository.SupplierRepository;
 import com.inventra.inventra_backend.sales.domain.model.PaymentMethod;
@@ -109,6 +112,7 @@ class SyncDesktopContractIntegrationTest {
     @Autowired private SupplierService supplierService;
     @Autowired private GoodsReceiptService goodsReceiptService;
     @Autowired private GoodsReceiptRepository goodsReceiptRepository;
+    @Autowired private PurchaseOrderRepository purchaseOrderRepository;
     @Autowired private SyncChangeFeedRepository changeFeedRepository;
     @Autowired private SyncOperationRepository syncOperationRepository;
     @Autowired private SyncOperationRecorder syncOperationRecorder;
@@ -121,6 +125,7 @@ class SyncDesktopContractIntegrationTest {
     private InventoryBatch batch;
     private UUID supplierId;
     private String token;
+    private String managerToken; // reading a purchase order back needs a manager; a cashier token gets 403
 
     @BeforeEach
     void setUp() {
@@ -144,6 +149,9 @@ class SyncDesktopContractIntegrationTest {
 
         token = jwtTokenProvider.generateAccessToken(
             cashier.getId(), cashier.getEmail(), business.getId(), store.getId(), device.getId(), "CASHIER");
+
+        managerToken = jwtTokenProvider.generateAccessToken(
+            cashier.getId(), cashier.getEmail(), business.getId(), store.getId(), device.getId(), "MANAGER");
 
         supplierId = supplierService.createSupplier(business.getId(), supplierRequest("GRN-SUP")).id();
     }
@@ -434,6 +442,67 @@ class SyncDesktopContractIntegrationTest {
         upload(envelopeFor("GOODS_RECEIPT_POSTED", payload, RECEIPT_EVENT_ID, 1L))
             .andExpect(jsonPath("$.data.results[0].status").value("DUPLICATE"));
         assertThat(currentStock()).isEqualByComparingTo(posted);
+    }
+
+    // ------------------------------------------------------- purchase orders
+
+    @Test
+    @DisplayName("A desktop purchase order is APPLIED and confirmed, keeps the pack conversion, and is idempotent on resend")
+    void desktopPurchaseOrderIsAppliedAndConfirmed() throws Exception {
+        UUID eventId = UuidUtils.newUuid7();
+        ObjectNode envelope = envelopeFor("PURCHASE_ORDER_CREATED", objectMapper.readTree(bound("po-created-payload.json")), eventId, 1L);
+
+        String response = upload(envelope).andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.results[0].status").value("APPLIED"))
+            .andReturn().getResponse().getContentAsString();
+        capture("server-upload-response-po-applied.json", response);
+        UUID poId = UUID.fromString(objectMapper.readTree(response).at("/data/results/0/serverEntityId").asText());
+
+        PurchaseOrder po = purchaseOrderRepository.findByIdAndBusinessId(poId, business.getId()).orElseThrow();
+        assertThat(po.getStatus()).isEqualTo(PurchaseOrderStatus.CONFIRMED);
+        assertThat(po.getSupplierId()).isEqualTo(supplierId);
+        assertThat(po.getStoreId()).isEqualTo(store.getId());
+
+        String body = mockMvc.perform(get("/api/v1/purchase-orders/" + poId).header("Authorization", "Bearer " + managerToken))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.lines[0].conversionFactor").value(10))
+            .andExpect(jsonPath("$.data.lines[0].purchaseUnit").value("STRIP"))
+            .andReturn().getResponse().getContentAsString();
+        capture("server-purchase-order.json", body);
+
+        // Documented limitation: a cashier token cannot read the order back, so only a manager/owner login can
+        // finish the id remap on the desktop (the operation stays pending until then).
+        mockMvc.perform(get("/api/v1/purchase-orders/" + poId).header("Authorization", "Bearer " + token))
+            .andExpect(status().isForbidden());
+
+        long orders = purchaseOrderRepository.count();
+        upload(envelope).andExpect(jsonPath("$.data.results[0].status").value("DUPLICATE"))
+            .andExpect(jsonPath("$.data.results[0].serverEntityId").value(poId.toString()));
+        assertThat(purchaseOrderRepository.count()).isEqualTo(orders);
+    }
+
+    @Test
+    @DisplayName("A receipt that uses the SERVER order and line ids is accepted, and over-receipt is judged in purchase units")
+    void receiptAgainstTheSyncedPurchaseOrderUsesServerIds() throws Exception {
+        String poResponse = upload(envelopeFor("PURCHASE_ORDER_CREATED", objectMapper.readTree(bound("po-created-payload.json")), UuidUtils.newUuid7(), 1L))
+            .andReturn().getResponse().getContentAsString();
+        String poId = objectMapper.readTree(poResponse).at("/data/results/0/serverEntityId").asText();
+        String lineId = objectMapper.readTree(mockMvc.perform(get("/api/v1/purchase-orders/" + poId).header("Authorization", "Bearer " + managerToken))
+            .andReturn().getResponse().getContentAsString()).at("/data/lines/0/id").asText();
+
+        // The desktop remaps its local ids to these after the order syncs. 6 of the 10 ordered strips arrive.
+        ObjectNode receipt = (ObjectNode) objectMapper.readTree(bound("grn-posted-payload.json"));
+        receipt.put("purchaseOrderId", poId);
+        ((ObjectNode) receipt.get("lines").get(0)).put("purchaseOrderLineId", lineId);
+        upload(envelopeFor("GOODS_RECEIPT_POSTED", receipt, UuidUtils.newUuid7(), 2L))
+            .andExpect(jsonPath("$.data.results[0].status").value("APPLIED"));
+
+        // 6 more would make 12 strips against 10 ordered: rejected, in strips, not in capsules (120 vs 100).
+        ObjectNode second = receipt.deepCopy();
+        ((ObjectNode) second.get("lines").get(0)).put("batchNumber", "GRN-B2");
+        upload(envelopeFor("GOODS_RECEIPT_POSTED", second, UuidUtils.newUuid7(), 3L))
+            .andExpect(jsonPath("$.data.results[0].status").value("REJECTED"))
+            .andExpect(jsonPath("$.data.results[0].errorCode").value("OVER_RECEIPT_NOT_PERMITTED"));
     }
 
     /** What the Purchases screen does when online: REST create with key "GRN-" + receipt id, then post. */
