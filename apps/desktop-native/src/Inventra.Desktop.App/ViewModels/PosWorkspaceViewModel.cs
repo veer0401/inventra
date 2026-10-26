@@ -429,13 +429,11 @@ public sealed partial class PosWorkspaceViewModel : ViewModelBase
                 TaxAmount = l.GstAmount,
                 TotalAmount = l.TotalAmount
             });
-
-            // Deduct stock locally
-            await _productRepository.DeductStockForSaleAsync(l.Product.Id, l.SelectedBatch?.Id, l.Quantity);
         }
 
-        // Save sale record
-        await _salesRepository.CreateSaleAsync(sale);
+        // One transaction: sale + stock deduction + the SALE_CREATED sync operation. A crash can no
+        // longer leave a completed sale that the server will never hear about.
+        await _salesRepository.CompleteSaleWithOutboxAsync(sale);
 
         // Print physical / virtual receipt
         var receiptBytes = _printerService.GenerateSaleReceipt(
@@ -447,30 +445,10 @@ public sealed partial class PosWorkspaceViewModel : ViewModelBase
         );
         await _printerService.PrintBytesAsync(receiptBytes);
 
-        // Queue offline sync operation
-        var payload = JsonSerializer.Serialize(new
-        {
-            saleId = sale.Id,
-            invoiceNumber = sale.InvoiceNumber,
-            totalAmount = sale.TotalAmount,
-            taxAmount = sale.TaxAmount,
-            itemsCount = sale.Items.Count
-        });
-
-        await _queueRepository.EnqueueOperationAsync(
-            bizId,
-            storeId,
-            device.DeviceId,
-            userId,
-            "SALE_COMPLETED",
-            payload,
-            Guid.NewGuid().ToString()
-        );
-
         // Background trigger sync if cloud is reachable
         _ = _syncEngineService.RunSyncCycleAsync(bizId, device.DeviceId);
 
-        ShowBanner($"Sale #{invoiceNum} completed! Total: ₹{GrandTotal:F2}. Receipt printed.");
+        ShowBanner($"Sale #{invoiceNum} completed! Total: ₹{GrandTotal:F2}. Receipt printed. Saved on this workstation; it is sent to the server automatically.");
         ClearBill();
         await LoadRecentSalesAsync();
     }

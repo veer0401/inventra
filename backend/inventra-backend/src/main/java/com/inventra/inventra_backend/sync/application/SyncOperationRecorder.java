@@ -34,6 +34,19 @@ public class SyncOperationRecorder {
         String errorMessage,
         boolean retryable
     ) {
+        if (retryable) {
+            // A retryable failure means "could not be processed right now". Recording it would make every
+            // retry of the same eventId return this stored rejection forever (see the duplicate check in
+            // SyncOperationProcessor), turning a transient fault into a permanent one.
+            return SyncOperationResult.rejected(
+                opReq.eventId(),
+                opReq.deviceSequenceNumber(),
+                errorCode,
+                errorMessage,
+                true
+            );
+        }
+
         try {
             SyncOperation syncOp = new SyncOperation(
                 businessId,

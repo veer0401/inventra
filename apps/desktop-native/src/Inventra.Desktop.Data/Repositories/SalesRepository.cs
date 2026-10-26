@@ -9,6 +9,15 @@ namespace Inventra.Desktop.Data.Repositories;
 public interface ISalesRepository
 {
     Task<SaleRecord> CreateSaleAsync(SaleRecord sale);
+
+    /// <summary>
+    /// Saves the sale, deducts local stock and queues its SALE_CREATED operation in one transaction, so a
+    /// completed sale can never exist without the operation that will deliver it to the server.
+    /// </summary>
+    Task<SaleRecord> CompleteSaleWithOutboxAsync(SaleRecord sale);
+
+    /// <summary>Records the outcome of syncing a sale: SYNCED (with the server sale id) or FAILED (with the reason).</summary>
+    Task MarkSaleSyncResultAsync(string saleId, string syncStatus, string? serverSaleId, string? error);
     Task<IReadOnlyList<SaleRecord>> GetRecentSalesAsync(string businessId, string? storeId = null, int limit = 50);
     Task<SaleRecord?> GetSaleByIdAsync(string id);
     Task<IReadOnlyList<SaleItemRecord>> GetSaleItemsAsync(string saleId);
@@ -50,6 +59,59 @@ public sealed class SalesRepository : ISalesRepository
         await connection.OpenAsync();
         await using var tx = (SqliteTransaction)await connection.BeginTransactionAsync();
 
+        await InsertSaleCoreAsync(connection, tx, sale);
+
+        await tx.CommitAsync();
+        return sale;
+    }
+
+    public async Task<SaleRecord> CompleteSaleWithOutboxAsync(SaleRecord sale)
+    {
+        sale.SyncStatus = "PENDING";
+
+        await using var connection = _dbContext.CreateConnection();
+        await connection.OpenAsync();
+        await using var tx = (SqliteTransaction)await connection.BeginTransactionAsync();
+
+        await InsertSaleCoreAsync(connection, tx, sale);
+
+        foreach (var item in sale.Items)
+        {
+            await ProductRepository.DeductStockCoreAsync(connection, tx, item.ProductId, item.BatchId, item.Quantity);
+        }
+
+        await OfflineQueueRepository.EnqueueInTransactionAsync(
+            connection, tx,
+            sale.BusinessId, sale.StoreId, sale.DeviceId, sale.UserId,
+            SaleSyncPayload.EventType,
+            SaleSyncPayload.Build(sale),
+            SaleSyncPayload.IdempotencyKey(sale.Id),
+            sale.CreatedAt);
+
+        await tx.CommitAsync();
+        return sale;
+    }
+
+    public async Task MarkSaleSyncResultAsync(string saleId, string syncStatus, string? serverSaleId, string? error)
+    {
+        await using var connection = _dbContext.CreateConnection();
+        await connection.OpenAsync();
+
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = @"
+            UPDATE local_sales
+            SET sync_status = @ss, server_sale_id = COALESCE(@srv, server_sale_id), sync_error = @err
+            WHERE id = @id;
+        ";
+        cmd.Parameters.AddWithValue("@ss", syncStatus);
+        cmd.Parameters.AddWithValue("@srv", (object?)serverSaleId ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@err", (object?)error ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@id", saleId);
+        await cmd.ExecuteNonQueryAsync();
+    }
+
+    private static async Task InsertSaleCoreAsync(SqliteConnection connection, SqliteTransaction tx, SaleRecord sale)
+    {
         // 1. Insert header
         await using var headerCmd = connection.CreateCommand();
         headerCmd.Transaction = tx;
@@ -112,9 +174,6 @@ public sealed class SalesRepository : ISalesRepository
             itemCmd.Parameters.AddWithValue("@total", (double)item.TotalAmount);
             await itemCmd.ExecuteNonQueryAsync();
         }
-
-        await tx.CommitAsync();
-        return sale;
     }
 
     public async Task<IReadOnlyList<SaleRecord>> GetRecentSalesAsync(string businessId, string? storeId = null, int limit = 50)

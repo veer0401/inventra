@@ -245,6 +245,18 @@ public sealed class ProductRepository : IProductRepository
         await connection.OpenAsync();
         await using var tx = (SqliteTransaction)await connection.BeginTransactionAsync();
 
+        await DeductStockCoreAsync(connection, tx, productId, batchId, quantity);
+
+        await tx.CommitAsync();
+    }
+
+    /// <summary>
+    /// Stock deduction shared with the atomic "sale + outbox" write in <see cref="SalesRepository"/>, so
+    /// both paths apply identical rules inside the caller's transaction.
+    /// </summary>
+    internal static async Task DeductStockCoreAsync(
+        SqliteConnection connection, SqliteTransaction tx, string productId, string? batchId, double quantity)
+    {
         // 1. Reduce overall product stock
         await using var pCmd = connection.CreateCommand();
         pCmd.Transaction = tx;
@@ -281,8 +293,6 @@ public sealed class ProductRepository : IProductRepository
             bCmd.Parameters.AddWithValue("@pid", productId);
             await bCmd.ExecuteNonQueryAsync();
         }
-
-        await tx.CommitAsync();
     }
 
     public async Task AddStockAsync(string productId, string? batchId, double quantity)

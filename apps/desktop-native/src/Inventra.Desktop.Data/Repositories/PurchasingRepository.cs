@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Inventra.Desktop.Core.Domain.Purchasing;
+using Inventra.Desktop.Core.Domain.Sync;
 using Microsoft.Data.Sqlite;
 
 namespace Inventra.Desktop.Data.Repositories;
@@ -15,6 +16,30 @@ public interface IPurchasingRepository
     Task<IReadOnlyList<SupplierItem>> GetSuppliersAsync(string businessId);
     Task<SupplierItem?> GetSupplierByIdAsync(string businessId, string id);
     Task UpsertSupplierAsync(SupplierItem supplier);
+    Task<SupplierItem?> GetSupplierByCodeAsync(string businessId, string supplierCode);
+
+    /// <summary>
+    /// Saves the supplier as PENDING and queues its SUPPLIER_CREATED operation in one transaction, so a
+    /// supplier is never stored locally without the operation that will deliver it to the server.
+    /// </summary>
+    Task<OfflineOperation> SaveSupplierWithQueuedCreateAsync(
+        SupplierItem supplier, string storeId, string deviceId, string userId, string payloadJson);
+
+    /// <summary>Merges the server's supplier list without overwriting rows that have not reached the server.</summary>
+    Task MergeCloudSuppliersAsync(string businessId, IReadOnlyList<SupplierItem> cloudSuppliers);
+
+    /// <summary>Last server change-feed sequence applied for the given key (0 when never downloaded).</summary>
+    Task<long> GetDownloadCursorAsync(string cursorKey);
+
+    /// <summary>Merges a downloaded page of suppliers and advances the cursor in one transaction.</summary>
+    Task ApplyDownloadedSuppliersAsync(string businessId, IReadOnlyList<SupplierItem> suppliers, string cursorKey, long newCursor);
+
+    /// <summary>Swaps the client-generated id for the server-assigned id and repoints purchase documents.</summary>
+    Task ReconcileSupplierCreatedAsync(string businessId, string localSupplierId, string serverSupplierId);
+    Task MarkSupplierSyncStateAsync(string businessId, string supplierId, string syncState, string? syncError);
+
+    /// <summary>Records the outcome of syncing a goods receipt (SYNCED or FAILED).</summary>
+    Task MarkGoodsReceiptSyncStateAsync(string goodsReceiptId, string syncStatus);
 
     // Purchase Order Management
     Task<IReadOnlyList<PurchaseOrderItem>> GetPurchasesAsync(string businessId, string? storeId = null);
@@ -41,6 +66,33 @@ public sealed class PurchasingRepository : IPurchasingRepository
 
     #region Suppliers
 
+    private const string SupplierColumns = @"
+        id, business_id, supplier_code, legal_name, trade_name, gstin,
+        contact_person, phone, email, address, city, state, postal_code,
+        payment_terms_days, status, updated_at, sync_state, sync_error";
+
+    private static SupplierItem ReadSupplier(SqliteDataReader reader) => new()
+    {
+        Id = reader.GetString(0),
+        BusinessId = reader.GetString(1),
+        SupplierCode = reader.GetString(2),
+        LegalName = reader.GetString(3),
+        TradeName = reader.IsDBNull(4) ? null : reader.GetString(4),
+        Gstin = reader.IsDBNull(5) ? null : reader.GetString(5),
+        ContactPersonName = reader.IsDBNull(6) ? null : reader.GetString(6),
+        PhoneNumber = reader.IsDBNull(7) ? null : reader.GetString(7),
+        Email = reader.IsDBNull(8) ? null : reader.GetString(8),
+        AddressLine1 = reader.IsDBNull(9) ? null : reader.GetString(9),
+        City = reader.IsDBNull(10) ? null : reader.GetString(10),
+        State = reader.IsDBNull(11) ? null : reader.GetString(11),
+        PostalCode = reader.IsDBNull(12) ? null : reader.GetString(12),
+        PaymentTermsDays = reader.GetInt32(13),
+        Status = reader.GetString(14),
+        UpdatedAt = reader.GetInt64(15),
+        SyncState = reader.IsDBNull(16) ? SupplierSyncState.Synced : reader.GetString(16),
+        SyncError = reader.IsDBNull(17) ? null : reader.GetString(17)
+    };
+
     public async Task<IReadOnlyList<SupplierItem>> GetSuppliersAsync(string businessId)
     {
         var list = new List<SupplierItem>();
@@ -48,38 +100,13 @@ public sealed class PurchasingRepository : IPurchasingRepository
         await connection.OpenAsync();
 
         await using var cmd = connection.CreateCommand();
-        cmd.CommandText = @"
-            SELECT id, business_id, supplier_code, legal_name, trade_name, gstin,
-                   contact_person, phone, email, address, city, state, postal_code,
-                   payment_terms_days, status, updated_at
-            FROM cache_suppliers
-            WHERE business_id = @biz
-            ORDER BY legal_name ASC;
-        ";
+        cmd.CommandText = $"SELECT {SupplierColumns} FROM cache_suppliers WHERE business_id = @biz ORDER BY legal_name ASC;";
         cmd.Parameters.AddWithValue("@biz", businessId);
 
         await using var reader = await cmd.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
-            list.Add(new SupplierItem
-            {
-                Id = reader.GetString(0),
-                BusinessId = reader.GetString(1),
-                SupplierCode = reader.GetString(2),
-                LegalName = reader.GetString(3),
-                TradeName = reader.IsDBNull(4) ? null : reader.GetString(4),
-                Gstin = reader.IsDBNull(5) ? null : reader.GetString(5),
-                ContactPersonName = reader.IsDBNull(6) ? null : reader.GetString(6),
-                PhoneNumber = reader.IsDBNull(7) ? null : reader.GetString(7),
-                Email = reader.IsDBNull(8) ? null : reader.GetString(8),
-                AddressLine1 = reader.IsDBNull(9) ? null : reader.GetString(9),
-                City = reader.IsDBNull(10) ? null : reader.GetString(10),
-                State = reader.IsDBNull(11) ? null : reader.GetString(11),
-                PostalCode = reader.IsDBNull(12) ? null : reader.GetString(12),
-                PaymentTermsDays = reader.GetInt32(13),
-                Status = reader.GetString(14),
-                UpdatedAt = reader.GetInt64(15)
-            });
+            list.Add(ReadSupplier(reader));
         }
 
         return list;
@@ -91,58 +118,48 @@ public sealed class PurchasingRepository : IPurchasingRepository
         await connection.OpenAsync();
 
         await using var cmd = connection.CreateCommand();
-        cmd.CommandText = @"
-            SELECT id, business_id, supplier_code, legal_name, trade_name, gstin,
-                   contact_person, phone, email, address, city, state, postal_code,
-                   payment_terms_days, status, updated_at
-            FROM cache_suppliers
-            WHERE business_id = @biz AND id = @id LIMIT 1;
-        ";
+        cmd.CommandText = $"SELECT {SupplierColumns} FROM cache_suppliers WHERE business_id = @biz AND id = @id LIMIT 1;";
         cmd.Parameters.AddWithValue("@biz", businessId);
         cmd.Parameters.AddWithValue("@id", id);
 
         await using var reader = await cmd.ExecuteReaderAsync();
-        if (await reader.ReadAsync())
-        {
-            return new SupplierItem
-            {
-                Id = reader.GetString(0),
-                BusinessId = reader.GetString(1),
-                SupplierCode = reader.GetString(2),
-                LegalName = reader.GetString(3),
-                TradeName = reader.IsDBNull(4) ? null : reader.GetString(4),
-                Gstin = reader.IsDBNull(5) ? null : reader.GetString(5),
-                ContactPersonName = reader.IsDBNull(6) ? null : reader.GetString(6),
-                PhoneNumber = reader.IsDBNull(7) ? null : reader.GetString(7),
-                Email = reader.IsDBNull(8) ? null : reader.GetString(8),
-                AddressLine1 = reader.IsDBNull(9) ? null : reader.GetString(9),
-                City = reader.IsDBNull(10) ? null : reader.GetString(10),
-                State = reader.IsDBNull(11) ? null : reader.GetString(11),
-                PostalCode = reader.IsDBNull(12) ? null : reader.GetString(12),
-                PaymentTermsDays = reader.GetInt32(13),
-                Status = reader.GetString(14),
-                UpdatedAt = reader.GetInt64(15)
-            };
-        }
+        return await reader.ReadAsync() ? ReadSupplier(reader) : null;
+    }
 
-        return null;
+    public async Task<SupplierItem?> GetSupplierByCodeAsync(string businessId, string supplierCode)
+    {
+        await using var connection = _dbContext.CreateConnection();
+        await connection.OpenAsync();
+
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = $"SELECT {SupplierColumns} FROM cache_suppliers WHERE business_id = @biz AND supplier_code = @code COLLATE NOCASE LIMIT 1;";
+        cmd.Parameters.AddWithValue("@biz", businessId);
+        cmd.Parameters.AddWithValue("@code", supplierCode.Trim());
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        return await reader.ReadAsync() ? ReadSupplier(reader) : null;
     }
 
     public async Task UpsertSupplierAsync(SupplierItem supplier)
     {
         await using var connection = _dbContext.CreateConnection();
         await connection.OpenAsync();
+        await UpsertSupplierCoreAsync(connection, null, supplier);
+    }
 
+    private static async Task UpsertSupplierCoreAsync(SqliteConnection connection, SqliteTransaction? tx, SupplierItem supplier)
+    {
         await using var cmd = connection.CreateCommand();
+        cmd.Transaction = tx;
         cmd.CommandText = @"
             INSERT INTO cache_suppliers (
                 id, business_id, supplier_code, legal_name, trade_name, gstin,
                 contact_person, phone, email, address, city, state, postal_code,
-                payment_terms_days, status, updated_at
+                payment_terms_days, status, updated_at, sync_state, sync_error
             ) VALUES (
                 @id, @biz, @code, @name, @trade, @gstin,
                 @contact, @phone, @email, @addr, @city, @state, @zip,
-                @terms, @status, @upd
+                @terms, @status, @upd, @syncState, @syncError
             )
             ON CONFLICT(id) DO UPDATE SET
                 supplier_code = excluded.supplier_code,
@@ -158,7 +175,9 @@ public sealed class PurchasingRepository : IPurchasingRepository
                 postal_code = excluded.postal_code,
                 payment_terms_days = excluded.payment_terms_days,
                 status = excluded.status,
-                updated_at = excluded.updated_at;
+                updated_at = excluded.updated_at,
+                sync_state = excluded.sync_state,
+                sync_error = excluded.sync_error;
         ";
 
         cmd.Parameters.AddWithValue("@id", supplier.Id);
@@ -177,8 +196,277 @@ public sealed class PurchasingRepository : IPurchasingRepository
         cmd.Parameters.AddWithValue("@terms", supplier.PaymentTermsDays);
         cmd.Parameters.AddWithValue("@status", supplier.Status);
         cmd.Parameters.AddWithValue("@upd", supplier.UpdatedAt);
+        cmd.Parameters.AddWithValue("@syncState", supplier.SyncState);
+        cmd.Parameters.AddWithValue("@syncError", (object?)supplier.SyncError ?? DBNull.Value);
 
         await cmd.ExecuteNonQueryAsync();
+    }
+
+    public async Task<OfflineOperation> SaveSupplierWithQueuedCreateAsync(
+        SupplierItem supplier, string storeId, string deviceId, string userId, string payloadJson)
+    {
+        supplier.SyncState = SupplierSyncState.Pending;
+        supplier.SyncError = null;
+
+        await using var connection = _dbContext.CreateConnection();
+        await connection.OpenAsync();
+        await using var tx = (SqliteTransaction)await connection.BeginTransactionAsync();
+
+        await UpsertSupplierCoreAsync(connection, tx, supplier);
+
+        long nextSeq;
+        await using (var seqCmd = connection.CreateCommand())
+        {
+            seqCmd.Transaction = tx;
+            seqCmd.CommandText = @"
+                SELECT COALESCE(MAX(device_sequence_number), 0) + 1
+                FROM offline_operations
+                WHERE business_id = @biz AND device_id = @dev;
+            ";
+            seqCmd.Parameters.AddWithValue("@biz", supplier.BusinessId);
+            seqCmd.Parameters.AddWithValue("@dev", deviceId);
+            nextSeq = Convert.ToInt64(await seqCmd.ExecuteScalarAsync());
+        }
+
+        var op = new OfflineOperation
+        {
+            OperationId = Guid.NewGuid().ToString(),
+            BusinessId = supplier.BusinessId,
+            StoreId = storeId,
+            DeviceId = deviceId,
+            UserId = userId,
+            DeviceSequenceNumber = nextSeq,
+            EventType = "SUPPLIER_CREATED",
+            PayloadJson = payloadJson,
+            PayloadChecksum = CanonicalJson.ComputeChecksum(payloadJson),
+            IdempotencyKey = $"SUPPLIER-{supplier.Id}",
+            Status = SyncOperationStatus.Pending,
+            CreatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+        };
+
+        await using (var insertCmd = connection.CreateCommand())
+        {
+            insertCmd.Transaction = tx;
+            insertCmd.CommandText = @"
+                INSERT INTO offline_operations (
+                    operation_id, business_id, store_id, device_id, user_id,
+                    device_sequence_number, event_type, event_version, payload_json,
+                    payload_checksum, idempotency_key, status, retry_count, created_at
+                ) VALUES (
+                    @opId, @biz, @store, @dev, @usr,
+                    @seq, @evt, 1, @json,
+                    @csum, @idem, 'PENDING', 0, @created
+                );
+            ";
+            insertCmd.Parameters.AddWithValue("@opId", op.OperationId);
+            insertCmd.Parameters.AddWithValue("@biz", op.BusinessId);
+            insertCmd.Parameters.AddWithValue("@store", op.StoreId);
+            insertCmd.Parameters.AddWithValue("@dev", op.DeviceId);
+            insertCmd.Parameters.AddWithValue("@usr", op.UserId);
+            insertCmd.Parameters.AddWithValue("@seq", op.DeviceSequenceNumber);
+            insertCmd.Parameters.AddWithValue("@evt", op.EventType);
+            insertCmd.Parameters.AddWithValue("@json", op.PayloadJson);
+            insertCmd.Parameters.AddWithValue("@csum", op.PayloadChecksum);
+            insertCmd.Parameters.AddWithValue("@idem", op.IdempotencyKey);
+            insertCmd.Parameters.AddWithValue("@created", op.CreatedAt);
+            await insertCmd.ExecuteNonQueryAsync();
+        }
+
+        await tx.CommitAsync();
+        return op;
+    }
+
+    public async Task MergeCloudSuppliersAsync(string businessId, IReadOnlyList<SupplierItem> cloudSuppliers)
+    {
+        if (cloudSuppliers.Count == 0) return;
+
+        await using var connection = _dbContext.CreateConnection();
+        await connection.OpenAsync();
+        await using var tx = (SqliteTransaction)await connection.BeginTransactionAsync();
+
+        await MergeSuppliersCoreAsync(connection, tx, businessId, cloudSuppliers);
+
+        await tx.CommitAsync();
+    }
+
+    public async Task<long> GetDownloadCursorAsync(string cursorKey)
+    {
+        await using var connection = _dbContext.CreateConnection();
+        await connection.OpenAsync();
+
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT value FROM sync_metadata WHERE key = @k;";
+        cmd.Parameters.AddWithValue("@k", cursorKey);
+        var raw = await cmd.ExecuteScalarAsync() as string;
+        return long.TryParse(raw, out var cursor) && cursor >= 0 ? cursor : 0;
+    }
+
+    public async Task ApplyDownloadedSuppliersAsync(
+        string businessId, IReadOnlyList<SupplierItem> suppliers, string cursorKey, long newCursor)
+    {
+        await using var connection = _dbContext.CreateConnection();
+        await connection.OpenAsync();
+        await using var tx = (SqliteTransaction)await connection.BeginTransactionAsync();
+
+        await MergeSuppliersCoreAsync(connection, tx, businessId, suppliers);
+
+        // The checkpoint moves in the same transaction as the data it covers: an interruption either
+        // keeps both or neither, and replaying a page is harmless because the merge is idempotent.
+        await using (var cursorCmd = connection.CreateCommand())
+        {
+            cursorCmd.Transaction = tx;
+            cursorCmd.CommandText = @"
+                INSERT INTO sync_metadata (key, value, updated_at) VALUES (@k, @v, @now)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at;
+            ";
+            cursorCmd.Parameters.AddWithValue("@k", cursorKey);
+            cursorCmd.Parameters.AddWithValue("@v", newCursor.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            cursorCmd.Parameters.AddWithValue("@now", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+            await cursorCmd.ExecuteNonQueryAsync();
+        }
+
+        await tx.CommitAsync();
+    }
+
+    private static async Task MergeSuppliersCoreAsync(
+        SqliteConnection connection, SqliteTransaction tx, string businessId, IReadOnlyList<SupplierItem> cloudSuppliers)
+    {
+        foreach (var cloud in cloudSuppliers)
+        {
+            cloud.BusinessId = businessId;
+            cloud.SyncState = SupplierSyncState.Synced;
+            cloud.SyncError = null;
+
+            // Another local row already uses this supplier code under a different id.
+            string? otherId = null;
+            string? otherState = null;
+            await using (var findCmd = connection.CreateCommand())
+            {
+                findCmd.Transaction = tx;
+                findCmd.CommandText = @"
+                    SELECT id, sync_state FROM cache_suppliers
+                    WHERE business_id = @biz AND supplier_code = @code COLLATE NOCASE AND id <> @id
+                    LIMIT 1;
+                ";
+                findCmd.Parameters.AddWithValue("@biz", businessId);
+                findCmd.Parameters.AddWithValue("@code", cloud.SupplierCode);
+                findCmd.Parameters.AddWithValue("@id", cloud.Id);
+                await using var r = await findCmd.ExecuteReaderAsync();
+                if (await r.ReadAsync())
+                {
+                    otherId = r.GetString(0);
+                    otherState = r.IsDBNull(1) ? SupplierSyncState.Synced : r.GetString(1);
+                }
+            }
+
+            if (otherId != null)
+            {
+                // A PENDING/FAILED local supplier owns the code: keep it so the user's data is not lost
+                // silently. Its queued create will be accepted or rejected (and shown) by the sync engine.
+                if (otherState != SupplierSyncState.Synced) continue;
+
+                // A SYNCED row with a client-generated id is a leftover duplicate of the server record
+                // (created by an earlier client that kept its own id); fold it into the server row.
+                await RepointSupplierReferencesAsync(connection, tx, otherId, cloud.Id);
+                await using var delCmd = connection.CreateCommand();
+                delCmd.Transaction = tx;
+                delCmd.CommandText = "DELETE FROM cache_suppliers WHERE business_id = @biz AND id = @id;";
+                delCmd.Parameters.AddWithValue("@biz", businessId);
+                delCmd.Parameters.AddWithValue("@id", otherId);
+                await delCmd.ExecuteNonQueryAsync();
+            }
+
+            await UpsertSupplierCoreAsync(connection, tx, cloud);
+        }
+    }
+
+    public async Task ReconcileSupplierCreatedAsync(string businessId, string localSupplierId, string serverSupplierId)
+    {
+        await using var connection = _dbContext.CreateConnection();
+        await connection.OpenAsync();
+        await using var tx = (SqliteTransaction)await connection.BeginTransactionAsync();
+
+        if (!string.Equals(localSupplierId, serverSupplierId, StringComparison.OrdinalIgnoreCase))
+        {
+            bool serverRowExists;
+            await using (var existsCmd = connection.CreateCommand())
+            {
+                existsCmd.Transaction = tx;
+                existsCmd.CommandText = "SELECT 1 FROM cache_suppliers WHERE business_id = @biz AND id = @id LIMIT 1;";
+                existsCmd.Parameters.AddWithValue("@biz", businessId);
+                existsCmd.Parameters.AddWithValue("@id", serverSupplierId);
+                serverRowExists = await existsCmd.ExecuteScalarAsync() != null;
+            }
+
+            await RepointSupplierReferencesAsync(connection, tx, localSupplierId, serverSupplierId);
+
+            await using var cmd = connection.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = serverRowExists
+                ? "DELETE FROM cache_suppliers WHERE business_id = @biz AND id = @local;"
+                : "UPDATE cache_suppliers SET id = @server WHERE business_id = @biz AND id = @local;";
+            cmd.Parameters.AddWithValue("@biz", businessId);
+            cmd.Parameters.AddWithValue("@local", localSupplierId);
+            cmd.Parameters.AddWithValue("@server", serverSupplierId);
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        await using (var stateCmd = connection.CreateCommand())
+        {
+            stateCmd.Transaction = tx;
+            stateCmd.CommandText = @"
+                UPDATE cache_suppliers SET sync_state = 'SYNCED', sync_error = NULL
+                WHERE business_id = @biz AND id = @id;
+            ";
+            stateCmd.Parameters.AddWithValue("@biz", businessId);
+            stateCmd.Parameters.AddWithValue("@id", serverSupplierId);
+            await stateCmd.ExecuteNonQueryAsync();
+        }
+
+        await tx.CommitAsync();
+    }
+
+    public async Task MarkSupplierSyncStateAsync(string businessId, string supplierId, string syncState, string? syncError)
+    {
+        await using var connection = _dbContext.CreateConnection();
+        await connection.OpenAsync();
+
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = @"
+            UPDATE cache_suppliers SET sync_state = @state, sync_error = @err
+            WHERE business_id = @biz AND id = @id;
+        ";
+        cmd.Parameters.AddWithValue("@biz", businessId);
+        cmd.Parameters.AddWithValue("@id", supplierId);
+        cmd.Parameters.AddWithValue("@state", syncState);
+        cmd.Parameters.AddWithValue("@err", (object?)syncError ?? DBNull.Value);
+        await cmd.ExecuteNonQueryAsync();
+    }
+
+    public async Task MarkGoodsReceiptSyncStateAsync(string goodsReceiptId, string syncStatus)
+    {
+        await using var connection = _dbContext.CreateConnection();
+        await connection.OpenAsync();
+
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = "UPDATE local_goods_receipts SET sync_status = @s WHERE id = @id;";
+        cmd.Parameters.AddWithValue("@s", syncStatus);
+        cmd.Parameters.AddWithValue("@id", goodsReceiptId);
+        await cmd.ExecuteNonQueryAsync();
+    }
+
+    private static async Task RepointSupplierReferencesAsync(
+        SqliteConnection connection, SqliteTransaction tx, string oldSupplierId, string newSupplierId)
+    {
+        foreach (var table in new[] { "local_purchases", "local_goods_receipts" })
+        {
+            await using var cmd = connection.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = $"UPDATE {table} SET supplier_id = @new WHERE supplier_id = @old;";
+            cmd.Parameters.AddWithValue("@old", oldSupplierId);
+            cmd.Parameters.AddWithValue("@new", newSupplierId);
+            await cmd.ExecuteNonQueryAsync();
+        }
     }
 
     #endregion
@@ -1100,7 +1388,10 @@ public sealed class PurchasingRepository : IPurchasingRepository
                     rejectedQuantity = l.RejectedQuantity,
                     freeQuantity = l.FreeQuantity,
                     batchNumber = l.BatchNumber,
-                    manufacturingDate = l.ManufacturingDate,
+                    // The screen accepts YYYY-MM; the server's date fields need a full yyyy-MM-dd.
+                    manufacturingDate = string.IsNullOrWhiteSpace(l.ManufacturingDate)
+                        ? null
+                        : (l.ManufacturingDate.Trim().Length == 7 ? l.ManufacturingDate.Trim() + "-01" : l.ManufacturingDate.Trim()),
                     expiryDate = l.ExpiryDate.Length == 7 ? l.ExpiryDate + "-01" : l.ExpiryDate,
                     unitCost = l.UnitCost,
                     mrp = l.Mrp,
@@ -1110,8 +1401,12 @@ public sealed class PurchasingRepository : IPurchasingRepository
             };
 
             var payloadJson = JsonSerializer.Serialize(payloadObj);
-            var checksum = DatabaseContext.ComputeSha256(payloadJson);
-            var operationId = Guid.NewGuid().ToString();
+            var checksum = CanonicalJson.ComputeChecksum(payloadJson);
+            // The operation id IS the receipt id. The server derives its receipt idempotency key from the event
+            // id ("GRN-" + eventId), and the screen's direct REST post uses "GRN-" + receipt id, so using one id
+            // makes the REST post and this queued operation the same receipt: whichever arrives second is a
+            // duplicate instead of a second stock receipt.
+            var operationId = grn.Id;
             var idempotencyKey = $"GRN-{grn.Id}";
 
             // Get next device sequence number

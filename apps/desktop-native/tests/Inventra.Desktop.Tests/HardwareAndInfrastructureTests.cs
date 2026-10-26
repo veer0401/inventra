@@ -146,7 +146,7 @@ public class HardwareAndInfrastructureTests : IDisposable
         await _dbContext.InitializeAsync();
         var queueRepo = new OfflineQueueRepository(_dbContext);
         var apiClient = new InventraApiClient { BaseUrl = "http://127.0.0.1:59999" };
-        var syncEngine = new SyncEngineService(queueRepo, apiClient);
+        var syncEngine = new SyncEngineService(queueRepo, apiClient, new PurchasingRepository(_dbContext), new SalesRepository(_dbContext));
 
         // Queue an operation
         await queueRepo.EnqueueOperationAsync(

@@ -554,7 +554,14 @@ internal sealed class MockInventraApiClient : IInventraApiClient
 
     public void SetAuthToken(string? token) { }
 
-    public Task<bool> PingAsync(CancellationToken ct = default) => Task.FromResult(true);
+    public bool PingResult { get; set; } = true;
+    public Func<string, List<SyncOperationApiDto>, SyncUploadApiResponse?>? UploadHandler { get; set; }
+    public List<List<SyncOperationApiDto>> UploadedBatches { get; } = new();
+    public Func<CreateSupplierApiRequest, ApiResult<SupplierApiDto>>? CreateSupplierHandler { get; set; }
+    public Func<string, UpdateSupplierApiRequest, ApiResult<SupplierApiDto>>? UpdateSupplierHandler { get; set; }
+    public int CreateSupplierCalls { get; private set; }
+
+    public Task<bool> PingAsync(CancellationToken ct = default) => Task.FromResult(PingResult);
 
     public Task<AuthResult> LoginWithResultAsync(string email, string password, string? deviceId = null, string? deviceCode = null, CancellationToken ct = default) =>
         Task.FromResult(LoginResult ?? new AuthResult(
@@ -613,17 +620,37 @@ internal sealed class MockInventraApiClient : IInventraApiClient
     public Task<ProductApiDto?> CreateProductAsync(CreateProductApiRequest request, CancellationToken ct = default) =>
         Task.FromResult<ProductApiDto?>(null);
 
-    public Task<SyncUploadApiResponse?> UploadSyncBatchAsync(string deviceId, List<SyncOperationApiDto> ops, CancellationToken ct = default) =>
-        Task.FromResult<SyncUploadApiResponse?>(null);
+    public Func<string, List<SyncOperationApiDto>, ApiResult<SyncUploadApiResponse>>? UploadResultHandler { get; set; }
+    public Func<long, ApiResult<SyncDownloadApiResponse>>? DownloadHandler { get; set; }
+    public List<long> DownloadCursors { get; } = new();
 
-    public Task<SyncDownloadApiResponse?> DownloadSyncChangesAsync(long cursor, int limit = 100, CancellationToken ct = default) =>
-        Task.FromResult<SyncDownloadApiResponse?>(null);
+    public Task<ApiResult<SyncUploadApiResponse>> UploadSyncBatchAsync(string deviceId, List<SyncOperationApiDto> ops, CancellationToken ct = default)
+    {
+        UploadedBatches.Add(ops);
+        if (UploadResultHandler != null) return Task.FromResult(UploadResultHandler(deviceId, ops));
+
+        var response = UploadHandler?.Invoke(deviceId, ops);
+        return Task.FromResult(response != null
+            ? ApiResult<SyncUploadApiResponse>.Ok(response, 200)
+            : ApiResult<SyncUploadApiResponse>.Transient("mock server unreachable"));
+    }
+
+    public Task<ApiResult<SyncDownloadApiResponse>> DownloadSyncChangesAsync(long cursor, int limit = 100, CancellationToken ct = default)
+    {
+        DownloadCursors.Add(cursor);
+        return Task.FromResult(DownloadHandler?.Invoke(cursor)
+            ?? ApiResult<SyncDownloadApiResponse>.Transient("mock server unreachable"));
+    }
 
     public Task<PageResponse<SupplierApiDto>?> ListSuppliersAsync(string? query = null, int page = 0, int size = 50, CancellationToken ct = default) =>
         Task.FromResult<PageResponse<SupplierApiDto>?>(new PageResponse<SupplierApiDto>(new List<SupplierApiDto>(), 0, 0, size, page));
 
-    public Task<SupplierApiDto?> CreateSupplierAsync(CreateSupplierApiRequest request, CancellationToken ct = default) =>
-        Task.FromResult<SupplierApiDto?>(null);
+    public Task<ApiResult<SupplierApiDto>> CreateSupplierAsync(CreateSupplierApiRequest request, CancellationToken ct = default)
+    {
+        CreateSupplierCalls++;
+        return Task.FromResult(CreateSupplierHandler?.Invoke(request)
+            ?? ApiResult<SupplierApiDto>.Transient("mock server unreachable"));
+    }
 
     public Task<PageResponse<PurchaseOrderApiDto>?> ListPurchaseOrdersAsync(string? status = null, string? supplierId = null, string? query = null, int page = 0, int size = 50, CancellationToken ct = default) =>
         Task.FromResult<PageResponse<PurchaseOrderApiDto>?>(new PageResponse<PurchaseOrderApiDto>(new List<PurchaseOrderApiDto>(), 0, 0, size, page));
@@ -649,8 +676,9 @@ internal sealed class MockInventraApiClient : IInventraApiClient
     public Task<GoodsReceiptApiDto?> PostGoodsReceiptAsync(string id, CancellationToken ct = default) =>
         Task.FromResult<GoodsReceiptApiDto?>(null);
 
-    public Task<SupplierApiDto?> UpdateSupplierAsync(string id, UpdateSupplierApiRequest request, CancellationToken ct = default) =>
-        Task.FromResult<SupplierApiDto?>(null);
+    public Task<ApiResult<SupplierApiDto>> UpdateSupplierAsync(string id, UpdateSupplierApiRequest request, CancellationToken ct = default) =>
+        Task.FromResult(UpdateSupplierHandler?.Invoke(id, request)
+            ?? ApiResult<SupplierApiDto>.Transient("mock server unreachable"));
 
     public Task<ProductApiDto?> UpdateProductAsync(string id, UpdateProductApiRequest request, CancellationToken ct = default) =>
         Task.FromResult<ProductApiDto?>(null);

@@ -15,6 +15,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Include="Fixtures\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Inventra.Desktop.Core\Inventra.Desktop.Core.csproj" />
     <ProjectReference Include="..\..\src\Inventra.Desktop.Data\Inventra.Desktop.Data.csproj" />
     <ProjectReference Include="..\..\src\Inventra.Desktop.Infrastructure\Inventra.Desktop.Infrastructure.csproj" />

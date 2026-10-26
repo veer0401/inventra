@@ -1,5 +1,6 @@
 package com.inventra.inventra_backend.sync.application;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.inventra.inventra_backend.catalog.domain.model.Product;
@@ -32,6 +33,7 @@ import com.inventra.inventra_backend.purchasing.application.GoodsReceiptService;
 import com.inventra.inventra_backend.purchasing.application.PurchaseOrderService;
 import com.inventra.inventra_backend.purchasing.application.SupplierService;
 import com.inventra.inventra_backend.purchasing.domain.model.GoodsReceipt;
+import com.inventra.inventra_backend.purchasing.domain.model.GoodsReceiptStatus;
 import com.inventra.inventra_backend.purchasing.domain.repository.GoodsReceiptRepository;
 import com.inventra.inventra_backend.purchasing.domain.repository.PurchaseOrderRepository;
 import com.inventra.inventra_backend.purchasing.domain.repository.SupplierRepository;
@@ -206,6 +208,14 @@ public class SyncOperationProcessor {
                     businessId, storeId, deviceId, userId, opReq,
                     "RESOURCE_NOT_FOUND", rnfe.getMessage(), false
                 );
+            } else if (isUnreadablePayload(e)) {
+                // The payload itself is wrong (bad UUID, wrong type, missing value): resending it cannot help,
+                // so this is a permanent rejection, not a retryable processing error.
+                log.warn("Unreadable payload for event {}: {}", eventId, root.getMessage());
+                return syncOperationRecorder.recordRejected(
+                    businessId, storeId, deviceId, userId, opReq,
+                    "INVALID_PAYLOAD", "The operation payload could not be read: " + root.getMessage(), false
+                );
             } else {
                 log.error("Unexpected error processing event {}", eventId, root);
                 return syncOperationRecorder.recordRejected(
@@ -214,6 +224,15 @@ public class SyncOperationProcessor {
                 );
             }
         }
+    }
+
+    private static boolean isUnreadablePayload(Throwable t) {
+        for (Throwable cause = t; cause != null; cause = cause.getCause() == cause ? null : cause.getCause()) {
+            if (cause instanceof IllegalArgumentException || cause instanceof JsonProcessingException) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private SyncOperationResult processSaleCreated(
@@ -423,6 +442,21 @@ public class SyncOperationProcessor {
         Optional<GoodsReceipt> existingGrOpt = goodsReceiptRepository.findByBusinessIdAndIdempotencyKey(businessId, idempotencyKey);
         if (existingGrOpt.isPresent()) {
             GoodsReceipt existingGr = existingGrOpt.get();
+
+            // The receipt may exist only as a DRAFT (created through REST, never posted). Reporting that as a
+            // duplicate would tell the client "done" while no stock was received, so finish the posting first.
+            if (existingGr.getStatus() != GoodsReceiptStatus.POSTED) {
+                GoodsReceiptResponse posted = goodsReceiptService.postGoodsReceipt(businessId, existingGr.getId(), userId, deviceId);
+                SyncOperation postedOp = new SyncOperation(
+                    businessId, storeId, deviceId, userId, eventId, seq,
+                    SyncEventType.GOODS_RECEIPT_POSTED, opReq.eventVersion(),
+                    SyncStatus.APPLIED, posted.id(), checksum,
+                    null, "Existing draft goods receipt posted", opReq.occurredAt()
+                );
+                syncOperationRepository.save(postedOp);
+                return SyncOperationResult.applied(eventId, seq, posted.id(), "Existing draft goods receipt posted");
+            }
+
             SyncOperation recoveredOp = new SyncOperation(
                 businessId, storeId, deviceId, userId, eventId, seq,
                 SyncEventType.GOODS_RECEIPT_POSTED, opReq.eventVersion(),

@@ -293,6 +293,20 @@ public sealed partial class PurchasesWorkspaceViewModel : ViewModelBase
     [ObservableProperty]
     private int _newSupplierPaymentTerms = 30;
 
+    [ObservableProperty]
+    private string _newSupplierType = "DISTRIBUTOR";
+
+    public IReadOnlyList<string> SupplierTypeOptions { get; } =
+        new[] { "DISTRIBUTOR", "WHOLESALER", "MANUFACTURER", "LOCAL_VENDOR", "OTHER" };
+
+    /// <summary>Validation and save errors shown inside the supplier dialog (the page banner sits behind its overlay).</summary>
+    [ObservableProperty]
+    private string _supplierDialogError = string.Empty;
+
+    /// <summary>Shown when the server refresh failed, so a stale or empty list is not mistaken for "no suppliers".</summary>
+    [ObservableProperty]
+    private string _suppliersLoadNotice = string.Empty;
+
     #endregion
 
     #region Initialization & Loading
@@ -392,41 +406,42 @@ public sealed partial class PurchasesWorkspaceViewModel : ViewModelBase
 
         try
         {
-            // If online, synchronize cloud suppliers into local cache
+            // If online, merge the server's suppliers into the local cache (all pages, never overwriting
+            // rows that have not reached the server yet).
+            SuppliersLoadNotice = string.Empty;
             if (_connectivityService.IsOnline)
             {
                 try
                 {
-                    var pageRes = await _apiClient.ListSuppliersAsync(page: 0, size: 50);
-                    if (pageRes?.Content != null && pageRes.Content.Count > 0)
+                    var cloud = new List<SupplierItem>();
+                    var refreshed = true;
+                    const int pageSize = 100;
+                    for (var page = 0; page < 200; page++)
                     {
-                        foreach (var sDto in pageRes.Content)
+                        var pageRes = await _apiClient.ListSuppliersAsync(page: page, size: pageSize);
+                        if (pageRes?.Content == null)
                         {
-                            var sItem = new SupplierItem
-                            {
-                                Id = sDto.Id,
-                                BusinessId = session.BusinessId,
-                                SupplierCode = sDto.SupplierCode,
-                                LegalName = sDto.LegalName,
-                                TradeName = sDto.TradeName,
-                                Gstin = sDto.Gstin,
-                                PhoneNumber = sDto.PhoneNumber,
-                                Email = sDto.Email,
-                                ContactPersonName = sDto.ContactPersonName,
-                                AddressLine1 = sDto.AddressLine1,
-                                City = sDto.City,
-                                State = sDto.State,
-                                PostalCode = sDto.PostalCode,
-                                PaymentTermsDays = sDto.PaymentTermsDays,
-                                Status = sDto.Status ?? "ACTIVE"
-                            };
-                            await _purchasingRepo.UpsertSupplierAsync(sItem);
+                            refreshed = false;
+                            break;
                         }
+
+                        cloud.AddRange(pageRes.Content.Select(d => ToSupplierItem(d, session.BusinessId)));
+                        if (page + 1 >= pageRes.TotalPages) break;
+                    }
+
+                    if (refreshed)
+                    {
+                        await _purchasingRepo.MergeCloudSuppliersAsync(session.BusinessId, cloud);
+                    }
+                    else
+                    {
+                        SuppliersLoadNotice = "Could not refresh suppliers from the server. Showing the data saved on this workstation.";
                     }
                 }
                 catch (Exception apiEx)
                 {
                     _logger.Warn(LogCategory.API, $"Cloud supplier sync failed: {apiEx.Message}");
+                    SuppliersLoadNotice = "Could not refresh suppliers from the server. Showing the data saved on this workstation.";
                 }
             }
 
@@ -767,6 +782,13 @@ public sealed partial class PurchasesWorkspaceViewModel : ViewModelBase
             return;
         }
 
+        if (!SelectedDocSupplier.IsSynced)
+        {
+            // The server does not know a pending supplier's local id yet, so an order against it would be rejected.
+            ErrorMessage = $"Supplier '{SelectedDocSupplier.LegalName}' has not synced to the server yet ({SelectedDocSupplier.SyncStateDisplay}). Wait for it to sync before ordering.";
+            return;
+        }
+
         if (ActivePurchaseLines.Count == 0)
         {
             ErrorMessage = "Please add at least one medicine line to the purchase.";
@@ -1043,6 +1065,12 @@ public sealed partial class PurchasesWorkspaceViewModel : ViewModelBase
             return;
         }
 
+        if (ActiveGrnSupplier is { IsSynced: false } pendingSupplier)
+        {
+            ErrorMessage = $"Supplier '{pendingSupplier.LegalName}' has not synced to the server yet ({pendingSupplier.SyncStateDisplay}). Wait for it to sync before receiving stock against it.";
+            return;
+        }
+
         var session = await _identityService.GetSessionAsync();
         var device = await _identityService.GetDeviceAsync();
         if (session == null)
@@ -1173,6 +1201,8 @@ public sealed partial class PurchasesWorkspaceViewModel : ViewModelBase
         NewSupplierState = string.Empty;
         NewSupplierPostalCode = string.Empty;
         NewSupplierPaymentTerms = 30;
+        NewSupplierType = "DISTRIBUTOR";
+        SupplierDialogError = string.Empty;
 
         ShowAddSupplierDialog = true;
     }
@@ -1207,6 +1237,7 @@ public sealed partial class PurchasesWorkspaceViewModel : ViewModelBase
         NewSupplierState = supplier.State ?? string.Empty;
         NewSupplierPostalCode = supplier.PostalCode ?? string.Empty;
         NewSupplierPaymentTerms = supplier.PaymentTermsDays;
+        SupplierDialogError = string.Empty;
 
         ShowAddSupplierDialog = true;
     }
@@ -1220,129 +1251,212 @@ public sealed partial class PurchasesWorkspaceViewModel : ViewModelBase
     [RelayCommand]
     public async Task SaveSupplierAsync()
     {
+        SupplierDialogError = string.Empty;
+
         try
         {
             _authService.RequirePermission(AppPermissions.PurchaseCreate);
         }
         catch (UnauthorizedAccessException ex)
         {
-            ErrorMessage = $"Access Denied: {ex.Message}";
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(NewSupplierLegalName))
-        {
-            ErrorMessage = "Supplier legal name is required.";
+            SupplierDialogError = $"Access Denied: {ex.Message}";
             return;
         }
 
         var session = await _identityService.GetSessionAsync();
         if (session == null)
         {
-            ErrorMessage = "Session expired.";
+            SupplierDialogError = "Session expired. Sign in again to save.";
+            return;
+        }
+
+        var isEdit = IsEditingSupplier && !string.IsNullOrEmpty(EditingSupplierId);
+        SupplierItem? existing = null;
+        if (isEdit)
+        {
+            existing = await _purchasingRepo.GetSupplierByIdAsync(session.BusinessId, EditingSupplierId!);
+            if (existing == null)
+            {
+                SupplierDialogError = "This supplier no longer exists on this workstation. Refresh the list and try again.";
+                return;
+            }
+            if (!existing.IsSynced)
+            {
+                SupplierDialogError = $"This supplier has not reached the server yet ({existing.SyncStateDisplay}). It can be edited after it has synced.";
+                return;
+            }
+        }
+
+        var candidate = new SupplierItem
+        {
+            Id = isEdit ? existing!.Id : Guid.NewGuid().ToString(),
+            BusinessId = session.BusinessId,
+            SupplierCode = isEdit
+                ? existing!.SupplierCode
+                : string.IsNullOrWhiteSpace(NewSupplierCode)
+                    ? $"SUP-{DateTime.UtcNow:yyMM}-{Random.Shared.Next(100, 999)}"
+                    : NewSupplierCode.Trim().ToUpperInvariant(),
+            LegalName = (NewSupplierLegalName ?? string.Empty).Trim(),
+            TradeName = NullIfBlank(NewSupplierTradeName),
+            Gstin = NullIfBlank(NewSupplierGstin)?.ToUpperInvariant(),
+            PhoneNumber = NullIfBlank(NewSupplierPhone),
+            Email = NullIfBlank(NewSupplierEmail),
+            ContactPersonName = NullIfBlank(NewSupplierContactPerson),
+            AddressLine1 = NullIfBlank(NewSupplierAddress),
+            City = NullIfBlank(NewSupplierCity),
+            State = NullIfBlank(NewSupplierState),
+            PostalCode = NullIfBlank(NewSupplierPostalCode),
+            PaymentTermsDays = NewSupplierPaymentTerms,
+            Status = existing?.Status ?? "ACTIVE",
+            UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+        };
+
+        var errors = new List<string>(SupplierValidator.Validate(candidate));
+        if (!isEdit && await _purchasingRepo.GetSupplierByCodeAsync(session.BusinessId, candidate.SupplierCode) != null)
+        {
+            errors.Add($"Supplier code '{candidate.SupplierCode}' is already in use.");
+        }
+        if (errors.Count > 0)
+        {
+            SupplierDialogError = string.Join(Environment.NewLine, errors);
             return;
         }
 
         IsLoading = true;
         try
         {
-            var isEdit = IsEditingSupplier && !string.IsNullOrEmpty(EditingSupplierId);
-            var supplierId = isEdit ? EditingSupplierId! : Guid.NewGuid().ToString();
-
-            var supplier = new SupplierItem
+            if (isEdit)
             {
-                Id = supplierId,
-                BusinessId = session.BusinessId,
-                SupplierCode = string.IsNullOrWhiteSpace(NewSupplierCode)
-                    ? $"SUP-{DateTime.UtcNow:yyMM}-{Random.Shared.Next(100, 999)}"
-                    : NewSupplierCode.Trim().ToUpperInvariant(),
-                LegalName = NewSupplierLegalName.Trim(),
-                TradeName = string.IsNullOrWhiteSpace(NewSupplierTradeName) ? null : NewSupplierTradeName.Trim(),
-                Gstin = string.IsNullOrWhiteSpace(NewSupplierGstin) ? null : NewSupplierGstin.Trim().ToUpperInvariant(),
-                PhoneNumber = string.IsNullOrWhiteSpace(NewSupplierPhone) ? null : NewSupplierPhone.Trim(),
-                Email = string.IsNullOrWhiteSpace(NewSupplierEmail) ? null : NewSupplierEmail.Trim(),
-                ContactPersonName = string.IsNullOrWhiteSpace(NewSupplierContactPerson) ? null : NewSupplierContactPerson.Trim(),
-                AddressLine1 = string.IsNullOrWhiteSpace(NewSupplierAddress) ? null : NewSupplierAddress.Trim(),
-                City = string.IsNullOrWhiteSpace(NewSupplierCity) ? null : NewSupplierCity.Trim(),
-                State = string.IsNullOrWhiteSpace(NewSupplierState) ? null : NewSupplierState.Trim(),
-                PostalCode = string.IsNullOrWhiteSpace(NewSupplierPostalCode) ? null : NewSupplierPostalCode.Trim(),
-                PaymentTermsDays = NewSupplierPaymentTerms,
-                Status = "ACTIVE",
-                UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-            };
-
-            await _purchasingRepo.UpsertSupplierAsync(supplier);
-
-            // If online, send to cloud
-            if (_connectivityService.IsOnline)
-            {
-                try
+                if (!_connectivityService.IsOnline)
                 {
-                    if (isEdit)
+                    SupplierDialogError = "Editing a supplier requires a connection to the server. Reconnect and try again; nothing was changed.";
+                    return;
+                }
+
+                // PATCH treats null as "unchanged", so cleared fields are sent as empty strings and
+                // fields the dialog does not show (supplier type, licence, PAN) stay null.
+                var updateReq = new UpdateSupplierApiRequest(
+                    LegalName: candidate.LegalName,
+                    TradeName: candidate.TradeName ?? string.Empty,
+                    SupplierType: null,
+                    Gstin: candidate.Gstin ?? string.Empty,
+                    DrugLicenseNumber: null,
+                    Pan: null,
+                    Email: candidate.Email ?? string.Empty,
+                    PhoneNumber: candidate.PhoneNumber ?? string.Empty,
+                    ContactPersonName: candidate.ContactPersonName ?? string.Empty,
+                    AddressLine1: candidate.AddressLine1 ?? string.Empty,
+                    City: candidate.City ?? string.Empty,
+                    State: candidate.State ?? string.Empty,
+                    PostalCode: candidate.PostalCode ?? string.Empty,
+                    PaymentTermsDays: candidate.PaymentTermsDays);
+
+                var updated = await _apiClient.UpdateSupplierAsync(candidate.Id, updateReq);
+                if (!updated.IsSuccess)
+                {
+                    SupplierDialogError = updated.IsTransient
+                        ? $"The server could not be reached, so your changes were not saved. ({updated.Error})"
+                        : $"The server rejected the changes: {updated.Error}";
+                    return;
+                }
+
+                await _purchasingRepo.UpsertSupplierAsync(ToSupplierItem(updated.Data!, session.BusinessId));
+                NotificationMessage = $"Supplier '{candidate.LegalName}' updated on the server.";
+            }
+            else
+            {
+                var createReq = new CreateSupplierApiRequest(
+                    SupplierCode: candidate.SupplierCode,
+                    LegalName: candidate.LegalName,
+                    TradeName: candidate.TradeName,
+                    SupplierType: string.IsNullOrWhiteSpace(NewSupplierType) ? "DISTRIBUTOR" : NewSupplierType,
+                    Gstin: candidate.Gstin,
+                    DrugLicenseNumber: null,
+                    Pan: null,
+                    Email: candidate.Email,
+                    PhoneNumber: candidate.PhoneNumber,
+                    ContactPersonName: candidate.ContactPersonName,
+                    AddressLine1: candidate.AddressLine1,
+                    City: candidate.City,
+                    State: candidate.State,
+                    PostalCode: candidate.PostalCode,
+                    PaymentTermsDays: candidate.PaymentTermsDays,
+                    Notes: "Created on Desktop");
+
+                string? notReachedReason = null;
+                if (_connectivityService.IsOnline)
+                {
+                    var created = await _apiClient.CreateSupplierAsync(createReq);
+                    if (created.IsSuccess)
                     {
-                        var updateReq = new UpdateSupplierApiRequest(
-                            supplier.LegalName,
-                            supplier.TradeName,
-                            "DISTRIBUTOR",
-                            supplier.Gstin,
-                            null,
-                            null,
-                            supplier.Email,
-                            supplier.PhoneNumber,
-                            supplier.ContactPersonName,
-                            supplier.AddressLine1,
-                            supplier.City,
-                            supplier.State,
-                            supplier.PostalCode,
-                            supplier.PaymentTermsDays
-                        );
-                        await _apiClient.UpdateSupplierAsync(supplier.Id, updateReq);
+                        await _purchasingRepo.UpsertSupplierAsync(ToSupplierItem(created.Data!, session.BusinessId));
+                        NotificationMessage = $"Supplier '{candidate.LegalName}' created and synced to the server.";
+                    }
+                    else if (created.IsRejected)
+                    {
+                        // The server refused it (for example a duplicate code): nothing is saved locally.
+                        SupplierDialogError = $"The server rejected this supplier: {created.Error}";
+                        return;
                     }
                     else
                     {
-                        var apiReq = new CreateSupplierApiRequest(
-                            supplier.SupplierCode,
-                            supplier.LegalName,
-                            supplier.TradeName,
-                            "DISTRIBUTOR",
-                            supplier.Gstin,
-                            null,
-                            null,
-                            supplier.Email,
-                            supplier.PhoneNumber,
-                            supplier.ContactPersonName,
-                            supplier.AddressLine1,
-                            supplier.City,
-                            supplier.State,
-                            supplier.PostalCode,
-                            supplier.PaymentTermsDays,
-                            "Created on Desktop"
-                        );
-                        await _apiClient.CreateSupplierAsync(apiReq);
+                        notReachedReason = created.Error;
                     }
                 }
-                catch (Exception apiEx)
+                else
                 {
-                    _logger.Warn(LogCategory.SYNC, $"Cloud supplier save skipped/failed: {apiEx.Message}");
+                    notReachedReason = "the workstation is offline";
+                }
+
+                if (notReachedReason != null)
+                {
+                    var device = await _identityService.GetDeviceAsync();
+                    var payload = System.Text.Json.JsonSerializer.Serialize(createReq);
+                    await _purchasingRepo.SaveSupplierWithQueuedCreateAsync(
+                        candidate, session.StoreId, device.DeviceId, session.UserId, payload);
+                    NotificationMessage =
+                        $"Supplier '{candidate.LegalName}' is saved on this workstation only and is NOT on the server yet ({notReachedReason}). " +
+                        "It is marked Pending sync and will be sent automatically when the server is reachable.";
                 }
             }
 
-            NotificationMessage = isEdit
-                ? $"Supplier '{supplier.LegalName}' updated successfully."
-                : $"Supplier '{supplier.LegalName}' created successfully.";
             ShowAddSupplierDialog = false;
             await LoadSuppliersAsync();
         }
         catch (Exception ex)
         {
             _logger.Error(LogCategory.DATABASE, "Failed to save supplier", ex);
-            ErrorMessage = $"Error saving supplier: {ex.Message}";
+            SupplierDialogError = $"Error saving supplier: {ex.Message}";
         }
         finally
         {
             IsLoading = false;
         }
     }
+
+    private static string? NullIfBlank(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static SupplierItem ToSupplierItem(SupplierApiDto dto, string businessId) => new()
+    {
+        Id = dto.Id,
+        BusinessId = businessId,
+        SupplierCode = dto.SupplierCode,
+        LegalName = dto.LegalName,
+        TradeName = dto.TradeName,
+        Gstin = dto.Gstin,
+        PhoneNumber = dto.PhoneNumber,
+        Email = dto.Email,
+        ContactPersonName = dto.ContactPersonName,
+        AddressLine1 = dto.AddressLine1,
+        City = dto.City,
+        State = dto.State,
+        PostalCode = dto.PostalCode,
+        PaymentTermsDays = dto.PaymentTermsDays,
+        Status = dto.Status ?? "ACTIVE",
+        SyncState = SupplierSyncState.Synced,
+        UpdatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+    };
 
     #endregion
 }

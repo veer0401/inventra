@@ -613,6 +613,16 @@
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Sync" Width="110">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate x:DataType="purch:SupplierItem">
+                                            <TextBlock Text="{Binding SyncStateDisplay}" FontSize="10" FontWeight="Bold"
+                                                       Foreground="{Binding SyncBadgeFg}"
+                                                       ToolTip.Tip="{Binding SyncError}"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
                                 <DataGridTemplateColumn Header="Action" Width="90">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate x:DataType="purch:SupplierItem">
@@ -644,8 +654,12 @@
                 </Border>
 
                 <Border Grid.Row="2" Background="#F8FAFC" BorderBrush="#CBD5E1" BorderThickness="1,0,1,1" Padding="8,4">
-                    <TextBlock Text="Suppliers are isolated per business/tenant. Creating a supplier syncs to backend cloud when online."
-                               FontSize="11" Foreground="#64748B"/>
+                    <StackPanel Spacing="2">
+                        <TextBlock Text="{Binding SuppliersLoadNotice}" FontSize="11" FontWeight="SemiBold" Foreground="#B45309"
+                                   IsVisible="{Binding SuppliersLoadNotice, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                        <TextBlock Text="Suppliers are isolated per business. A supplier created while the server is unreachable is saved on this workstation, marked Pending sync, and sent automatically later."
+                                   FontSize="11" Foreground="#64748B" TextWrapping="Wrap"/>
+                    </StackPanel>
                 </Border>
             </Grid>
 
@@ -663,7 +677,7 @@
                             <Grid ColumnDefinitions="*,*">
                                 <StackPanel Grid.Column="0" Margin="0,0,6,0">
                                     <TextBlock Text="Supplier Code:" FontSize="10" Foreground="#475569"/>
-                                    <TextBox Text="{Binding NewSupplierCode}" Height="26"/>
+                                    <TextBox Text="{Binding NewSupplierCode}" Height="26" IsEnabled="{Binding !IsEditingSupplier}"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Margin="6,0,0,0">
                                     <TextBlock Text="GSTIN:" FontSize="10" Foreground="#475569"/>
@@ -679,6 +693,12 @@
                             <StackPanel>
                                 <TextBlock Text="Trade Name:" FontSize="10" Foreground="#475569"/>
                                 <TextBox Text="{Binding NewSupplierTradeName}" Watermark="Apex Pharma" Height="26"/>
+                            </StackPanel>
+
+                            <StackPanel>
+                                <TextBlock Text="Supplier Type:" FontSize="10" Foreground="#475569"/>
+                                <ComboBox ItemsSource="{Binding SupplierTypeOptions}" SelectedItem="{Binding NewSupplierType}"
+                                          IsEnabled="{Binding !IsEditingSupplier}" Height="26" HorizontalAlignment="Stretch"/>
                             </StackPanel>
 
                             <Grid ColumnDefinitions="*,*">
@@ -724,9 +744,15 @@
                             </Grid>
                         </StackPanel>
 
-                        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,16,0,0">
+                        <StackPanel Grid.Row="2" Spacing="8" Margin="0,12,0,0">
+                        <Border Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1" CornerRadius="3" Padding="8,6"
+                                IsVisible="{Binding SupplierDialogError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                            <TextBlock Text="{Binding SupplierDialogError}" FontSize="11" Foreground="#B91C1C" TextWrapping="Wrap"/>
+                        </Border>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
                             <Button Content="Cancel" Command="{Binding CloseAddSupplierDialogCommand}" Height="28"/>
                             <Button Classes="primary" Content="Save Supplier" Command="{Binding SaveSupplierCommand}" Height="28" Padding="14,2"/>
+                        </StackPanel>
                         </StackPanel>
                     </Grid>
                 </Border>

@@ -1,0 +1,8 @@
+628ebd670ecc55b3298e29adf69e866d18064fd4b1b682a8d890529dfc0990fd	{"supplierCode":"SUP-2610-123","legalName":"Acme Pharma","tradeName":null,"supplierType":"DISTRIBUTOR","paymentTermsDays":30,"notes":"Created on Desktop"}
+5be93c2d9533dec8408ae515a066802feb308128101a06e9ebc6e9012d628033	{"unitCost":12.50,"mrp":100.00,"qty":3,"taxRate":5.0,"free":0}
+25a30d1d1ebb5b4373a2594120cfc10772e313d484adaa415246b089690801a8	{"a":0.001,"b":0.0001,"c":1234567.5,"d":10000000.0,"e":1e3,"f":1.5E-7,"g":123456789012.5,"h":0.1,"i":-3.25,"j":1.0,"k":9999999.99,"l":0.30000000000000004}
+dc8c5e449bb43e802af8c4a58cff9afebafdc6673b3226747f569752469fed63	{"name":"Aé \"q\" \\ \n\t tab ☃ 😀","ctl":"\u0001\u001f\b\f\r","slash":"a/b","del":"\u007f"}
+963a5779f8199de4c690d46c2a5af86abdf9fa2e5e14fc534adec8df1bd89b9d	{"z":[{"b":1,"a":2},[3,2,1]],"a":{"y":true,"x":false,"n":null},"empty":{},"arr":[]}
+46c86ee60c961d4c3dc5a654af166fd0ff64e0e2aba16c60589c44ef41879923	{"big":12345678901234567890,"neg":-5,"zero":0,"long":9007199254740993}
+a77c88d107acc96ccd90e93d6cd7e307c576f31a8211a09109188fcfa8ab263f	{"b":1,"B":2,"a":3,"é":4,"_":5,"10":6,"9":7,"aa":8,"a b":9}
+859bc54f43834ca7b6ce103857ca143f7eca92f4125b56475730e68b9a570b92	{"lines":[{"batchNumber":"B-001","expiryDate":"2027-03-31","unitCost":8.75,"mrp":12.0,"sellingPrice":11.5,"taxRate":12.0,"receivedQuantity":10,"rejectedQuantity":0}],"supplierId":"11111111-1111-1111-1111-111111111111","receivedAt":"2026-10-26T10:15:30Z"}

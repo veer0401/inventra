@@ -26,6 +26,20 @@ public sealed record ApiResponseWrapper<T>(
     [property: JsonPropertyName("message")] string? Message
 );
 
+/// <summary>
+/// Outcome of a write call. A rejection (4xx) means the server refused the data and retrying will not help;
+/// a transient failure (unreachable, timeout, 5xx) means the write may be retried or queued for later.
+/// </summary>
+public sealed record ApiResult<T>(T? Data, int StatusCode, string? Error, bool IsTransient, string? ErrorCode = null)
+{
+    public bool IsSuccess => Data != null && Error == null;
+    public bool IsRejected => !IsSuccess && !IsTransient;
+
+    public static ApiResult<T> Ok(T data, int statusCode) => new(data, statusCode, null, false);
+    public static ApiResult<T> Rejected(string error, int statusCode, string? errorCode = null) => new(default, statusCode, error, false, errorCode);
+    public static ApiResult<T> Transient(string error, int statusCode = 0) => new(default, statusCode, error, true);
+}
+
 public sealed record PageResponse<T>(
     [property: JsonPropertyName("content")] List<T> Content,
     [property: JsonPropertyName("totalElements")] long TotalElements,
@@ -355,8 +369,13 @@ public sealed record InventoryBatchApiDto(
     [property: JsonPropertyName("manufacturingDate")] string? ManufacturingDate
 );
 
+// Mirrors sync/api/dto/SyncUploadRequest.java: deviceId, syncSessionId, protocolVersion (>= 1),
+// clientTimestamp and 1..50 operations are all required, or the server answers 400.
 public sealed record SyncUploadApiRequest(
     [property: JsonPropertyName("deviceId")] string DeviceId,
+    [property: JsonPropertyName("syncSessionId")] string SyncSessionId,
+    [property: JsonPropertyName("protocolVersion")] int ProtocolVersion,
+    [property: JsonPropertyName("clientTimestamp")] string ClientTimestamp,
     [property: JsonPropertyName("operations")] List<SyncOperationApiDto> Operations
 );
 
@@ -370,8 +389,9 @@ public sealed record SyncOperationApiDto(
     [property: JsonPropertyName("payload")] JsonElement Payload
 );
 
+// Mirrors sync/api/dto/SyncUploadResponse.java and SyncOperationResult.java.
 public sealed record SyncUploadApiResponse(
-    [property: JsonPropertyName("totalProcessed")] int TotalProcessed,
+    [property: JsonPropertyName("processedCount")] int ProcessedCount,
     [property: JsonPropertyName("results")] List<SyncOperationResultApiDto> Results
 );
 
@@ -380,13 +400,25 @@ public sealed record SyncOperationResultApiDto(
     [property: JsonPropertyName("status")] string Status,
     [property: JsonPropertyName("serverEntityId")] string? ServerEntityId,
     [property: JsonPropertyName("errorCode")] string? ErrorCode,
-    [property: JsonPropertyName("errorMessage")] string? ErrorMessage
+    [property: JsonPropertyName("message")] string? Message,
+    [property: JsonPropertyName("retryable")] bool Retryable = false
 );
 
+// Mirrors sync/api/dto/SyncDownloadResponse.java and ChangeFeedEntry.java.
 public sealed record SyncDownloadApiResponse(
+    [property: JsonPropertyName("currentCursor")] long CurrentCursor,
     [property: JsonPropertyName("nextCursor")] long NextCursor,
     [property: JsonPropertyName("hasMore")] bool HasMore,
-    [property: JsonPropertyName("changes")] List<JsonElement> Changes
+    [property: JsonPropertyName("changes")] List<SyncChangeApiDto> Changes
+);
+
+public sealed record SyncChangeApiDto(
+    [property: JsonPropertyName("changeSeq")] long ChangeSeq,
+    [property: JsonPropertyName("entityType")] string EntityType,
+    [property: JsonPropertyName("entityId")] string EntityId,
+    [property: JsonPropertyName("operation")] string Operation,
+    [property: JsonPropertyName("entityVersion")] int EntityVersion,
+    [property: JsonPropertyName("payload")] JsonElement Payload
 );
 
 public sealed record CatalogSearchResult(
@@ -440,12 +472,12 @@ public interface IInventraApiClient
     Task<QuickImportResult> QuickImportWithDiagnosticsAsync(string globalMedicineId, CancellationToken ct = default);
     Task<PageResponse<ProductApiDto>?> ListProductsAsync(int page = 0, int size = 50, CancellationToken ct = default);
     Task<ProductApiDto?> CreateProductAsync(CreateProductApiRequest request, CancellationToken ct = default);
-    Task<SyncUploadApiResponse?> UploadSyncBatchAsync(string deviceId, List<SyncOperationApiDto> ops, CancellationToken ct = default);
-    Task<SyncDownloadApiResponse?> DownloadSyncChangesAsync(long cursor, int limit = 100, CancellationToken ct = default);
+    Task<ApiResult<SyncUploadApiResponse>> UploadSyncBatchAsync(string deviceId, List<SyncOperationApiDto> ops, CancellationToken ct = default);
+    Task<ApiResult<SyncDownloadApiResponse>> DownloadSyncChangesAsync(long cursor, int limit = 100, CancellationToken ct = default);
 
     // Purchasing & Suppliers
     Task<PageResponse<SupplierApiDto>?> ListSuppliersAsync(string? search = null, int page = 0, int size = 50, CancellationToken ct = default);
-    Task<SupplierApiDto?> CreateSupplierAsync(CreateSupplierApiRequest request, CancellationToken ct = default);
+    Task<ApiResult<SupplierApiDto>> CreateSupplierAsync(CreateSupplierApiRequest request, CancellationToken ct = default);
     Task<PageResponse<PurchaseOrderApiDto>?> ListPurchaseOrdersAsync(string? storeId = null, string? supplierId = null, string? status = null, int page = 0, int size = 50, CancellationToken ct = default);
     Task<PurchaseOrderApiDto?> GetPurchaseOrderAsync(string id, CancellationToken ct = default);
     Task<PurchaseOrderApiDto?> CreatePurchaseOrderAsync(CreatePurchaseOrderApiRequest request, CancellationToken ct = default);
@@ -454,7 +486,7 @@ public interface IInventraApiClient
     Task<GoodsReceiptApiDto?> GetGoodsReceiptAsync(string id, CancellationToken ct = default);
     Task<GoodsReceiptApiDto?> CreateGoodsReceiptAsync(CreateGoodsReceiptApiRequest request, CancellationToken ct = default);
     Task<GoodsReceiptApiDto?> PostGoodsReceiptAsync(string id, CancellationToken ct = default);
-    Task<SupplierApiDto?> UpdateSupplierAsync(string id, UpdateSupplierApiRequest request, CancellationToken ct = default);
+    Task<ApiResult<SupplierApiDto>> UpdateSupplierAsync(string id, UpdateSupplierApiRequest request, CancellationToken ct = default);
     Task<ProductApiDto?> UpdateProductAsync(string id, UpdateProductApiRequest request, CancellationToken ct = default);
     Task<PageResponse<CustomerApiDto>?> ListCustomersAsync(string? search = null, int page = 0, int size = 50, CancellationToken ct = default);
     Task<CustomerApiDto?> CreateCustomerAsync(CreateCustomerApiRequest request, CancellationToken ct = default);
@@ -841,36 +873,37 @@ public sealed class InventraApiClient : IInventraApiClient
         }
     }
 
-    public async Task<SyncUploadApiResponse?> UploadSyncBatchAsync(string deviceId, List<SyncOperationApiDto> ops, CancellationToken ct = default)
+    public async Task<ApiResult<SyncUploadApiResponse>> UploadSyncBatchAsync(string deviceId, List<SyncOperationApiDto> ops, CancellationToken ct = default)
     {
         try
         {
-            var payload = new SyncUploadApiRequest(deviceId, ops);
+            var payload = new SyncUploadApiRequest(
+                deviceId,
+                Guid.NewGuid().ToString(),
+                1,
+                DateTimeOffset.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", System.Globalization.CultureInfo.InvariantCulture),
+                ops);
             var response = await _httpClient.PostAsJsonAsync($"{_baseUrl}/api/v1/sync/upload", payload, ct);
-            if (!response.IsSuccessStatusCode) return null;
-
-            var wrapped = await response.Content.ReadFromJsonAsync<ApiResponseWrapper<SyncUploadApiResponse>>(cancellationToken: ct);
-            return wrapped?.Data;
+            return await ReadWriteResultAsync<SyncUploadApiResponse>(response, ct);
         }
-        catch
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
         {
-            return null;
+            _logger.Error(Logging.LogCategory.API, "UploadSyncBatchAsync failed", ex);
+            return ApiResult<SyncUploadApiResponse>.Transient("The server could not be reached.");
         }
     }
 
-    public async Task<SyncDownloadApiResponse?> DownloadSyncChangesAsync(long cursor, int limit = 100, CancellationToken ct = default)
+    public async Task<ApiResult<SyncDownloadApiResponse>> DownloadSyncChangesAsync(long cursor, int limit = 100, CancellationToken ct = default)
     {
         try
         {
             var response = await _httpClient.GetAsync($"{_baseUrl}/api/v1/sync/download?cursor={cursor}&limit={limit}", ct);
-            if (!response.IsSuccessStatusCode) return null;
-
-            var wrapped = await response.Content.ReadFromJsonAsync<ApiResponseWrapper<SyncDownloadApiResponse>>(cancellationToken: ct);
-            return wrapped?.Data;
+            return await ReadWriteResultAsync<SyncDownloadApiResponse>(response, ct);
         }
-        catch
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
         {
-            return null;
+            _logger.Error(Logging.LogCategory.API, "DownloadSyncChangesAsync failed", ex);
+            return ApiResult<SyncDownloadApiResponse>.Transient("The server could not be reached.");
         }
     }
 
@@ -899,21 +932,55 @@ public sealed class InventraApiClient : IInventraApiClient
         }
     }
 
-    public async Task<SupplierApiDto?> CreateSupplierAsync(CreateSupplierApiRequest request, CancellationToken ct = default)
+    public async Task<ApiResult<SupplierApiDto>> CreateSupplierAsync(CreateSupplierApiRequest request, CancellationToken ct = default)
     {
         try
         {
             var response = await _httpClient.PostAsJsonAsync($"{_baseUrl}/api/v1/suppliers", request, ct);
-            if (!response.IsSuccessStatusCode) return null;
-
-            var wrapped = await response.Content.ReadFromJsonAsync<ApiResponseWrapper<SupplierApiDto>>(cancellationToken: ct);
-            return wrapped?.Data;
+            return await ReadWriteResultAsync<SupplierApiDto>(response, ct);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
         {
             _logger.Error(Logging.LogCategory.API, "CreateSupplierAsync failed", ex);
-            return null;
+            return ApiResult<SupplierApiDto>.Transient("The server could not be reached.");
         }
+    }
+
+    // Maps an HTTP response to an ApiResult: 2xx with a body is success, 408/429/5xx is transient,
+    // and any other status is a rejection carrying the server's RFC 9457 "detail" text.
+    private static async Task<ApiResult<T>> ReadWriteResultAsync<T>(HttpResponseMessage response, CancellationToken ct) where T : class
+    {
+        var status = (int)response.StatusCode;
+        if (response.IsSuccessStatusCode)
+        {
+            var wrapped = await response.Content.ReadFromJsonAsync<ApiResponseWrapper<T>>(cancellationToken: ct);
+            return wrapped?.Data is { } data
+                ? ApiResult<T>.Ok(data, status)
+                : ApiResult<T>.Transient("The server returned an empty response.", status);
+        }
+
+        string? detail = null;
+        string? errorCode = null;
+        try
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+            using var doc = System.Text.Json.JsonDocument.Parse(body);
+            if (doc.RootElement.TryGetProperty("detail", out var d) && d.ValueKind == System.Text.Json.JsonValueKind.String)
+                detail = d.GetString();
+            else if (doc.RootElement.TryGetProperty("message", out var m) && m.ValueKind == System.Text.Json.JsonValueKind.String)
+                detail = m.GetString();
+            if (doc.RootElement.TryGetProperty("errorCode", out var c) && c.ValueKind == System.Text.Json.JsonValueKind.String)
+                errorCode = c.GetString();
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            // Non-JSON error body: fall back to the status text.
+        }
+
+        var message = string.IsNullOrWhiteSpace(detail) ? $"Server returned {status} {response.ReasonPhrase}." : detail!;
+        return status is 408 or 429 or >= 500
+            ? ApiResult<T>.Transient(message, status)
+            : ApiResult<T>.Rejected(message, status, errorCode);
     }
 
     public async Task<PageResponse<PurchaseOrderApiDto>?> ListPurchaseOrdersAsync(string? storeId = null, string? supplierId = null, string? status = null, int page = 0, int size = 50, CancellationToken ct = default)
@@ -1063,21 +1130,18 @@ public sealed class InventraApiClient : IInventraApiClient
         }
     }
 
-    public async Task<SupplierApiDto?> UpdateSupplierAsync(string id, UpdateSupplierApiRequest request, CancellationToken ct = default)
+    public async Task<ApiResult<SupplierApiDto>> UpdateSupplierAsync(string id, UpdateSupplierApiRequest request, CancellationToken ct = default)
     {
         try
         {
             var content = JsonContent.Create(request);
-            var response = await _httpClient.PatchAsync($"{_baseUrl}/api/v1/suppliers/{id}", content, ct);
-            if (!response.IsSuccessStatusCode) return null;
-
-            var wrapped = await response.Content.ReadFromJsonAsync<ApiResponseWrapper<SupplierApiDto>>(cancellationToken: ct);
-            return wrapped?.Data;
+            var response = await _httpClient.PatchAsync($"{_baseUrl}/api/v1/suppliers/{Uri.EscapeDataString(id)}", content, ct);
+            return await ReadWriteResultAsync<SupplierApiDto>(response, ct);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
         {
             _logger.Error(Logging.LogCategory.API, $"UpdateSupplierAsync failed for {id}", ex);
-            return null;
+            return ApiResult<SupplierApiDto>.Transient("The server could not be reached.");
         }
     }
 

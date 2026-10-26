@@ -3,6 +3,13 @@ using System.Collections.Generic;
 
 namespace Inventra.Desktop.Core.Domain.Purchasing;
 
+public static class SupplierSyncState
+{
+    public const string Synced = "SYNCED";
+    public const string Pending = "PENDING";
+    public const string Failed = "FAILED";
+}
+
 public sealed class SupplierItem
 {
     public string Id { get; set; } = string.Empty;
@@ -21,6 +28,24 @@ public sealed class SupplierItem
     public int PaymentTermsDays { get; set; } = 0;
     public string Status { get; set; } = "ACTIVE"; // ACTIVE, INACTIVE
     public long UpdatedAt { get; set; } = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+    /// <summary>SYNCED (on the server), PENDING (saved locally, create queued) or FAILED (server rejected it).</summary>
+    public string SyncState { get; set; } = SupplierSyncState.Synced;
+    public string? SyncError { get; set; }
+
+    public bool IsSynced => SyncState == SupplierSyncState.Synced;
+    public string SyncStateDisplay => SyncState switch
+    {
+        SupplierSyncState.Pending => "Pending sync",
+        SupplierSyncState.Failed => "Sync failed",
+        _ => "Synced"
+    };
+    public string SyncBadgeFg => SyncState switch
+    {
+        SupplierSyncState.Pending => "#B45309",
+        SupplierSyncState.Failed => "#B91C1C",
+        _ => "#15803D"
+    };
 
     public string DisplayName => !string.IsNullOrWhiteSpace(TradeName) ? $"{TradeName} ({LegalName})" : LegalName;
     public string GstinDisplay => !string.IsNullOrWhiteSpace(Gstin) ? Gstin : "UNREGISTERED";
