@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="using:Inventra.Desktop.App.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:Inventra.Desktop.App.ViewModels"
@@ -45,7 +46,7 @@
 
             <!-- TAB 0: MEDICINES (CATALOG MASTER) -->
             <Grid RowDefinitions="Auto,*" Margin="8"
-                  IsVisible="{Binding SelectedTabIndex, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}">
+                  IsVisible="{Binding SelectedTabIndex, Converter={x:Static conv:TextEqualsConverter.Instance}, ConverterParameter=0}">
                 <!-- Filter Bar -->
                 <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3" Padding="8,6" Margin="0,0,0,8">
                     <Grid ColumnDefinitions="Auto,*,Auto">
@@ -134,7 +135,7 @@
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
                                             <Button Classes="subtle" Content="Edit"
-                                                    Command="{Binding $parent#InventoryWorkspaceRoot.ViewModel.OpenEditProductCommand}"
+                                                    Command="{Binding #InventoryWorkspaceRoot.ViewModel.OpenEditProductCommand}"
                                                     CommandParameter="{Binding}"
                                                     Height="22" Padding="6,1" FontSize="11" HorizontalAlignment="Center"/>
                                         </DataTemplate>
@@ -145,7 +146,7 @@
 
                         <!-- Real Empty State -->
                         <Border Background="#F8FAFC"
-                                IsVisible="{Binding Products.Count, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}"
+                                IsVisible="{Binding Products.Count, Converter={x:Static conv:TextEqualsConverter.Instance}, ConverterParameter=0}"
                                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12">
                                 <TextBlock Text="No medicines in your business catalog."
@@ -164,7 +165,7 @@
 
             <!-- TAB 1: STOCK (STORE INVENTORY) -->
             <Grid RowDefinitions="Auto,*,Auto" Margin="8"
-                  IsVisible="{Binding SelectedTabIndex, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=1}">
+                  IsVisible="{Binding SelectedTabIndex, Converter={x:Static conv:TextEqualsConverter.Instance}, ConverterParameter=1}">
                 <!-- Operational KPIs Bar & Filter -->
                 <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3" Padding="8,6" Margin="0,0,0,8">
                     <Grid ColumnDefinitions="Auto,*,Auto,Auto">
@@ -262,7 +263,7 @@
 
                         <!-- Empty State -->
                         <Border Background="#F8FAFC"
-                                IsVisible="{Binding Products.Count, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}"
+                                IsVisible="{Binding Products.Count, Converter={x:Static conv:TextEqualsConverter.Instance}, ConverterParameter=0}"
                                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
                                 <TextBlock Text="No stock records available." FontSize="14" FontWeight="Bold" Foreground="#64748B" HorizontalAlignment="Center"/>
@@ -332,7 +333,7 @@
 
             <!-- TAB 2: BATCHES (FEFO EXPIRY REGISTRY) -->
             <Grid RowDefinitions="Auto,*" Margin="8"
-                  IsVisible="{Binding SelectedTabIndex, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=2}">
+                  IsVisible="{Binding SelectedTabIndex, Converter={x:Static conv:TextEqualsConverter.Instance}, ConverterParameter=2}">
                 <!-- Filter Bar & KPI Badges -->
                 <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3" Padding="8,6" Margin="0,0,0,8">
                     <Grid ColumnDefinitions="Auto,*,Auto,Auto">
@@ -422,7 +423,7 @@
 
                         <!-- Real Empty State for Batches -->
                         <Border Background="#F8FAFC"
-                                IsVisible="{Binding AllBatches.Count, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}"
+                                IsVisible="{Binding AllBatches.Count, Converter={x:Static conv:TextEqualsConverter.Instance}, ConverterParameter=0}"
                                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="10">
                                 <TextBlock Text="No inventory batches found."
@@ -659,7 +660,7 @@
 
                                     <!-- Offline / Empty Search Message -->
                                     <Border Background="#F8FAFC" Padding="20"
-                                            IsVisible="{Binding GlobalSearchResults.Count, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}"
+                                            IsVisible="{Binding GlobalSearchResults.Count, Converter={x:Static conv:TextEqualsConverter.Instance}, ConverterParameter=0}"
                                             HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
                                             <TextBlock Text="Search the Global Master Catalog" FontWeight="SemiBold" FontSize="13" Foreground="#475569" HorizontalAlignment="Center"/>

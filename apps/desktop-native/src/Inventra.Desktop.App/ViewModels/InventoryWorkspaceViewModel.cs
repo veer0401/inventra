@@ -638,7 +638,7 @@ public sealed partial class InventoryWorkspaceViewModel : ViewModelBase
     public void SelectSearchGlobalFromChoice()
     {
         ShowAddMedicineChoice = false;
-        OpenGlobalCatalogDialog();
+        _ = OpenGlobalCatalogDialogAsync();
     }
 
     [RelayCommand]
@@ -784,7 +784,7 @@ public sealed partial class InventoryWorkspaceViewModel : ViewModelBase
     // --- GLOBAL MEDICINE CATALOG WORKFLOW ---
 
     [RelayCommand]
-    public void OpenGlobalCatalogDialog()
+    public async Task OpenGlobalCatalogDialogAsync()
     {
         GlobalSearchQuery = string.Empty;
         GlobalSearchResults.Clear();
@@ -794,6 +794,9 @@ public sealed partial class InventoryWorkspaceViewModel : ViewModelBase
         UpdateAvailabilityState();
 
         ShowGlobalCatalogDialog = true;
+
+        // Show the catalog straight away instead of an empty list; typing narrows it.
+        await SearchGlobalCatalogAsync();
     }
 
     [RelayCommand]
@@ -838,11 +841,7 @@ public sealed partial class InventoryWorkspaceViewModel : ViewModelBase
     [RelayCommand]
     public async Task SearchGlobalCatalogAsync()
     {
-        if (string.IsNullOrWhiteSpace(GlobalSearchQuery))
-        {
-            GlobalStatusMessage = "Please enter a medicine or generic search term.";
-            return;
-        }
+        GlobalSearchQuery ??= string.Empty;
 
         IsGlobalLoading = true;
         SelectedGlobalMedicine = null;
@@ -882,7 +881,9 @@ public sealed partial class InventoryWorkspaceViewModel : ViewModelBase
 
                     GlobalStatusMessage = domainItems.Count > 0
                         ? $"Found {domainItems.Count} matching reference medicines (Latency: {queryResult.DurationMs}ms)."
-                        : $"No medicines found in Global Catalog for '{GlobalSearchQuery.Trim()}'.";
+                        : GlobalSearchQuery.Trim().Length == 0
+                            ? "The Global Catalog on the server is empty."
+                            : $"No medicines found in Global Catalog for '{GlobalSearchQuery.Trim()}'.";
 
                     GlobalAvailabilityState = $"Global Catalog Connected ({queryResult.DurationMs}ms)";
                     GlobalAvailabilityBg = "#F0FDF4";

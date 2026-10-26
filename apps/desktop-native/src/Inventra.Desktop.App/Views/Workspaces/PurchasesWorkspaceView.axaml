@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="using:Inventra.Desktop.App.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:Inventra.Desktop.App.ViewModels"
@@ -48,7 +49,7 @@
 
             <!-- TAB 0: PURCHASE ORDERS REGISTER -->
             <Grid RowDefinitions="Auto,*,Auto" Margin="8"
-                  IsVisible="{Binding SelectedTabIndex, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}">
+                  IsVisible="{Binding SelectedTabIndex, Converter={x:Static conv:TextEqualsConverter.Instance}, ConverterParameter=0}">
                 <!-- Filter Toolbar -->
                 <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3" Padding="8,6" Margin="0,0,0,8">
                     <Grid ColumnDefinitions="Auto,Auto,*,Auto">
@@ -144,7 +145,7 @@
 
                         <!-- Real Empty State -->
                         <Border Background="#F8FAFC"
-                                IsVisible="{Binding Purchases.Count, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}"
+                                IsVisible="{Binding Purchases.Count, Converter={x:Static conv:TextEqualsConverter.Instance}, ConverterParameter=0}"
                                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
                                 <TextBlock Text="No purchase orders found."
@@ -168,7 +169,7 @@
 
             <!-- TAB 1: NEW / EDIT PURCHASE ORDER -->
             <Grid RowDefinitions="Auto,*,Auto" Margin="8"
-                  IsVisible="{Binding SelectedTabIndex, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=1}">
+                  IsVisible="{Binding SelectedTabIndex, Converter={x:Static conv:TextEqualsConverter.Instance}, ConverterParameter=1}">
                 <!-- Purchase Header Form -->
                 <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3" Padding="12,10" Margin="0,0,0,8">
                     <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="2*,1.5*,1.5*,1.5*,Auto">
@@ -337,7 +338,7 @@
 
             <!-- TAB 2: GOODS RECEIPTS (GRN) REGISTER -->
             <Grid RowDefinitions="Auto,*,Auto" Margin="8"
-                  IsVisible="{Binding SelectedTabIndex, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=2}">
+                  IsVisible="{Binding SelectedTabIndex, Converter={x:Static conv:TextEqualsConverter.Instance}, ConverterParameter=2}">
                 <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3" Padding="8,6" Margin="0,0,0,8">
                     <Grid ColumnDefinitions="Auto,*,Auto">
                         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
@@ -399,7 +400,7 @@
 
                         <!-- Real Empty State -->
                         <Border Background="#F8FAFC"
-                                IsVisible="{Binding GoodsReceipts.Count, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}"
+                                IsVisible="{Binding GoodsReceipts.Count, Converter={x:Static conv:TextEqualsConverter.Instance}, ConverterParameter=0}"
                                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
                                 <TextBlock Text="No goods receipts found."
@@ -422,7 +423,7 @@
 
             <!-- TAB 3: STOCK INWARD ENTRY (POST GRN) -->
             <Grid RowDefinitions="Auto,*,Auto" Margin="8"
-                  IsVisible="{Binding SelectedTabIndex, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=3}">
+                  IsVisible="{Binding SelectedTabIndex, Converter={x:Static conv:TextEqualsConverter.Instance}, ConverterParameter=3}">
                 <!-- Header Box -->
                 <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3" Padding="12,10" Margin="0,0,0,8">
                     <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="1.5*,1.5*,1.5*,1.5*,*">
@@ -567,7 +568,7 @@
 
             <!-- TAB 4: SUPPLIERS DIRECTORY -->
             <Grid RowDefinitions="Auto,*,Auto" Margin="8"
-                  IsVisible="{Binding SelectedTabIndex, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=4}">
+                  IsVisible="{Binding SelectedTabIndex, Converter={x:Static conv:TextEqualsConverter.Instance}, ConverterParameter=4}">
                 <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3" Padding="8,6" Margin="0,0,0,8">
                     <Grid ColumnDefinitions="Auto,*,Auto">
                         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
@@ -638,7 +639,7 @@
 
                         <!-- Real Empty State -->
                         <Border Background="#F8FAFC"
-                                IsVisible="{Binding Suppliers.Count, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}"
+                                IsVisible="{Binding Suppliers.Count, Converter={x:Static conv:TextEqualsConverter.Instance}, ConverterParameter=0}"
                                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
                                 <TextBlock Text="No suppliers found."

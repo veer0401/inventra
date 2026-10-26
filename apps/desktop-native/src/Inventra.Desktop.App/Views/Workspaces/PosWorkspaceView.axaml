@@ -1,5 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="using:Inventra.Desktop.App.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:Inventra.Desktop.App.ViewModels"
@@ -50,7 +51,7 @@
 
                 <!-- TAB 0: ACTIVE POS BILLING -->
                 <Grid ColumnDefinitions="*,340"
-                      IsVisible="{Binding SelectedPosTab, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}">
+                      IsVisible="{Binding SelectedPosTab, Converter={x:Static conv:TextEqualsConverter.Instance}, ConverterParameter=0}">
                     <!-- Left Side: Item Search, Batch Selection, and Active Bill Table -->
                     <Grid Grid.Column="0" RowDefinitions="Auto,*" Margin="0,0,8,0">
                         <!-- Search & Add Item Controls -->
@@ -119,7 +120,7 @@
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <Button Classes="subtle" Content="✕"
-                                                            Command="{Binding $parent#PosWorkspaceRoot.ViewModel.RemoveLineCommand}"
+                                                            Command="{Binding #PosWorkspaceRoot.ViewModel.RemoveLineCommand}"
                                                             CommandParameter="{Binding}"
                                                             Height="22" Width="22" Padding="0" Foreground="#DC2626" HorizontalAlignment="Center"/>
                                                 </DataTemplate>
@@ -130,7 +131,7 @@
 
                                 <!-- Empty State when 0 lines -->
                                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8"
-                                            IsVisible="{Binding Lines.Count, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}">
+                                            IsVisible="{Binding Lines.Count, Converter={x:Static conv:TextEqualsConverter.Instance}, ConverterParameter=0}">
                                     <TextBlock Text="Current Bill is Empty" FontSize="14" FontWeight="Bold" Foreground="#64748B" HorizontalAlignment="Center"/>
                                     <TextBlock Text="Scan a barcode or search for medicine in the top bar to add items to bill."
                                                FontSize="11" Foreground="#94A3B8" HorizontalAlignment="Center"/>
@@ -156,11 +157,11 @@
                             <StackPanel Grid.Row="1" Spacing="6" Margin="0,0,0,12">
                                 <TextBlock Text="PAYMENT MODE" FontSize="10" FontWeight="Bold" Foreground="#0F766E"/>
                                 <Grid ColumnDefinitions="*,*,*">
-                                    <RadioButton Grid.Column="0" Content="Cash" IsChecked="{Binding PaymentMethod, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=CASH}"
+                                    <RadioButton Grid.Column="0" Content="Cash" IsChecked="{Binding PaymentMethod, Converter={x:Static conv:TextEqualsConverter.Instance}, ConverterParameter=CASH}"
                                                  Command="{Binding SelectCashPaymentCommand}" FontSize="11"/>
-                                    <RadioButton Grid.Column="1" Content="UPI" IsChecked="{Binding PaymentMethod, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=UPI}"
+                                    <RadioButton Grid.Column="1" Content="UPI" IsChecked="{Binding PaymentMethod, Converter={x:Static conv:TextEqualsConverter.Instance}, ConverterParameter=UPI}"
                                                  Command="{Binding SelectUpiPaymentCommand}" FontSize="11"/>
-                                    <RadioButton Grid.Column="2" Content="Card" IsChecked="{Binding PaymentMethod, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=CARD}"
+                                    <RadioButton Grid.Column="2" Content="Card" IsChecked="{Binding PaymentMethod, Converter={x:Static conv:TextEqualsConverter.Instance}, ConverterParameter=CARD}"
                                                  Command="{Binding SelectCardPaymentCommand}" FontSize="11"/>
                                 </Grid>
                                 <TextBox Text="{Binding TenderedAmount}" Watermark="Amount Tendered" Margin="0,4,0,0"/>
@@ -208,7 +209,7 @@
 
                 <!-- TAB 1: SALES REGISTER -->
                 <Grid RowDefinitions="Auto,*,Auto"
-                      IsVisible="{Binding SelectedPosTab, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=1}">
+                      IsVisible="{Binding SelectedPosTab, Converter={x:Static conv:TextEqualsConverter.Instance}, ConverterParameter=1}">
                     <!-- Register Toolbar -->
                     <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3" Padding="8,6" Margin="0,0,0,6">
                         <Grid ColumnDefinitions="*,Auto">
@@ -257,7 +258,7 @@
 
                             <!-- Empty State for Sales Register -->
                             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8"
-                                        IsVisible="{Binding RecentSales.Count, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}">
+                                        IsVisible="{Binding RecentSales.Count, Converter={x:Static conv:TextEqualsConverter.Instance}, ConverterParameter=0}">
                                 <TextBlock Text="No sales recorded yet." FontSize="14" FontWeight="Bold" Foreground="#64748B" HorizontalAlignment="Center"/>
                                 <TextBlock Text="Switch to POS Billing to create and checkout the first bill." FontSize="11" Foreground="#94A3B8" HorizontalAlignment="Center"/>
                                 <Button Classes="primary" Content="Start New Bill" Command="{Binding SwitchToBillingCommand}" Margin="0,6,0,0" HorizontalAlignment="Center"/>
@@ -294,7 +295,7 @@
 
                 <!-- TAB 2: CUSTOMERS DIRECTORY -->
                 <Grid RowDefinitions="Auto,*"
-                      IsVisible="{Binding SelectedPosTab, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=2}">
+                      IsVisible="{Binding SelectedPosTab, Converter={x:Static conv:TextEqualsConverter.Instance}, ConverterParameter=2}">
                     <!-- Filter Toolbar -->
                     <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#CBD5E1" BorderThickness="1" CornerRadius="3" Padding="8,6" Margin="0,0,0,6">
                         <Grid ColumnDefinitions="Auto,*,Auto,Auto">
@@ -363,7 +364,7 @@
 
                             <!-- Real Empty State -->
                             <Border Background="#F8FAFC"
-                                    IsVisible="{Binding Customers.Count, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}"
+                                    IsVisible="{Binding Customers.Count, Converter={x:Static conv:TextEqualsConverter.Instance}, ConverterParameter=0}"
                                     HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
                                 <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
                                     <TextBlock Text="No customers found."

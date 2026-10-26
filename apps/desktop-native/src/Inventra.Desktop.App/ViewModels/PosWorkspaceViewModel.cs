@@ -258,11 +258,9 @@ public sealed partial class PosWorkspaceViewModel : ViewModelBase
             ? await _productRepository.GetProductsByBusinessAsync(bizId, session?.StoreId)
             : await _productRepository.SearchProductsByBusinessAsync(bizId, session?.StoreId, query);
 
-        SearchSuggestions.Clear();
-        foreach (var p in list.Take(25))
-        {
-            SearchSuggestions.Add(p);
-        }
+        // A new collection, not Clear()/Add() on the live one: mutating the list an AutoCompleteBox is showing
+        // throws from inside Avalonia's selection handling and closes the app.
+        SearchSuggestions = new ObservableCollection<ProductItem>(list.Take(25));
     }
 
     partial void OnSearchQueryChanged(string value)
