@@ -14,6 +14,7 @@ using Inventra.Desktop.Infrastructure.Device;
 using Inventra.Desktop.Infrastructure.Hardware;
 using Inventra.Desktop.Infrastructure.Identity;
 using Inventra.Desktop.Infrastructure.Logging;
+using Inventra.Desktop.Infrastructure.Imports;
 using Inventra.Desktop.Infrastructure.Sync;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -112,6 +113,7 @@ public partial class App : Application
         services.AddSingleton<IPurchasingRepository, PurchasingRepository>();
         services.AddSingleton<IOfflineQueueRepository, OfflineQueueRepository>();
         services.AddSingleton<IGlobalMedicineCacheRepository, GlobalMedicineCacheRepository>();
+        services.AddSingleton<IImportQueueRepository, ImportQueueRepository>();
 
         // Infrastructure, Security & Hardware
         services.AddSingleton<ISecureStorageService, WindowsSecureStorageService>();
@@ -128,6 +130,9 @@ public partial class App : Application
         services.AddSingleton<IInventraApiClient, InventraApiClient>();
         services.AddSingleton<ICloudConnectivityService, CloudConnectivityService>();
         services.AddSingleton<ISyncEngineService, SyncEngineService>();
+        services.AddSingleton<IOperationResolutionService, OperationResolutionService>();
+        services.AddSingleton<IImportQueueService, ImportQueueService>();
+        services.AddSingleton<SyncCoordinator>();
 
         // ViewModels
         services.AddSingleton<StatusViewModel>();
@@ -136,6 +141,7 @@ public partial class App : Application
         services.AddSingleton<PosWorkspaceViewModel>();
         services.AddSingleton<PurchasesWorkspaceViewModel>();
         services.AddSingleton<DiagnosticsViewModel>();
+        services.AddSingleton<SyncCenterViewModel>();
         services.AddSingleton<ShellViewModel>();
     }
 }

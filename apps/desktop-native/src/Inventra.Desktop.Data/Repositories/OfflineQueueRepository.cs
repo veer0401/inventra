@@ -34,6 +34,17 @@ public interface IOfflineQueueRepository
     /// </summary>
     Task<IReadOnlyList<OfflineOperation>> GetRetargetableOperationsAsync(string businessId, string eventType);
 
+    /// <summary>Operations a person should look at: FAILED ones, and PENDING ones that have already failed an attempt.</summary>
+    Task<IReadOnlyList<OfflineOperation>> GetOperationsNeedingAttentionAsync(string businessId, int limit = 300);
+
+    Task<OfflineOperation?> GetOperationAsync(string operationId);
+
+    /// <summary>FAILED -> PENDING with the attempt counter and error cleared. False if it was not FAILED.</summary>
+    Task<bool> ResetForRetryAsync(string operationId);
+
+    /// <summary>Takes a FAILED or PENDING operation out of the queue on a person's decision, keeping the reason. It is never sent.</summary>
+    Task<bool> DismissAsync(string operationId, string reason);
+
     /// <summary>Re-targets an operation to a new event type, payload and idempotency key and resets it to PENDING.</summary>
     Task RewriteOperationAsync(string operationId, string eventType, string payloadJson, string idempotencyKey, int? eventVersion = null);
 }
@@ -296,6 +307,96 @@ public sealed class OfflineQueueRepository : IOfflineQueueRepository
         cmd.Parameters.AddWithValue("@errMsg", errorMessage);
         cmd.Parameters.AddWithValue("@now", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
         await cmd.ExecuteNonQueryAsync();
+    }
+
+    private const string ReviewColumns = @"
+        operation_id, business_id, store_id, device_id, user_id, device_sequence_number, event_type, event_version,
+        payload_json, payload_checksum, idempotency_key, status, retry_count, created_at, error_code, error_message,
+        last_attempt_at, server_entity_id";
+
+    private static OfflineOperation ReadForReview(SqliteDataReader r) => new()
+    {
+        OperationId = r.GetString(0),
+        BusinessId = r.GetString(1),
+        StoreId = r.GetString(2),
+        DeviceId = r.GetString(3),
+        UserId = r.GetString(4),
+        DeviceSequenceNumber = r.GetInt64(5),
+        EventType = r.GetString(6),
+        EventVersion = r.GetInt32(7),
+        PayloadJson = r.GetString(8),
+        PayloadChecksum = r.GetString(9),
+        IdempotencyKey = r.GetString(10),
+        RawStatus = r.GetString(11),
+        RetryCount = r.GetInt32(12),
+        CreatedAt = r.GetInt64(13),
+        ErrorCode = r.IsDBNull(14) ? null : r.GetString(14),
+        ErrorMessage = r.IsDBNull(15) ? null : r.GetString(15),
+        LastAttemptAt = r.IsDBNull(16) ? null : r.GetInt64(16),
+        ServerEntityId = r.IsDBNull(17) ? null : r.GetString(17)
+    };
+
+    public async Task<IReadOnlyList<OfflineOperation>> GetOperationsNeedingAttentionAsync(string businessId, int limit = 300)
+    {
+        var list = new List<OfflineOperation>();
+        await using var connection = _dbContext.CreateConnection();
+        await connection.OpenAsync();
+
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = $@"
+            SELECT {ReviewColumns}
+            FROM offline_operations
+            WHERE business_id = @biz AND (status = 'FAILED' OR (status = 'PENDING' AND retry_count > 0))
+            ORDER BY created_at DESC
+            LIMIT @lim;";
+        cmd.Parameters.AddWithValue("@biz", businessId);
+        cmd.Parameters.AddWithValue("@lim", limit);
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync()) list.Add(ReadForReview(reader));
+        return list;
+    }
+
+    public async Task<OfflineOperation?> GetOperationAsync(string operationId)
+    {
+        await using var connection = _dbContext.CreateConnection();
+        await connection.OpenAsync();
+
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = $"SELECT {ReviewColumns} FROM offline_operations WHERE operation_id = @id;";
+        cmd.Parameters.AddWithValue("@id", operationId);
+        await using var reader = await cmd.ExecuteReaderAsync();
+        return await reader.ReadAsync() ? ReadForReview(reader) : null;
+    }
+
+    public async Task<bool> ResetForRetryAsync(string operationId)
+    {
+        await using var connection = _dbContext.CreateConnection();
+        await connection.OpenAsync();
+
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = @"
+            UPDATE offline_operations
+            SET status = 'PENDING', retry_count = 0, error_code = NULL, error_message = NULL
+            WHERE operation_id = @id AND status = 'FAILED';";
+        cmd.Parameters.AddWithValue("@id", operationId);
+        return await cmd.ExecuteNonQueryAsync() > 0;
+    }
+
+    public async Task<bool> DismissAsync(string operationId, string reason)
+    {
+        await using var connection = _dbContext.CreateConnection();
+        await connection.OpenAsync();
+
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = @"
+            UPDATE offline_operations
+            SET status = 'DISMISSED', error_code = 'DISMISSED', error_message = @reason, last_attempt_at = @now
+            WHERE operation_id = @id AND status IN ('FAILED', 'PENDING');";
+        cmd.Parameters.AddWithValue("@id", operationId);
+        cmd.Parameters.AddWithValue("@reason", reason);
+        cmd.Parameters.AddWithValue("@now", DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+        return await cmd.ExecuteNonQueryAsync() > 0;
     }
 
     public async Task<IReadOnlyList<OfflineOperation>> GetRetargetableOperationsAsync(string businessId, string eventType)

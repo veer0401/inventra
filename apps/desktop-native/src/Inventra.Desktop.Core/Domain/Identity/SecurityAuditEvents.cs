@@ -15,5 +15,6 @@ public static class SecurityAuditEvents
     public const string OfflineAuthRejected = "OFFLINE_AUTH_REJECTED";
     public const string PermissionUpdated = "PERMISSION_UPDATED";
     public const string SyncAuthRejected = "SYNC_AUTH_REJECTED";
+    public const string SyncOperationDismissed = "SYNC_OPERATION_DISMISSED";
     public const string Logout = "LOGOUT";
 }

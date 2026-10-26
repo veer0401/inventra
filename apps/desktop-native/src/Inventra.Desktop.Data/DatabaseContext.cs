@@ -356,6 +356,29 @@ public sealed class DatabaseContext
         await TryAddColumnAsync(connection, "auth_session", "last_cloud_validation_at", "INTEGER DEFAULT 0");
         await TryAddColumnAsync(connection, "auth_session", "offline_policy_max_days", "INTEGER DEFAULT 14");
 
+        await using (var importCmd = connection.CreateCommand())
+        {
+            // The medicine-import queue (separate from the sync outbox: it can be paused and calls REST directly).
+            importCmd.CommandText = @"
+                CREATE TABLE IF NOT EXISTS import_jobs (
+                    id TEXT PRIMARY KEY,
+                    business_id TEXT NOT NULL,
+                    global_medicine_id TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    generic_name TEXT,
+                    status TEXT NOT NULL,
+                    attempts INTEGER NOT NULL DEFAULT 0,
+                    message TEXT,
+                    product_id TEXT,
+                    created_at INTEGER NOT NULL,
+                    updated_at INTEGER NOT NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ux_import_jobs_active
+                    ON import_jobs(business_id, global_medicine_id) WHERE status IN ('QUEUED', 'RUNNING');
+                CREATE INDEX IF NOT EXISTS idx_import_jobs_status ON import_jobs(business_id, status, created_at);";
+            await importCmd.ExecuteNonQueryAsync();
+        }
+
         await TryAddColumnAsync(connection, "local_purchase_lines", "conversion_factor", "INTEGER NOT NULL DEFAULT 1");
         await TryAddColumnAsync(connection, "local_sales", "server_sale_id", "TEXT");
         await TryAddColumnAsync(connection, "local_sales", "sync_error", "TEXT");

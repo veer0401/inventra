@@ -45,6 +45,8 @@ public sealed partial class ShellViewModel : ViewModelBase
     public PurchasesWorkspaceViewModel PurchasesWorkspace { get; }
     public DevicePairingViewModel PairingWorkspace { get; }
     public DiagnosticsViewModel DiagnosticsWorkspace { get; }
+    public SyncCenterViewModel SyncCenterWorkspace { get; }
+    private readonly SyncCoordinator _syncCoordinator;
     public IStartupStateMachine StateMachine => _stateMachine;
 
     public ShellViewModel(
@@ -53,6 +55,8 @@ public sealed partial class ShellViewModel : ViewModelBase
         PurchasesWorkspaceViewModel purchasesWorkspace,
         DevicePairingViewModel pairingWorkspace,
         DiagnosticsViewModel diagnosticsWorkspace,
+        SyncCenterViewModel syncCenterWorkspace,
+        SyncCoordinator syncCoordinator,
         StatusViewModel statusBar,
         ISyncEngineService syncEngineService,
         ICloudConnectivityService connectivityService,
@@ -66,6 +70,8 @@ public sealed partial class ShellViewModel : ViewModelBase
         PurchasesWorkspace = purchasesWorkspace;
         PairingWorkspace = pairingWorkspace;
         DiagnosticsWorkspace = diagnosticsWorkspace;
+        SyncCenterWorkspace = syncCenterWorkspace;
+        _syncCoordinator = syncCoordinator;
         StatusBar = statusBar;
         _syncEngineService = syncEngineService;
         _connectivityService = connectivityService;
@@ -195,6 +201,7 @@ public sealed partial class ShellViewModel : ViewModelBase
         ShowNotification($"Workstation authorized for {session?.BusinessName} ({session?.StoreName}). Ready for operations.");
 
         _connectivityService.StartMonitoring(TimeSpan.FromSeconds(10));
+        _syncCoordinator.Start(); // syncs and imports queued data when the connection returns, and once a minute
         if (session != null && !string.IsNullOrEmpty(session.BusinessId))
         {
             _ = _syncEngineService.RunSyncCycleAsync(session.BusinessId, device.DeviceId);
@@ -422,6 +429,15 @@ public sealed partial class ShellViewModel : ViewModelBase
         await DiagnosticsWorkspace.RefreshDiagnosticsAsync();
         CurrentWorkspace = DiagnosticsWorkspace;
         ActiveWorkspaceTitle = "Settings → System Diagnostics & Telemetry";
+    }
+
+    [RelayCommand]
+    public async Task SwitchToSyncCenterAsync()
+    {
+        if (!IsPaired) return;
+        await SyncCenterWorkspace.RefreshAsync();
+        CurrentWorkspace = SyncCenterWorkspace;
+        ActiveWorkspaceTitle = "Settings → Sync Center";
     }
 
     [RelayCommand]

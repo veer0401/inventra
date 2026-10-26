@@ -81,6 +81,7 @@
 
                     <!-- Settings Menu -->
                     <MenuItem Header="_Settings">
+                        <MenuItem Header="Sync Center (Rejected Changes &amp; Imports)" Command="{Binding SwitchToSyncCenterCommand}"/>
                         <MenuItem Header="System Diagnostics &amp; Telemetry" Command="{Binding SwitchToDiagnosticsCommand}"/>
                         <MenuItem Header="Pharmacy Store Profile" Command="{Binding SwitchToDiagnosticsCommand}"/>
                         <MenuItem Header="Device Identity &amp; Cloud Pairing" Command="{Binding SwitchToPairingCommand}"/>
@@ -166,6 +167,9 @@
                     </DataTemplate>
                     <DataTemplate DataType="{x:Type vm:DiagnosticsViewModel}">
                         <views:DiagnosticsView/>
+                    </DataTemplate>
+                    <DataTemplate DataType="{x:Type vm:SyncCenterViewModel}">
+                        <views:SyncCenterView/>
                     </DataTemplate>
                 </ContentControl.DataTemplates>
             </ContentControl>

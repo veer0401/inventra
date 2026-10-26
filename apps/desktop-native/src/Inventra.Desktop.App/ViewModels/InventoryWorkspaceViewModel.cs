@@ -13,6 +13,8 @@ using Inventra.Desktop.Data.Repositories;
 using Inventra.Desktop.Infrastructure.Api;
 using Inventra.Desktop.Infrastructure.Connectivity;
 using Inventra.Desktop.Infrastructure.Identity;
+using Inventra.Desktop.Infrastructure.Imports;
+using Inventra.Desktop.Infrastructure.Sync;
 using Inventra.Desktop.Infrastructure.Logging;
 
 namespace Inventra.Desktop.App.ViewModels;
@@ -23,6 +25,8 @@ public sealed partial class InventoryWorkspaceViewModel : ViewModelBase
     private readonly IOfflineQueueRepository _queueRepository;
     private readonly IIdentitySessionService _identityService;
     private readonly IInventraApiClient _apiClient;
+    private readonly IImportQueueService _importQueue;
+    private readonly SyncCoordinator _syncCoordinator;
     private readonly IGlobalMedicineCacheRepository _globalCacheRepository;
     private readonly ICloudConnectivityService _connectivityService;
     private readonly IAppLogger _logger;
@@ -244,8 +248,12 @@ public sealed partial class InventoryWorkspaceViewModel : ViewModelBase
         IGlobalMedicineCacheRepository globalCacheRepository,
         ICloudConnectivityService connectivityService,
         IAppLogger logger,
-        IAuthorizationService authService)
+        IAuthorizationService authService,
+        IImportQueueService importQueue,
+        SyncCoordinator syncCoordinator)
     {
+        _importQueue = importQueue;
+        _syncCoordinator = syncCoordinator;
         _productRepository = productRepository;
         _queueRepository = queueRepository;
         _identityService = identityService;
@@ -975,74 +983,44 @@ public sealed partial class InventoryWorkspaceViewModel : ViewModelBase
             return;
         }
 
-        var productId = Guid.NewGuid().ToString();
-        var code = $"MED-{new Random().Next(10000, 99999)}";
-        var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        // 2. Queue it. The import runs in the background (now if the server is reachable, otherwise as soon as it is),
+        // and the catalog product is created only once the server has created it, so it always has the server's id.
+        await QueueImportAsync(bizId, storeId, new[] { globalMed });
+        ShowGlobalCatalogDialog = false;
+    }
 
-        // 2. If online, notify cloud backend quick-import
-        if (_connectivityService.IsOnline)
+    [RelayCommand]
+    public async Task QueueAllGlobalResultsAsync()
+    {
+        try
         {
-            var cloudImportResult = await _apiClient.QuickImportWithDiagnosticsAsync(globalMed.Id);
-            if (cloudImportResult.Success && cloudImportResult.Product != null)
-            {
-                productId = cloudImportResult.Product.Id;
-            }
+            _authService.RequirePermission(AppPermissions.ProductCreate);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            NotificationMessage = $"Access Denied: {ex.Message}";
+            return;
         }
 
-        // 3. Persist business catalog product locally
-        // IMPORTANT: Importing a Global Medicine creates a Product with 0 Stock and NO batches.
-        var product = new ProductItem
-        {
-            Id = productId,
-            BusinessId = bizId,
-            StoreId = storeId,
-            Code = code,
-            Name = globalMed.Name,
-            GenericName = globalMed.GenericName,
-            DosageForm = globalMed.DosageForm,
-            Strength = globalMed.Strength,
-            BaseUnit = globalMed.BaseUnit,
-            SellingUnit = globalMed.SellingUnit,
-            UnitsPerSellingUnit = globalMed.UnitsPerSellingUnit > 0 ? globalMed.UnitsPerSellingUnit : 1.0,
-            TaxRate = globalMed.TaxRate > 0 ? globalMed.TaxRate : 12.0m,
-            IsTaxInclusive = true,
-            PrescriptionRequired = globalMed.PrescriptionRequired,
-            SellingPrice = 50.0m, // Standard pricing template for newly imported catalog items
-            Mrp = 55.0m,
-            CurrentStock = 0.0, // Strictly 0 initial inventory
-            UpdatedAt = now
-        };
+        var session = await _identityService.GetSessionAsync();
+        if (session == null || GlobalSearchResults.Count == 0) return;
+        await QueueImportAsync(session.BusinessId, session.StoreId, GlobalSearchResults.ToList());
+    }
 
-        await _productRepository.UpsertProductAsync(product);
+    private async Task QueueImportAsync(string bizId, string? storeId, IReadOnlyCollection<GlobalMedicineItem> medicines)
+    {
+        var added = await _importQueue.EnqueueAsync(bizId, medicines);
+        var skipped = medicines.Count - added;
+        _ = _syncCoordinator.TriggerAsync(); // starts at once when online; otherwise waits for the connection
 
-        // 4. Enqueue offline operation for cloud synchronization
-        var payload = JsonSerializer.Serialize(new
-        {
-            globalMedicineId = globalMed.Id,
-            productId,
-            name = product.Name
-        });
+        var where = _connectivityService.IsOnline
+            ? "Importing in the background."
+            : "You are offline: it will import automatically when the server is reachable.";
+        NotificationMessage = added == 0
+            ? "Already queued. Open Settings → Sync Center to pause or review imports."
+            : $"{added} medicine(s) queued. {where}" + (skipped > 0 ? $" {skipped} already queued." : string.Empty);
 
-        await _queueRepository.EnqueueOperationAsync(
-            bizId,
-            storeId,
-            device.DeviceId,
-            userId,
-            "GLOBAL_MEDICINE_IMPORTED",
-            payload,
-            Guid.NewGuid().ToString()
-        );
-
-        _logger.Info(LogCategory.CATALOG, $"Imported global medicine '{globalMed.Name}' (Global ID: {globalMed.Id}) to business catalog '{bizId}' with 0 stock.");
-
-        // 5. Present Success Confirmation Modal
-        ImportedProductName = product.Name;
-        ImportedProductId = product.Id;
-        ShowGlobalCatalogDialog = false;
-        ShowImportSuccessModal = true;
-
-        await LoadProductsAsync();
-        SelectedProduct = Products.FirstOrDefault(p => p.Id == product.Id);
+        _logger.Info(LogCategory.CATALOG, $"Queued {added} global medicine import(s) for business '{bizId}'.");
     }
 
     [RelayCommand]

@@ -1,0 +1,177 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Inventra.Desktop.App.ViewModels"
+             xmlns:imp="using:Inventra.Desktop.Core.Domain.Imports"
+             x:Class="Inventra.Desktop.App.Views.Workspaces.SyncCenterView"
+             x:DataType="vm:SyncCenterViewModel">
+
+    <Grid Margin="24">
+        <Grid RowDefinitions="Auto,Auto,*">
+
+            <!-- Header -->
+            <Border Grid.Row="0" Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="16">
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Sync Center" FontSize="18" FontWeight="Bold" Foreground="#0F172A"/>
+                        <TextBlock Text="Review changes the server rejected, and control the background medicine import."
+                                   FontSize="12" Foreground="#64748B"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Button Content="Refresh" Command="{Binding RefreshCommand}"
+                                Background="#F1F5F9" Foreground="#334155" BorderBrush="#CBD5E1" BorderThickness="1"
+                                Padding="12,6" FontSize="11" FontWeight="SemiBold" CornerRadius="4"/>
+                        <Button Content="Sync now" Command="{Binding SyncNowCommand}" IsEnabled="{Binding !IsBusy}"
+                                Background="#0284C7" Foreground="#FFFFFF" BorderThickness="0"
+                                Padding="12,6" FontSize="11" FontWeight="SemiBold" CornerRadius="4"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Messages -->
+            <StackPanel Grid.Row="1" Spacing="6">
+                <Border IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                        Background="#ECFDF5" BorderBrush="#A7F3D0" BorderThickness="1" CornerRadius="4" Padding="10,6">
+                    <TextBlock Text="{Binding Message}" Foreground="#065F46" FontSize="12" TextWrapping="Wrap"/>
+                </Border>
+                <Border IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                        Background="#FEF2F2" BorderBrush="#FECACA" BorderThickness="1" CornerRadius="4" Padding="10,6">
+                    <TextBlock Text="{Binding ErrorMessage}" Foreground="#991B1B" FontSize="12" TextWrapping="Wrap"/>
+                </Border>
+            </StackPanel>
+
+            <TabControl Grid.Row="2" SelectedIndex="{Binding SelectedTabIndex}">
+
+                <!-- ============ Needs attention ============ -->
+                <TabItem Header="Needs attention">
+                    <Grid RowDefinitions="Auto,*" Margin="0,12,0,0">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="{Binding AttentionSummary}" FontSize="12" Foreground="#475569"
+                                       TextWrapping="Wrap" VerticalAlignment="Center"/>
+                            <Button Grid.Column="1" Content="Retry all" Command="{Binding RetryAllCommand}"
+                                    IsVisible="{Binding HasOperations}"
+                                    Background="#0D9488" Foreground="#FFFFFF" BorderThickness="0"
+                                    Padding="12,6" FontSize="11" FontWeight="SemiBold" CornerRadius="4"/>
+                        </Grid>
+
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding Operations}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:OperationReviewItem">
+                                        <Border Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="1"
+                                                CornerRadius="6" Padding="14" Margin="0,0,0,10">
+                                            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto">
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="Bold" Foreground="#0F172A"/>
+                                                    <TextBlock Text="{Binding StatusText}" FontSize="11" FontWeight="SemiBold"
+                                                               Foreground="{Binding StatusColor}" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding WhenText}" FontSize="11" Foreground="#94A3B8" VerticalAlignment="Center"/>
+                                                </StackPanel>
+
+                                                <TextBlock Grid.Row="1" Margin="0,4,0,0" Text="{Binding Detail}" FontSize="12" Foreground="#334155" TextWrapping="Wrap"/>
+                                                <TextBlock Grid.Row="2" Text="{Binding ErrorText}" FontSize="11" Foreground="#B91C1C" TextWrapping="Wrap"/>
+                                                <TextBlock Grid.Row="3" Margin="0,4,0,0" Text="{Binding Guidance}" FontSize="11" Foreground="#64748B" TextWrapping="Wrap"/>
+
+                                                <StackPanel Grid.Column="1" Grid.RowSpan="4" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                    <Button Content="Retry" IsEnabled="{Binding CanRetry}"
+                                                            Command="{Binding $parent[UserControl].((vm:SyncCenterViewModel)DataContext).RetryCommand}"
+                                                            CommandParameter="{Binding}"
+                                                            Background="#0D9488" Foreground="#FFFFFF" BorderThickness="0"
+                                                            Padding="12,6" FontSize="11" FontWeight="SemiBold" CornerRadius="4"/>
+                                                    <Button Content="Dismiss..."
+                                                            Command="{Binding $parent[UserControl].((vm:SyncCenterViewModel)DataContext).BeginDismissCommand}"
+                                                            CommandParameter="{Binding}"
+                                                            Background="#FFFFFF" Foreground="#B91C1C" BorderBrush="#FCA5A5" BorderThickness="1"
+                                                            Padding="12,6" FontSize="11" FontWeight="SemiBold" CornerRadius="4"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Grid>
+                </TabItem>
+
+                <!-- ============ Import queue ============ -->
+                <TabItem Header="Medicine import queue">
+                    <Grid RowDefinitions="Auto,Auto,*" Margin="0,12,0,0">
+                        <Border Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="14">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Spacing="3" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding ImportStateText}" FontSize="13" FontWeight="SemiBold" Foreground="#0F172A" TextWrapping="Wrap"/>
+                                    <TextBlock Text="{Binding ImportCountsText}" FontSize="11" Foreground="#64748B"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <Button Content="{Binding PauseResumeLabel}" Command="{Binding TogglePauseCommand}"
+                                            Background="#0284C7" Foreground="#FFFFFF" BorderThickness="0"
+                                            Padding="14,8" FontSize="12" FontWeight="SemiBold" CornerRadius="4"/>
+                                    <Button Content="Retry failed" Command="{Binding RetryFailedImportsCommand}"
+                                            Background="#F1F5F9" Foreground="#334155" BorderBrush="#CBD5E1" BorderThickness="1"
+                                            Padding="12,8" FontSize="11" FontWeight="SemiBold" CornerRadius="4"/>
+                                    <Button Content="Clear finished" Command="{Binding ClearFinishedImportsCommand}"
+                                            Background="#F1F5F9" Foreground="#334155" BorderBrush="#CBD5E1" BorderThickness="1"
+                                            Padding="12,8" FontSize="11" FontWeight="SemiBold" CornerRadius="4"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <TextBlock Grid.Row="1" IsVisible="{Binding !HasImportJobs}" FontSize="12" Foreground="#64748B" TextWrapping="Wrap"
+                                   Text="No imports queued. In Inventory, search the global catalog and choose Import: the medicine is queued here and imported when the server is reachable, even if you are offline now."/>
+
+                        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding ImportJobs}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="imp:ImportJob">
+                                        <Border Background="#FFFFFF" BorderBrush="#E2E8F0" BorderThickness="1"
+                                                CornerRadius="6" Padding="12,8" Margin="0,0,0,6">
+                                            <Grid ColumnDefinitions="*,Auto,Auto">
+                                                <StackPanel Spacing="2">
+                                                    <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" Foreground="#0F172A"/>
+                                                    <TextBlock Text="{Binding Message}" FontSize="11" Foreground="#64748B" TextWrapping="Wrap"
+                                                               IsVisible="{Binding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                                </StackPanel>
+                                                <TextBlock Grid.Column="1" Margin="12,0" Text="{Binding StatusText}" FontSize="11" FontWeight="SemiBold"
+                                                           Foreground="#334155" VerticalAlignment="Center"/>
+                                                <Button Grid.Column="2" Content="Remove" IsVisible="{Binding CanRemove}"
+                                                        Command="{Binding $parent[UserControl].((vm:SyncCenterViewModel)DataContext).RemoveImportCommand}"
+                                                        CommandParameter="{Binding}"
+                                                        Background="#FFFFFF" Foreground="#B91C1C" BorderBrush="#FCA5A5" BorderThickness="1"
+                                                        Padding="10,4" FontSize="11" CornerRadius="4"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Grid>
+                </TabItem>
+            </TabControl>
+        </Grid>
+
+        <!-- ============ Dismiss confirmation ============ -->
+        <Border IsVisible="{Binding ShowDismissDialog}" Background="#990F172A">
+            <Border Background="#FFFFFF" CornerRadius="8" Padding="22" Width="520"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel Spacing="10">
+                    <TextBlock Text="{Binding DismissTitle}" FontSize="15" FontWeight="Bold" Foreground="#0F172A" TextWrapping="Wrap"/>
+                    <Border Background="#FFFBEB" BorderBrush="#FDE68A" BorderThickness="1" CornerRadius="4" Padding="10,8">
+                        <TextBlock Text="{Binding DismissWarning}" FontSize="12" Foreground="#92400E" TextWrapping="Wrap"/>
+                    </Border>
+                    <TextBlock Text="Reason (required, kept for audit)" FontSize="11" FontWeight="SemiBold" Foreground="#475569"/>
+                    <TextBox Text="{Binding DismissReason}" AcceptsReturn="True" MinHeight="70" TextWrapping="Wrap"
+                             Watermark="Why is this being dismissed instead of retried?"/>
+                    <TextBlock Text="{Binding ErrorMessage}" FontSize="11" Foreground="#991B1B" TextWrapping="Wrap"
+                               IsVisible="{Binding ErrorMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                        <Button Content="Cancel" Command="{Binding CancelDismissCommand}"
+                                Background="#F1F5F9" Foreground="#334155" BorderBrush="#CBD5E1" BorderThickness="1"
+                                Padding="14,7" FontSize="12" CornerRadius="4"/>
+                        <Button Content="Dismiss without sending" Command="{Binding ConfirmDismissCommand}"
+                                Background="#B91C1C" Foreground="#FFFFFF" BorderThickness="0"
+                                Padding="14,7" FontSize="12" FontWeight="SemiBold" CornerRadius="4"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Border>
+    </Grid>
+</UserControl>

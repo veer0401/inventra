@@ -38,6 +38,12 @@ public interface IPurchasingRepository
     Task ReconcileSupplierCreatedAsync(string businessId, string localSupplierId, string serverSupplierId);
     Task MarkSupplierSyncStateAsync(string businessId, string supplierId, string syncState, string? syncError);
 
+    /// <summary>
+    /// Removes a supplier that never reached the server (sync state FAILED) so its code can be reused. Refuses, and
+    /// returns false, if a purchase order or receipt on this workstation still refers to it.
+    /// </summary>
+    Task<bool> DeleteFailedSupplierAsync(string businessId, string supplierId);
+
     /// <summary>Records the outcome of syncing a goods receipt (SYNCED or FAILED).</summary>
     Task MarkGoodsReceiptSyncStateAsync(string goodsReceiptId, string syncStatus);
 
@@ -459,6 +465,21 @@ public sealed class PurchasingRepository : IPurchasingRepository
         cmd.Parameters.AddWithValue("@state", syncState);
         cmd.Parameters.AddWithValue("@err", (object?)syncError ?? DBNull.Value);
         await cmd.ExecuteNonQueryAsync();
+    }
+
+    public async Task<bool> DeleteFailedSupplierAsync(string businessId, string supplierId)
+    {
+        await using var connection = _dbContext.CreateConnection();
+        await connection.OpenAsync();
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = @"
+            DELETE FROM cache_suppliers
+            WHERE business_id = @biz AND id = @id AND sync_state = 'FAILED'
+              AND NOT EXISTS (SELECT 1 FROM local_purchases WHERE supplier_id = @id)
+              AND NOT EXISTS (SELECT 1 FROM local_goods_receipts WHERE supplier_id = @id);";
+        cmd.Parameters.AddWithValue("@biz", businessId);
+        cmd.Parameters.AddWithValue("@id", supplierId);
+        return await cmd.ExecuteNonQueryAsync() > 0;
     }
 
     public async Task<IReadOnlyDictionary<string, (int Factor, string SellingUnit)>> GetPackInfoAsync(IEnumerable<string> productIds)

@@ -25,6 +25,10 @@ public sealed class OfflineOperation
     public string PayloadChecksum { get; set; } = string.Empty;
     public string IdempotencyKey { get; set; } = string.Empty;
     public SyncOperationStatus Status { get; set; } = SyncOperationStatus.Pending;
+
+    /// <summary>The status text as stored: PENDING, SYNCED, FAILED or DISMISSED.</summary>
+    public string RawStatus { get; set; } = "PENDING";
+
     public int RetryCount { get; set; }
     public long? LastAttemptAt { get; set; }
     public string? ServerEntityId { get; set; }

@@ -611,8 +611,14 @@ internal sealed class MockInventraApiClient : IInventraApiClient
     public Task<ProductApiDto?> QuickImportGlobalMedicineAsync(string globalMedicineId, CancellationToken ct = default) =>
         Task.FromResult<ProductApiDto?>(null);
 
-    public Task<QuickImportResult> QuickImportWithDiagnosticsAsync(string globalMedicineId, CancellationToken ct = default) =>
-        Task.FromResult(new QuickImportResult(true, null, null, 200, 50));
+    public Func<string, QuickImportResult>? QuickImportHandler { get; set; }
+    public List<string> QuickImportCalls { get; } = new();
+
+    public Task<QuickImportResult> QuickImportWithDiagnosticsAsync(string globalMedicineId, CancellationToken ct = default)
+    {
+        QuickImportCalls.Add(globalMedicineId);
+        return Task.FromResult(QuickImportHandler?.Invoke(globalMedicineId) ?? new QuickImportResult(true, null, null, 200, 50));
+    }
 
     public Task<PageResponse<ProductApiDto>?> ListProductsAsync(int page = 0, int size = 50, CancellationToken ct = default) =>
         Task.FromResult<PageResponse<ProductApiDto>?>(null);
